@@ -3,85 +3,378 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDA POS - Input Barang</title>
+    <title>MUDA POS - Gerbang Utama</title>
+    <!-- Feather Icons untuk SVG line art -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Dexie untuk database lokal (dibutuhkan oleh firebase-config) -->
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDvty30S6y_qc1eMs3kVctcIpLt6Suw4dA",
-            authDomain: "mudapos-e8a4a.firebaseapp.com",
-            projectId: "mudapos-e8a4a",
-            storageBucket: "mudapos-e8a4a.firebasestorage.app",
-            messagingSenderId: "864215339664",
-            appId: "1:864215339664:web:1a97898b85ca3c1cb3be15"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const dbCloud = getFirestore(app);
-        const dbLokal = new Dexie("MudaPosDB");
-        dbLokal.version(1).stores({ transaksi: '++id, namaItem, harga, status' });
-
-        window.tambahKeLaci = async () => {
-            const nama = document.getElementById('namaBarang').value;
-            const harga = document.getElementById('hargaBarang').value;
-
-            if(!nama || !harga) return alert("Isi nama dan harga dulu ya!");
-
-            await dbLokal.transaksi.add({
-                namaItem: nama,
-                harga: parseInt(harga),
-                status: "Belum Sinkron"
-            });
-            
-            // Kosongkan form setelah simpan
-            document.getElementById('namaBarang').value = "";
-            document.getElementById('hargaBarang').value = "";
-            tampilkanData();
-        };
-
-        window.sinkronKeCloud = async () => {
-            const pending = await dbLokal.transaksi.where("status").equals("Belum Sinkron").toArray();
-            if(pending.length === 0) return alert("Semua sudah sinkron!");
-
-            for (let data of pending) {
-                try {
-                    await addDoc(collection(dbCloud, "penjualan"), {
-                        item: data.namaItem,
-                        total: data.harga,
-                        waktu: new Date()
-                    });
-                    await dbLokal.transaksi.update(data.id, { status: "Sudah Sinkron" });
-                } catch (e) { alert("Gagal kirim ke Cloud!"); }
-            }
-            tampilkanData();
-            alert("Berhasil Sinkron!");
-        };
-
-        async function tampilkanData() {
-            const all = await dbLokal.transaksi.toArray();
-            document.getElementById("list").innerHTML = all.reverse().map(d => 
-                `<div style="border-bottom: 1px solid #eee; padding: 10px; display: flex; justify-content: space-between;">
-                    <div><b>${d.namaItem}</b><br><small style="color:${d.status === 'Sudah Sinkron' ? 'green' : 'red'}">${d.status}</small></div>
-                    <div>Rp${d.harga.toLocaleString()}</div>
-                </div>`
-            ).join("");
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
         }
-        tampilkanData();
-    </script>
-</head>
-<body style="font-family: sans-serif; margin: 0; padding: 15px; background: #f9f9f9;">
-    <h2 style="text-align: center;">MUDA POS</h2>
-    
-    <div style="background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px;">
-        <input type="text" id="namaBarang" placeholder="Nama Barang (Gula, Garam...)" style="width: 90%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px;">
-        <input type="number" id="hargaBarang" placeholder="Harga (Rp)" style="width: 90%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px;">
-        <button onclick="tambahKeLaci()" style="width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-weight: bold;">Simpan Ke HP</button>
-    </div>
 
-    <button onclick="sinkronKeCloud()" style="width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; margin-bottom: 20px;">Sinkron Ke Cloud (Firebase)</button>
-    
-    <div id="list" style="background: white; border-radius: 10px; overflow: hidden;"></div>
+        body {
+            background-color: #f5f5f5;
+            color: #333333;
+        }
+
+        /* Warna utama */
+        .bg-primary { background-color: #006B54; }
+        .text-primary { color: #006B54; }
+        .border-primary { border-color: #006B54; }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left, .header-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .menu-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #006B54;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .menu-toggle:hover {
+            background-color: #f0f0f0;
+        }
+
+        .btn-login {
+            background-color: #006B54;
+            color: white;
+            border: none;
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-login:hover {
+            background-color: #004d3b;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 260px;
+            height: 100%;
+            background-color: white;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 200;
+            padding: 1.5rem 1rem;
+            overflow-y: auto;
+        }
+        .sidebar.open {
+            transform: translateX(0);
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+        .sidebar-header h2 {
+            color: #006B54;
+            font-size: 1.25rem;
+        }
+        .close-sidebar {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+        }
+        .sidebar-menu li {
+            margin-bottom: 0.5rem;
+        }
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            color: #006B54;
+            text-decoration: none;
+            border-radius: 10px;
+            transition: background 0.2s;
+            font-weight: 500;
+        }
+        .sidebar-menu a:hover {
+            background-color: #f0f5f3;
+            color: #006B54;
+        }
+        .sidebar-menu a i {
+            color: #006B54;
+            width: 20px;
+        }
+
+        /* Overlay saat sidebar terbuka */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 150;
+            display: none;
+        }
+        .overlay.active {
+            display: block;
+        }
+
+        /* Main content */
+        .main-content {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .page-title {
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #006B54;
+        }
+
+        /* Grid menu */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .menu-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: #006B54;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            border: 1px solid #f0f0f0;
+        }
+        .menu-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,107,84,0.1);
+            border-color: #006B54;
+        }
+        .menu-card i {
+            color: #006B54;
+            width: 48px;
+            height: 48px;
+            stroke-width: 1.5;
+        }
+        .menu-card span {
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        /* Placeholder style */
+        ::placeholder {
+            color: #999;
+            opacity: 1;
+        }
+
+        /* Responsif */
+        @media (max-width: 640px) {
+            .main-content {
+                padding: 1rem;
+            }
+            .menu-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Overlay untuk menutup sidebar di mobile/tablet -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>MUDA POS</h2>
+            <button class="close-sidebar" id="closeSidebar">
+                <i data-feather="x" width="20" height="20"></i>
+            </button>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="index.html"><i data-feather="home"></i> Home</a></li>
+            <li><a href="masterdata.html"><i data-feather="package"></i> Master Data</a></li>
+            <li><a href="sales.html"><i data-feather="shopping-cart"></i> Sales</a></li>
+            <li><a href="purchase.html"><i data-feather="truck"></i> Purchase</a></li>
+            <li><a href="finance.html"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li><a href="warehouse.html"><i data-feather="box"></i> Warehouse</a></li>
+            <li><a href="inventory.html"><i data-feather="layers"></i> Inventory</a></li>
+            <li><a href="relation.html"><i data-feather="users"></i> Relation</a></li>
+            <li><a href="report.html"><i data-feather="bar-chart-2"></i> Report</a></li>
+            <li><a href="setting.html"><i data-feather="settings"></i> Setting</a></li>
+        </ul>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle" aria-label="Buka menu">
+                <i data-feather="menu" width="24" height="24"></i>
+            </button>
+        </div>
+        <div class="header-right">
+            <button class="btn-login" id="loginBtn">
+                <i data-feather="log-in" width="18" height="18"></i>
+                <span>Login</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Halaman Utama -->
+    <main class="main-content">
+        <h1 class="page-title">Menu Utama</h1>
+        <div class="menu-grid">
+            <a href="masterdata.html" class="menu-card">
+                <i data-feather="package"></i>
+                <span>Master Data</span>
+            </a>
+            <a href="sales.html" class="menu-card">
+                <i data-feather="shopping-cart"></i>
+                <span>Sales</span>
+            </a>
+            <a href="purchase.html" class="menu-card">
+                <i data-feather="truck"></i>
+                <span>Purchase</span>
+            </a>
+            <a href="finance.html" class="menu-card">
+                <i data-feather="dollar-sign"></i>
+                <span>Finance</span>
+            </a>
+            <a href="warehouse.html" class="menu-card">
+                <i data-feather="box"></i>
+                <span>Warehouse</span>
+            </a>
+            <a href="inventory.html" class="menu-card">
+                <i data-feather="layers"></i>
+                <span>Inventory</span>
+            </a>
+            <a href="relation.html" class="menu-card">
+                <i data-feather="users"></i>
+                <span>Relation</span>
+            </a>
+            <a href="report.html" class="menu-card">
+                <i data-feather="bar-chart-2"></i>
+                <span>Report</span>
+            </a>
+            <a href="setting.html" class="menu-card">
+                <i data-feather="settings"></i>
+                <span>Setting</span>
+            </a>
+        </div>
+    </main>
+
+    <script type="module">
+        // Impor dari file konfigurasi bersama
+        import { auth, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
+
+        // Inisialisasi Feather Icons
+        feather.replace();
+
+        // Elemen DOM
+        const menuToggle = document.getElementById('menuToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        const loginBtn = document.getElementById('loginBtn');
+
+        // Fungsi sidebar
+        function openSidebar() {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+        }
+        function closeSidebarFunc() {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+        }
+
+        menuToggle.addEventListener('click', openSidebar);
+        closeSidebar.addEventListener('click', closeSidebarFunc);
+        overlay.addEventListener('click', closeSidebarFunc);
+
+        // Firebase Auth state observer
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User logged in
+                loginBtn.innerHTML = '<i data-feather="log-out" width="18" height="18"></i><span>Logout</span>';
+            } else {
+                // User logged out
+                loginBtn.innerHTML = '<i data-feather="log-in" width="18" height="18"></i><span>Login</span>';
+            }
+            feather.replace(); // refresh icon
+        });
+
+        // Login/Logout handler
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                // Logout
+                try {
+                    await signOut(auth);
+                } catch (error) {
+                    alert('Gagal logout: ' + error.message);
+                }
+            } else {
+                // Login with Google
+                try {
+                    await signInWithPopup(auth, provider);
+                } catch (error) {
+                    alert('Gagal login: ' + error.message);
+                }
+            }
+        });
+
+        // Tutup sidebar saat klik link di mobile
+        if (window.innerWidth <= 768) {
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.addEventListener('click', closeSidebarFunc);
+            });
+        }
+    </script>
 </body>
 </html>
