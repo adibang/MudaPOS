@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUDA POS - Master Data</title>
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Dexie untuk database lokal -->
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <style>
+        /* ===== RESET & VARIABEL ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: #333333;
+        }
+
+        /* Warna utama */
+        .text-primary { color: #006B54; }
+
+        /* ===== HEADER ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .menu-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #006B54;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .menu-toggle:hover {
+            background-color: #f0f0f0;
+        }
+
+        .btn-login {
+            background-color: #006B54;
+            color: white;
+            border: none;
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-login:hover {
+            background-color: #004d3b;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100%;
+            background-color: white;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 200;
+            padding: 1.5rem 1rem;
+            overflow-y: auto;
+        }
+        .sidebar.open {
+            transform: translateX(0);
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+        .sidebar-header h2 {
+            color: #006B54;
+            font-size: 1.25rem;
+        }
+        .close-sidebar {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #999;
+        }
+
+        /* Menu utama */
+        .sidebar-menu {
+            list-style: none;
+        }
+        .sidebar-menu li {
+            margin-bottom: 0.25rem;
+        }
+        .sidebar-menu .menu-link {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            color: #006B54;
+            text-decoration: none;
+            border-radius: 10px;
+            transition: background 0.2s;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .sidebar-menu .menu-link:hover {
+            background-color: #f0f5f3;
+        }
+        .sidebar-menu .menu-link i {
+            color: #006B54;
+            width: 20px;
+        }
+
+        /* Submenu */
+        .has-submenu .submenu {
+            list-style: none;
+            padding-left: 3rem;
+            margin-top: 0.25rem;
+            margin-bottom: 0.25rem;
+            display: none;
+        }
+        .has-submenu.open .submenu {
+            display: block;
+        }
+        .submenu li {
+            margin-bottom: 0.25rem;
+        }
+        .submenu a {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background 0.2s;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+        .submenu a:hover {
+            background-color: #e6f0ec;
+            color: #006B54;
+        }
+        .submenu a i {
+            color: #006B54;
+            width: 18px;
+        }
+        .submenu a.active {
+            background-color: #e6f0ec;
+            color: #006B54;
+            font-weight: 500;
+        }
+
+        /* Panah submenu */
+        .has-submenu .menu-link .arrow {
+            margin-left: auto;
+            transition: transform 0.3s;
+        }
+        .has-submenu.open .menu-link .arrow {
+            transform: rotate(180deg);
+        }
+
+        /* Overlay */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 150;
+            display: none;
+        }
+        .overlay.active {
+            display: block;
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .main-content {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .page-title {
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #006B54;
+        }
+
+        /* Section konten */
+        .content-section {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+            border: 1px solid #f0f0f0;
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+
+        /* Form styling */
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .form-group {
+            flex: 1 1 200px;
+            min-width: 200px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #006B54;
+        }
+        .btn {
+            background-color: #006B54;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-right: 0.5rem;
+        }
+        .btn:hover {
+            background-color: #004d3b;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid #006B54;
+            color: #006B54;
+        }
+        .btn-outline:hover {
+            background-color: #e6f0ec;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        /* Tabel untuk daftar */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 1rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            white-space: nowrap;
+        }
+        th {
+            background-color: #f9f9f9;
+            font-weight: 600;
+            color: #006B54;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        /* Subform untuk konversi unit dan qty break */
+        .subform-section {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 2px solid #e0e0e0;
+        }
+        .subform-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #006B54;
+            margin-bottom: 1rem;
+        }
+        .konversi-row, .qtybreak-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding: 0.75rem;
+            background-color: #fafafa;
+            border-radius: 8px;
+        }
+        .konversi-row .form-group, .qtybreak-row .form-group {
+            flex: 1 1 120px;
+            min-width: 120px;
+            margin-bottom: 0;
+        }
+        .remove-row {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>MUDA POS</h2>
+            <button class="close-sidebar" id="closeSidebar">
+                <i data-feather="x" width="20" height="20"></i>
+            </button>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
+            <!-- Master Data dengan submenu -->
+            <li class="has-submenu" id="masterdataMenuItem">
+                <a href="#" class="menu-link" id="masterdataMenuToggle">
+                    <i data-feather="package"></i>
+                    <span>Master Data</span>
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a id="submenuTambahProduk"><i data-feather="plus-circle"></i> Tambah produk</a></li>
+                    <li><a id="submenuDaftarProduk"><i data-feather="list"></i> Daftar produk</a></li>
+                    <li><a id="submenuTambahKategori"><i data-feather="plus-circle"></i> Tambah kategori</a></li>
+                    <li><a id="submenuDaftarKategori"><i data-feather="list"></i> Daftar kategori</a></li>
+                    <li><a id="submenuTambahUnit"><i data-feather="plus-circle"></i> Tambah unit</a></li>
+                    <li><a id="submenuDaftarUnit"><i data-feather="list"></i> Daftar unit</a></li>
+                </ul>
+            </li>
+            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
+            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
+            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li><a href="warehouse.html" class="menu-link"><i data-feather="box"></i> Warehouse</a></li>
+            <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
+            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
+            <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
+            <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
+        </ul>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle" aria-label="Buka menu">
+                <i data-feather="menu" width="24" height="24"></i>
+            </button>
+        </div>
+        <div class="header-right">
+            <button class="btn-login" id="loginBtn">
+                <i data-feather="log-in" width="18" height="18"></i>
+                <span>Login</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Halaman Master Data -->
+    <main class="main-content">
+        <h1 class="page-title">Master Data</h1>
+
+        <!-- Section Tambah Produk -->
+        <div id="tambahProdukSection" class="content-section active">
+            <h2 style="margin-bottom: 1.5rem;">Tambah Produk Baru</h2>
+            <form id="formTambahProduk">
+                <!-- Baris 1 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="namaProduk">Nama Produk *</label>
+                        <input type="text" id="namaProduk" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="kodeProduk">Kode Produk (timbangan)</label>
+                        <input type="text" id="kodeProduk" placeholder="Misal: 123456">
+                    </div>
+                </div>
+                <!-- Baris 2 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="barcodeProduk">Barcode</label>
+                        <input type="text" id="barcodeProduk">
+                    </div>
+                    <div class="form-group">
+                        <label for="kategoriProduk">Kategori *</label>
+                        <select id="kategoriProduk" required>
+                            <option value="">Pilih Kategori</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Baris 3 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="hargaDasar">Harga Dasar *</label>
+                        <input type="number" id="hargaDasar" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="hargaJual">Harga Jual *</label>
+                        <input type="number" id="hargaJual" required>
+                    </div>
+                </div>
+                <!-- Baris 4 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="berat">Berat (kg)</label>
+                        <input type="number" step="0.01" id="berat">
+                    </div>
+                    <div class="form-group">
+                        <label for="unit">Unit *</label>
+                        <select id="unit" required>
+                            <option value="">Pilih Unit</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Baris 5 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="diskon">Diskon (%)</label>
+                        <input type="number" id="diskon" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="gudang">Gudang *</label>
+                        <select id="gudang" required>
+                            <option value="">Pilih Gudang</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Baris 6 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="stokAwal">Stok Awal *</label>
+                        <input type="number" id="stokAwal" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="stokMinimal">Stok Minimal *</label>
+                        <input type="number" id="stokMinimal" required>
+                    </div>
+                </div>
+
+                <!-- Subform: Konversi Unit -->
+                <div class="subform-section">
+                    <div class="subform-title">Konversi Unit</div>
+                    <div id="konversiContainer">
+                        <!-- Baris konversi akan ditambahkan di sini -->
+                    </div>
+                    <button type="button" class="btn btn-outline" id="tambahKonversi">+ Tambah Konversi Unit</button>
+                </div>
+
+                <!-- Subform: Qty Break (Level Harga) -->
+                <div class="subform-section">
+                    <div class="subform-title">Quantity Break (Level Harga)</div>
+                    <div id="qtyBreakContainer">
+                        <!-- Baris qty break akan ditambahkan di sini -->
+                    </div>
+                    <button type="button" class="btn btn-outline" id="tambahQtyBreak">+ Tambah Qty Break</button>
+                </div>
+
+                <!-- Tombol Submit -->
+                <div style="margin-top: 2rem;">
+                    <button type="submit" class="btn">Simpan Produk</button>
+                    <button type="reset" class="btn btn-secondary">Reset</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Section Daftar Produk -->
+        <div id="daftarProdukSection" class="content-section">
+            <h2 style="margin-bottom: 1.5rem;">Daftar Produk</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kode</th>
+                            <th>Nama</th>
+                            <th>Kategori</th>
+                            <th>Harga Jual</th>
+                            <th>Stok</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daftarProdukBody">
+                        <tr><td colspan="6" style="text-align:center;">Belum ada data</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section Tambah Kategori -->
+        <div id="tambahKategoriSection" class="content-section">
+            <h2 style="margin-bottom: 1.5rem;">Tambah Kategori</h2>
+            <form id="formTambahKategori">
+                <div class="form-group" style="max-width:400px;">
+                    <label for="namaKategori">Nama Kategori</label>
+                    <input type="text" id="namaKategori" required>
+                </div>
+                <button type="submit" class="btn">Simpan Kategori</button>
+            </form>
+        </div>
+
+        <!-- Section Daftar Kategori -->
+        <div id="daftarKategoriSection" class="content-section">
+            <h2 style="margin-bottom: 1.5rem;">Daftar Kategori</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
+                    <tbody id="daftarKategoriBody"><tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section Tambah Unit -->
+        <div id="tambahUnitSection" class="content-section">
+            <h2 style="margin-bottom: 1.5rem;">Tambah Unit</h2>
+            <form id="formTambahUnit">
+                <div class="form-group" style="max-width:400px;">
+                    <label for="namaUnit">Nama Unit</label>
+                    <input type="text" id="namaUnit" required>
+                </div>
+                <button type="submit" class="btn">Simpan Unit</button>
+            </form>
+        </div>
+
+        <!-- Section Daftar Unit -->
+        <div id="daftarUnitSection" class="content-section">
+            <h2 style="margin-bottom: 1.5rem;">Daftar Unit</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
+                    <tbody id="daftarUnitBody"><tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Script biasa untuk Feather Icons dan interaksi dasar -->
+    <script>
+        // Inisialisasi Feather Icons
+        feather.replace();
+
+        // Elemen DOM untuk sidebar
+        const menuToggle = document.getElementById('menuToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function openSidebar() {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+        }
+        function closeSidebarFunc() {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+        }
+        menuToggle.addEventListener('click', openSidebar);
+        closeSidebar.addEventListener('click', closeSidebarFunc);
+        overlay.addEventListener('click', closeSidebarFunc);
+
+        // Toggle submenu master data
+        const masterdataItem = document.getElementById('masterdataMenuItem');
+        const masterdataToggle = document.getElementById('masterdataMenuToggle');
+        masterdataToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            masterdataItem.classList.toggle('open');
+        });
+
+        // Fungsi untuk mengganti konten
+        const sections = {
+            tambahProduk: document.getElementById('tambahProdukSection'),
+            daftarProduk: document.getElementById('daftarProdukSection'),
+            tambahKategori: document.getElementById('tambahKategoriSection'),
+            daftarKategori: document.getElementById('daftarKategoriSection'),
+            tambahUnit: document.getElementById('tambahUnitSection'),
+            daftarUnit: document.getElementById('daftarUnitSection')
+        };
+
+        const submenus = {
+            tambahProduk: document.getElementById('submenuTambahProduk'),
+            daftarProduk: document.getElementById('submenuDaftarProduk'),
+            tambahKategori: document.getElementById('submenuTambahKategori'),
+            daftarKategori: document.getElementById('submenuDaftarKategori'),
+            tambahUnit: document.getElementById('submenuTambahUnit'),
+            daftarUnit: document.getElementById('submenuDaftarUnit')
+        };
+
+        function showSection(sectionName) {
+            // Sembunyikan semua section
+            Object.values(sections).forEach(s => s.classList.remove('active'));
+            // Hapus class active dari semua submenu
+            Object.values(submenus).forEach(s => s.classList.remove('active'));
+            // Tampilkan section yang dipilih
+            sections[sectionName].classList.add('active');
+            submenus[sectionName].classList.add('active');
+            // Tutup sidebar di mobile
+            if (window.innerWidth <= 768) closeSidebarFunc();
+        }
+
+        // Event listener untuk submenu
+        submenus.tambahProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahProduk'); });
+        submenus.daftarProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarProduk'); });
+        submenus.tambahKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahKategori'); });
+        submenus.daftarKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarKategori'); });
+        submenus.tambahUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahUnit'); });
+        submenus.daftarUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); });
+
+        // Tutup sidebar saat klik link lain di mobile
+        if (window.innerWidth <= 768) {
+            document.querySelectorAll('.sidebar-menu a:not(#masterdataMenuToggle)').forEach(link => {
+                link.addEventListener('click', closeSidebarFunc);
+            });
+        }
+
+        // ===== DEXIE INITIALIZATION =====
+        // Gunakan database yang sama dengan firebase-config, atau buat lokal untuk demo
+        const dbLokal = new Dexie("MudaPosDB");
+        dbLokal.version(1).stores({
+            produk: '++id, kode, nama, barcode, kategoriId, hargaDasar, hargaJual, berat, unitId, diskon, gudangId, stokAwal, stokMinimal, synced, idCloud',
+            konversiUnit: '++id, produkId, unitId, nilai, barcode, aktif, hargaDasar, hargaJual, poinPelanggan, komisiSales',
+            qtyBreak: '++id, produkId, level, minQty, harga',
+            kategori: '++id, nama',
+            unit: '++id, nama',
+            gudang: '++id, kode, nama, lokasi, kapasitas'
+        });
+
+        // ===== POPULATE DROPDOWNS =====
+        async function loadDropdowns() {
+            // Kategori
+            const kategoriSelect = document.getElementById('kategoriProduk');
+            const kategoris = await dbLokal.kategori.toArray();
+            kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
+                kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
+
+            // Unit
+            const unitSelect = document.getElementById('unit');
+            const units = await dbLokal.unit.toArray();
+            unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
+                units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
+
+            // Gudang
+            const gudangSelect = document.getElementById('gudang');
+            const gudangs = await dbLokal.gudang.toArray();
+            gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
+                gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
+        }
+        loadDropdowns();
+
+        // ===== KONVERSI UNIT DINAMIS =====
+        const konversiContainer = document.getElementById('konversiContainer');
+        document.getElementById('tambahKonversi').addEventListener('click', () => {
+            const row = document.createElement('div');
+            row.className = 'konversi-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <select class="unitKonversi" required>
+                        <option value="">Pilih Unit</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="nilaiKonversi" placeholder="Nilai" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" class="barcodeKonversi" placeholder="Barcode">
+                </div>
+                <div class="form-group" style="flex:0 0 auto;">
+                    <label style="display:inline; margin-right:5px;">Aktif</label>
+                    <input type="checkbox" class="aktifKonversi" checked>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaDasarKonversi" placeholder="Harga Dasar">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaJualKonversi" placeholder="Harga Jual">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="poinKonversi" placeholder="Poin Pelanggan">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="komisiKonversi" placeholder="Komisi Sales">
+                </div>
+                <button type="button" class="remove-row"><i data-feather="x"></i></button>
+            `;
+            konversiContainer.appendChild(row);
+            // Isi dropdown unit
+            dbLokal.unit.toArray().then(units => {
+                const select = row.querySelector('.unitKonversi');
+                units.forEach(u => {
+                    select.add(new Option(u.nama, u.id));
+                });
+            });
+            feather.replace();
+            // Tombol hapus
+            row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+        });
+
+        // ===== QTY BREAK DINAMIS =====
+        const qtyBreakContainer = document.getElementById('qtyBreakContainer');
+        document.getElementById('tambahQtyBreak').addEventListener('click', () => {
+            const row = document.createElement('div');
+            row.className = 'qtybreak-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <input type="text" class="levelQty" placeholder="Level" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="minQty" placeholder="Min Qty" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaQty" placeholder="Harga" required>
+                </div>
+                <button type="button" class="remove-row"><i data-feather="x"></i></button>
+            `;
+            qtyBreakContainer.appendChild(row);
+            feather.replace();
+            row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+        });
+
+        // ===== SAVE PRODUK =====
+        document.getElementById('formTambahProduk').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            // Ambil data produk
+            const produk = {
+                nama: document.getElementById('namaProduk').value,
+                kode: document.getElementById('kodeProduk').value,
+                barcode: document.getElementById('barcodeProduk').value,
+                kategoriId: parseInt(document.getElementById('kategoriProduk').value),
+                hargaDasar: parseFloat(document.getElementById('hargaDasar').value),
+                hargaJual: parseFloat(document.getElementById('hargaJual').value),
+                berat: document.getElementById('berat').value ? parseFloat(document.getElementById('berat').value) : null,
+                unitId: parseInt(document.getElementById('unit').value),
+                diskon: parseFloat(document.getElementById('diskon').value),
+                gudangId: parseInt(document.getElementById('gudang').value),
+                stokAwal: parseInt(document.getElementById('stokAwal').value),
+                stokMinimal: parseInt(document.getElementById('stokMinimal').value),
+                synced: false,
+                idCloud: null
+            };
+
+            // Validasi sederhana
+            if (!produk.nama || !produk.kategoriId || !produk.hargaDasar || !produk.hargaJual || !produk.unitId || !produk.gudangId || !produk.stokAwal) {
+                alert('Harap isi semua field wajib');
+                return;
+            }
+
+            // Simpan produk
+            const produkId = await dbLokal.produk.add(produk);
+
+            // Simpan konversi unit
+            const konversiRows = document.querySelectorAll('.konversi-row');
+            for (let row of konversiRows) {
+                const unitId = row.querySelector('.unitKonversi').value;
+                if (!unitId) continue;
+                await dbLokal.konversiUnit.add({
+                    produkId,
+                    unitId: parseInt(unitId),
+                    nilai: parseFloat(row.querySelector('.nilaiKonversi').value),
+                    barcode: row.querySelector('.barcodeKonversi').value,
+                    aktif: row.querySelector('.aktifKonversi').checked,
+                    hargaDasar: row.querySelector('.hargaDasarKonversi').value ? parseFloat(row.querySelector('.hargaDasarKonversi').value) : null,
+                    hargaJual: row.querySelector('.hargaJualKonversi').value ? parseFloat(row.querySelector('.hargaJualKonversi').value) : null,
+                    poinPelanggan: row.querySelector('.poinKonversi').value ? parseInt(row.querySelector('.poinKonversi').value) : null,
+                    komisiSales: row.querySelector('.komisiKonversi').value ? parseFloat(row.querySelector('.komisiKonversi').value) : null
+                });
+            }
+
+            // Simpan qty break
+            const qtyRows = document.querySelectorAll('.qtybreak-row');
+            for (let row of qtyRows) {
+                const minQty = row.querySelector('.minQty').value;
+                if (!minQty) continue;
+                await dbLokal.qtyBreak.add({
+                    produkId,
+                    level: row.querySelector('.levelQty').value,
+                    minQty: parseInt(minQty),
+                    harga: parseFloat(row.querySelector('.hargaQty').value)
+                });
+            }
+
+            alert('Produk berhasil disimpan');
+            e.target.reset();
+            // Kosongkan container dinamis
+            konversiContainer.innerHTML = '';
+            qtyBreakContainer.innerHTML = '';
+            // Refresh daftar produk jika perlu
+            if (sections.daftarProduk.classList.contains('active')) {
+                loadDaftarProduk();
+            }
+        });
+
+        // ===== LOAD DAFTAR PRODUK (contoh) =====
+        async function loadDaftarProduk() {
+            const produkList = await dbLokal.produk.toArray();
+            const tbody = document.getElementById('daftarProdukBody');
+            if (produkList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Belum ada data</td></tr>';
+                return;
+            }
+            // Ambil nama kategori dan unit untuk ditampilkan
+            const kategoris = await dbLokal.kategori.toArray();
+            const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
+            const units = await dbLokal.unit.toArray();
+            const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
+
+            tbody.innerHTML = produkList.map(p => `
+                <tr>
+                    <td>${p.kode || '-'}</td>
+                    <td>${p.nama}</td>
+                    <td>${kategoriMap[p.kategoriId] || '-'}</td>
+                    <td>Rp ${p.hargaJual.toLocaleString()}</td>
+                    <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
+                    <td>
+                        <button class="btn-icon edit" onclick="editProduk(${p.id})"><i data-feather="edit-2"></i></button>
+                        <button class="btn-icon delete" onclick="hapusProduk(${p.id})"><i data-feather="trash-2"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            feather.replace();
+        }
+
+        // Panggil saat section daftar produk diaktifkan
+        submenus.daftarProduk.addEventListener('click', () => {
+            loadDaftarProduk();
+        });
+
+        // ===== CRUD SEDERHANA UNTUK KATEGORI, UNIT =====
+        // Tambah Kategori
+        document.getElementById('formTambahKategori').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nama = document.getElementById('namaKategori').value.trim();
+            if (!nama) return alert('Nama kategori harus diisi');
+            await dbLokal.kategori.add({ nama });
+            alert('Kategori ditambahkan');
+            e.target.reset();
+            loadDropdowns(); // refresh dropdown produk
+            if (sections.daftarKategori.classList.contains('active')) loadDaftarKategori();
+        });
+
+        // Daftar Kategori
+        async function loadDaftarKategori() {
+            const list = await dbLokal.kategori.toArray();
+            const tbody = document.getElementById('daftarKategoriBody');
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.map(k => `
+                <tr>
+                    <td>${k.nama}</td>
+                    <td>
+                        <button class="btn-icon edit" onclick="editKategori(${k.id})"><i data-feather="edit-2"></i></button>
+                        <button class="btn-icon delete" onclick="hapusKategori(${k.id})"><i data-feather="trash-2"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            feather.replace();
+        }
+        submenus.daftarKategori.addEventListener('click', loadDaftarKategori);
+
+        // Tambah Unit
+        document.getElementById('formTambahUnit').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nama = document.getElementById('namaUnit').value.trim();
+            if (!nama) return alert('Nama unit harus diisi');
+            await dbLokal.unit.add({ nama });
+            alert('Unit ditambahkan');
+            e.target.reset();
+            loadDropdowns();
+            if (sections.daftarUnit.classList.contains('active')) loadDaftarUnit();
+        });
+
+        // Daftar Unit
+        async function loadDaftarUnit() {
+            const list = await dbLokal.unit.toArray();
+            const tbody = document.getElementById('daftarUnitBody');
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.map(u => `
+                <tr>
+                    <td>${u.nama}</td>
+                    <td>
+                        <button class="btn-icon edit" onclick="editUnit(${u.id})"><i data-feather="edit-2"></i></button>
+                        <button class="btn-icon delete" onclick="hapusUnit(${u.id})"><i data-feather="trash-2"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            feather.replace();
+        }
+        submenus.daftarUnit.addEventListener('click', loadDaftarUnit);
+
+        // Fungsi edit/hapus global (placeholder)
+        window.editProduk = (id) => alert('Edit produk ' + id);
+        window.hapusProduk = (id) => { if (confirm('Hapus produk?')) dbLokal.produk.delete(id).then(() => loadDaftarProduk()); };
+        window.editKategori = (id) => alert('Edit kategori ' + id);
+        window.hapusKategori = (id) => { if (confirm('Hapus kategori?')) dbLokal.kategori.delete(id).then(() => loadDaftarKategori()); };
+        window.editUnit = (id) => alert('Edit unit ' + id);
+        window.hapusUnit = (id) => { if (confirm('Hapus unit?')) dbLokal.unit.delete(id).then(() => loadDaftarUnit()); };
+    </script>
+
+    <!-- Script module untuk Firebase Auth -->
+    <script type="module">
+        import { auth, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
+
+        const loginBtn = document.getElementById('loginBtn');
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginBtn.innerHTML = '<i data-feather="log-out" width="18" height="18"></i><span>Logout</span>';
+            } else {
+                loginBtn.innerHTML = '<i data-feather="log-in" width="18" height="18"></i><span>Login</span>';
+            }
+            feather.replace();
+        });
+
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try {
+                    await signOut(auth);
+                } catch (error) {
+                    alert('Gagal logout: ' + error.message);
+                }
+            } else {
+                try {
+                    await signInWithPopup(auth, provider);
+                } catch (error) {
+                    alert('Gagal login: ' + error.message);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
