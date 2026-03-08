@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDA POS - Warehouse</title>
+    <title>MUDA POS - Master Data (LocalForage)</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
+    <!-- LocalForage -->
+    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <style>
-        /* ===== CSS (sama seperti sebelumnya, ringkas) ===== */
+        /* ===== CSS SAMA PERSIS DENGAN SEBELUMNYA (tidak diubah) ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -20,7 +22,6 @@
         .btn-sync:hover { background:#e6f0ec; }
         .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
         .reset-btn:hover { background:#c82333; }
-        /* Sidebar, main content, dll (salin dari kode sebelumnya) */
         .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
         .sidebar.open { transform:translateX(0); }
         .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
@@ -44,12 +45,22 @@
         .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
         .content-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; display:none; }
         .content-section.active { display:block; }
-        .form-group { margin-bottom:1rem; }
-        .form-group label { display:block; margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
-        .form-group input { width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
-        .form-group input:focus { outline:none; border-color:#006B54; }
+        .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:1rem; margin-bottom:1.2rem; }
+        .form-group { display:flex; flex-direction:column; }
+        .form-group label { margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
+        .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
+        .subform-section { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e0e0e0; }
+        .subform-title { font-size:1.1rem; font-weight:600; color:#006B54; margin-bottom:0.8rem; }
+        .konversi-row, .qtybreak-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:0.6rem; align-items:center; background:#fafafa; padding:0.8rem; border-radius:8px; margin-bottom:0.6rem; }
+        .konversi-row .form-group, .qtybreak-row .form-group { margin-bottom:0; }
+        .remove-row { background:none; border:none; color:#dc3545; cursor:pointer; justify-self:end; padding:0.2rem; }
         .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; margin-right:0.5rem; }
         .btn:hover { background:#004d3b; }
+        .btn-secondary { background:#6c757d; }
+        .btn-secondary:hover { background:#5a6268; }
+        .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; margin-top:0.5rem; }
+        .btn-outline:hover { background:#e6f0ec; }
         .table-responsive { overflow-x:auto; margin-top:1rem; }
         table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:600px; }
         th, td { padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
@@ -66,7 +77,7 @@
     <!-- Overlay -->
     <div class="overlay" id="overlay"></div>
 
-    <!-- Sidebar -->
+    <!-- Sidebar (sama persis) -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2>MUDA POS</h2>
@@ -74,21 +85,24 @@
         </div>
         <ul class="sidebar-menu">
             <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
-            <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
-            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
-            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
-            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
-            <!-- Warehouse dengan submenu -->
-            <li class="has-submenu" id="warehouseMenuItem">
-                <a href="#" class="menu-link" id="warehouseMenuToggle">
-                    <i data-feather="box"></i> Warehouse
+            <li class="has-submenu" id="masterdataMenuItem">
+                <a href="#" class="menu-link" id="masterdataMenuToggle">
+                    <i data-feather="package"></i> Master Data
                     <i data-feather="chevron-down" class="arrow"></i>
                 </a>
                 <ul class="submenu">
-                    <li><a id="submenuTambahGudang"><i data-feather="plus-circle"></i> Tambah gudang</a></li>
-                    <li><a id="submenuDaftarGudang"><i data-feather="list"></i> Daftar gudang</a></li>
+                    <li><a id="submenuTambahProduk"><i data-feather="plus-circle"></i> Tambah produk</a></li>
+                    <li><a id="submenuDaftarProduk"><i data-feather="list"></i> Daftar produk</a></li>
+                    <li><a id="submenuTambahKategori"><i data-feather="plus-circle"></i> Tambah kategori</a></li>
+                    <li><a id="submenuDaftarKategori"><i data-feather="list"></i> Daftar kategori</a></li>
+                    <li><a id="submenuTambahUnit"><i data-feather="plus-circle"></i> Tambah unit</a></li>
+                    <li><a id="submenuDaftarUnit"><i data-feather="list"></i> Daftar unit</a></li>
                 </ul>
             </li>
+            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
+            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
+            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li><a href="warehouse.html" class="menu-link"><i data-feather="box"></i> Warehouse</a></li>
             <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
             <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
             <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
@@ -110,56 +124,157 @@
     <!-- Tombol Reset Darurat -->
     <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset DB</button>
 
-    <!-- Halaman Warehouse -->
+    <!-- Main Content (sama persis) -->
     <main class="main-content">
-        <h1 class="page-title">Warehouse</h1>
-        
-        <!-- Section Tambah Gudang -->
-        <div id="tambahGudangSection" class="content-section active">
-            <h2 style="margin-bottom: 1rem;">Tambah Gudang Baru</h2>
-            <form id="formTambahGudang">
-                <div class="form-group">
-                    <label for="kodeGudang">Kode Gudang *</label>
-                    <input type="text" id="kodeGudang" placeholder="Contoh: WH-001" required>
+        <h1 class="page-title">Master Data</h1>
+
+        <!-- Section Tambah Produk -->
+        <div id="tambahProdukSection" class="content-section active">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Produk Baru</h2>
+            <form id="formTambahProduk">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nama Produk *</label>
+                        <input type="text" id="namaProduk" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kode Produk (timbangan)</label>
+                        <input type="text" id="kodeProduk">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="namaGudang">Nama Gudang *</label>
-                    <input type="text" id="namaGudang" placeholder="Contoh: Gudang Utama" required>
+                <div class="form-grid" style="margin-bottom:1rem;">
+                    <div class="form-group" style="flex-direction:row; align-items:center; gap:0.5rem;">
+                        <input type="checkbox" id="produkTimbangan" style="width:auto;">
+                        <label for="produkTimbangan" style="margin-bottom:0;">Produk Timbangan</label>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="lokasiGudang">Lokasi</label>
-                    <input type="text" id="lokasiGudang" placeholder="Contoh: Jl. Raya No. 123">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Barcode</label>
+                        <input type="text" id="barcodeProduk">
+                    </div>
+                    <div class="form-group">
+                        <label>Kategori *</label>
+                        <select id="kategoriProduk" required><option value="">Pilih Kategori</option></select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="kapasitasGudang">Kapasitas (m³)</label>
-                    <input type="number" id="kapasitasGudang" placeholder="Contoh: 1000">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Harga Dasar *</label>
+                        <input type="number" id="hargaDasar" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Harga Jual *</label>
+                        <input type="number" id="hargaJual" required>
+                    </div>
                 </div>
-                <button type="submit" class="btn">Simpan Gudang</button>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Berat (kg)</label>
+                        <input type="number" step="0.01" id="berat">
+                    </div>
+                    <div class="form-group">
+                        <label>Unit *</label>
+                        <select id="unit" required><option value="">Pilih Unit</option></select>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Diskon (%)</label>
+                        <input type="number" id="diskon" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Gudang *</label>
+                        <select id="gudang" required><option value="">Pilih Gudang</option></select>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Stok Awal *</label>
+                        <input type="number" id="stokAwal" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stok Minimal *</label>
+                        <input type="number" id="stokMinimal" required>
+                    </div>
+                </div>
+
+                <!-- Konversi Unit -->
+                <div class="subform-section">
+                    <div class="subform-title">Konversi Unit</div>
+                    <div id="konversiContainer"></div>
+                    <button type="button" class="btn btn-outline" id="tambahKonversi">+ Tambah Konversi</button>
+                </div>
+
+                <!-- Qty Break -->
+                <div class="subform-section">
+                    <div class="subform-title">Quantity Break (Level Harga)</div>
+                    <div id="qtyBreakContainer"></div>
+                    <button type="button" class="btn btn-outline" id="tambahQtyBreak">+ Tambah Qty Break</button>
+                </div>
+
+                <div style="margin-top:1.5rem;">
+                    <button type="submit" class="btn">Simpan Produk</button>
+                    <button type="reset" class="btn btn-secondary">Reset</button>
+                </div>
             </form>
         </div>
 
-        <!-- Section Daftar Gudang -->
-        <div id="daftarGudangSection" class="content-section">
-            <h2 style="margin-bottom: 1rem;">Daftar Gudang</h2>
+        <!-- Section Daftar Produk -->
+        <div id="daftarProdukSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Produk</h2>
             <div class="table-responsive">
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Kode</th>
-                            <th>Nama</th>
-                            <th>Lokasi</th>
-                            <th>Kapasitas</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="daftarGudangBody">
-                        <!-- Data akan diisi via JavaScript -->
-                    </tbody>
+                    <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Timbangan</th><th>Aksi</th></tr></thead>
+                    <tbody id="daftarProdukBody"><tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr></tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Section Tambah Kategori -->
+        <div id="tambahKategoriSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Kategori</h2>
+            <form id="formTambahKategori">
+                <div class="form-group" style="max-width:350px;">
+                    <label>Nama Kategori</label>
+                    <input type="text" id="namaKategori" required>
+                </div>
+                <button type="submit" class="btn">Simpan Kategori</button>
+            </form>
+        </div>
+
+        <!-- Section Daftar Kategori -->
+        <div id="daftarKategoriSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Kategori</h2>
+            <div class="table-responsive">
+                <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
+                <tbody id="daftarKategoriBody"><tr><td colspan="2">Belum ada data</td></tr></tbody></table>
+            </div>
+        </div>
+
+        <!-- Section Tambah Unit -->
+        <div id="tambahUnitSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Unit</h2>
+            <form id="formTambahUnit">
+                <div class="form-group" style="max-width:350px;">
+                    <label>Nama Unit</label>
+                    <input type="text" id="namaUnit" required>
+                </div>
+                <button type="submit" class="btn">Simpan Unit</button>
+            </form>
+        </div>
+
+        <!-- Section Daftar Unit -->
+        <div id="daftarUnitSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Unit</h2>
+            <div class="table-responsive">
+                <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
+                <tbody id="daftarUnitBody"><tr><td colspan="2">Belum ada data</td></tr></tbody></table>
             </div>
         </div>
     </main>
 
+    <!-- Script utama dengan LocalForage -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -167,113 +282,69 @@
 
         feather.replace();
 
-        // ========== INDEXEDDB WRAPPER (sama seperti di masterdata) ==========
-        const DB_NAME = 'MudaPosDB';
-        const DB_VERSION = 1;
-        let db = null;
+        // ========== LOCALFORAGE INSTANCES ==========
+        const kategoriStore = localforage.createInstance({ name: 'kategori' });
+        const unitStore = localforage.createInstance({ name: 'unit' });
+        const gudangStore = localforage.createInstance({ name: 'gudang' });
+        const produkStore = localforage.createInstance({ name: 'produk' });
+        const konversiStore = localforage.createInstance({ name: 'konversiUnit' });
+        const qtyStore = localforage.createInstance({ name: 'qtyBreak' });
 
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                if (db) return resolve(db);
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => {
-                    db = request.result;
-                    resolve(db);
-                };
-                request.onupgradeneeded = (event) => {
-                    const db = event.target.result;
-                    // Jika belum ada, buat object stores (sama seperti di masterdata)
-                    if (!db.objectStoreNames.contains('gudang')) {
-                        const gudangStore = db.createObjectStore('gudang', { keyPath: 'id', autoIncrement: true });
-                        gudangStore.createIndex('kode', 'kode', { unique: true });
-                        gudangStore.createIndex('nama', 'nama', { unique: false });
-                        gudangStore.createIndex('synced', 'synced', { unique: false });
-                        gudangStore.createIndex('idCloud', 'idCloud', { unique: true });
-                    }
-                    // Store lain mungkin juga perlu dibuat jika belum ada, tapi karena warehouse hanya pakai gudang, tidak perlu.
-                };
-            });
+        // Fungsi bantu untuk generate ID unik
+        function generateId() {
+            return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         }
 
-        // Fungsi CRUD generik
-        async function getAll(storeName) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readonly');
-                const store = tx.objectStore(storeName);
-                const request = store.getAll();
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
+        // Fungsi untuk mengambil semua data dari store (dalam bentuk array)
+        async function getAll(store) {
+            let items = [];
+            await store.iterate((value, key) => {
+                items.push({ ...value, id: key });
             });
+            return items;
         }
 
-        async function getById(storeName, id) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readonly');
-                const store = tx.objectStore(storeName);
-                const request = store.get(id);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
+        // Fungsi untuk mendapatkan item berdasarkan id
+        async function getById(store, id) {
+            return await store.getItem(id);
         }
 
-        async function add(storeName, data) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readwrite');
-                const store = tx.objectStore(storeName);
-                const request = store.add(data);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
+        // Fungsi untuk menambah item (otomatis generate id)
+        async function addItem(store, data) {
+            const id = generateId();
+            await store.setItem(id, data);
+            return id;
         }
 
-        async function update(storeName, data) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readwrite');
-                const store = tx.objectStore(storeName);
-                const request = store.put(data);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
+        // Fungsi untuk mengupdate item
+        async function updateItem(store, id, data) {
+            await store.setItem(id, data);
         }
 
-        async function remove(storeName, id) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readwrite');
-                const store = tx.objectStore(storeName);
-                const request = store.delete(id);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
+        // Fungsi untuk menghapus item
+        async function removeItem(store, id) {
+            await store.removeItem(id);
         }
 
-        async function queryByIndex(storeName, indexName, value) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readonly');
-                const store = tx.objectStore(storeName);
-                const index = store.index(indexName);
-                const request = index.getAll(value);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
+        // Fungsi untuk mencari berdasarkan indeks (misal field tertentu)
+        async function findByIndex(store, field, value) {
+            let results = [];
+            await store.iterate((item, key) => {
+                if (item[field] === value) {
+                    results.push({ ...item, id: key });
+                }
             });
+            return results;
         }
 
-        async function queryByIndexFirst(storeName, indexName, value) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readonly');
-                const store = tx.objectStore(storeName);
-                const index = store.index(indexName);
-                const request = index.get(value);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
+        async function findOneByIndex(store, field, value) {
+            let found = null;
+            await store.iterate((item, key) => {
+                if (!found && item[field] === value) {
+                    found = { ...item, id: key };
+                }
             });
+            return found;
         }
 
         // ========== SIDEBAR ==========
@@ -287,127 +358,413 @@
         closeSidebar.addEventListener('click', closeSidebarFunc);
         overlay.addEventListener('click', closeSidebarFunc);
 
-        // Toggle submenu warehouse
-        const warehouseItem = document.getElementById('warehouseMenuItem');
-        document.getElementById('warehouseMenuToggle').addEventListener('click', (e) => {
+        // Toggle submenu master data
+        const masterdataItem = document.getElementById('masterdataMenuItem');
+        document.getElementById('masterdataMenuToggle').addEventListener('click', (e) => {
             e.preventDefault();
-            warehouseItem.classList.toggle('open');
+            masterdataItem.classList.toggle('open');
         });
 
-        // Navigasi section
-        const tambahSection = document.getElementById('tambahGudangSection');
-        const daftarSection = document.getElementById('daftarGudangSection');
-        const submenuTambah = document.getElementById('submenuTambahGudang');
-        const submenuDaftar = document.getElementById('submenuDaftarGudang');
+        // ========== NAVIGASI SECTION ==========
+        const sections = {
+            tambahProduk: document.getElementById('tambahProdukSection'),
+            daftarProduk: document.getElementById('daftarProdukSection'),
+            tambahKategori: document.getElementById('tambahKategoriSection'),
+            daftarKategori: document.getElementById('daftarKategoriSection'),
+            tambahUnit: document.getElementById('tambahUnitSection'),
+            daftarUnit: document.getElementById('daftarUnitSection')
+        };
+        const submenus = {
+            tambahProduk: document.getElementById('submenuTambahProduk'),
+            daftarProduk: document.getElementById('submenuDaftarProduk'),
+            tambahKategori: document.getElementById('submenuTambahKategori'),
+            daftarKategori: document.getElementById('submenuDaftarKategori'),
+            tambahUnit: document.getElementById('submenuTambahUnit'),
+            daftarUnit: document.getElementById('submenuDaftarUnit')
+        };
 
-        function showSection(section) {
-            tambahSection.classList.remove('active');
-            daftarSection.classList.remove('active');
-            submenuTambah.classList.remove('active');
-            submenuDaftar.classList.remove('active');
-            section.classList.add('active');
+        function showSection(sectionName) {
+            Object.values(sections).forEach(s => s.classList.remove('active'));
+            Object.values(submenus).forEach(s => s.classList.remove('active'));
+            sections[sectionName].classList.add('active');
+            submenus[sectionName].classList.add('active');
+            if (window.innerWidth <= 768) closeSidebarFunc();
         }
-        submenuTambah.addEventListener('click', (e) => { e.preventDefault(); showSection(tambahSection); submenuTambah.classList.add('active'); if (window.innerWidth<=768) closeSidebarFunc(); });
-        submenuDaftar.addEventListener('click', (e) => { e.preventDefault(); showSection(daftarSection); submenuDaftar.classList.add('active'); tampilkanDaftarGudang(); if (window.innerWidth<=768) closeSidebarFunc(); });
 
-        // ========== FUNGSI GUDANG ==========
-        async function tampilkanDaftarGudang() {
+        submenus.tambahProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahProduk'); });
+        submenus.daftarProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarProduk'); });
+        submenus.tambahKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahKategori'); });
+        submenus.daftarKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarKategori'); });
+        submenus.tambahUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahUnit'); });
+        submenus.daftarUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); });
+
+        // ========== LOAD DROPDOWNS ==========
+        async function loadDropdowns() {
             try {
-                const semua = await getAll('gudang');
-                const tbody = document.getElementById('daftarGudangBody');
-                if (semua.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Belum ada data</td></tr>';
+                const kategoriSelect = document.getElementById('kategoriProduk');
+                if (kategoriSelect) {
+                    const kategoris = await getAll(kategoriStore);
+                    kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
+                        kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
+                }
+                const unitSelect = document.getElementById('unit');
+                if (unitSelect) {
+                    const units = await getAll(unitStore);
+                    unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
+                        units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
+                }
+                const gudangSelect = document.getElementById('gudang');
+                if (gudangSelect) {
+                    const gudangs = await getAll(gudangStore);
+                    gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
+                        gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('loadDropdowns error:', error);
+                alert('Gagal memuat data: ' + error.message);
+            }
+        }
+
+        // ========== TAMBAH KATEGORI ==========
+        const formTambahKategori = document.getElementById('formTambahKategori');
+        formTambahKategori.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nama = document.getElementById('namaKategori').value.trim();
+            if (!nama) return alert('Nama kategori harus diisi');
+            try {
+                await addItem(kategoriStore, { nama, synced: false, idCloud: null });
+                alert('Kategori berhasil ditambahkan');
+                formTambahKategori.reset();
+                loadDropdowns();
+                if (sections.daftarKategori.classList.contains('active')) loadDaftarKategori();
+            } catch (error) {
+                console.error(error);
+                alert('Gagal menambah kategori: ' + error.message);
+            }
+        });
+
+        // ========== TAMBAH UNIT ==========
+        const formTambahUnit = document.getElementById('formTambahUnit');
+        formTambahUnit.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nama = document.getElementById('namaUnit').value.trim();
+            if (!nama) return alert('Nama unit harus diisi');
+            try {
+                await addItem(unitStore, { nama, synced: false, idCloud: null });
+                alert('Unit berhasil ditambahkan');
+                formTambahUnit.reset();
+                loadDropdowns();
+                if (sections.daftarUnit.classList.contains('active')) loadDaftarUnit();
+            } catch (error) {
+                console.error(error);
+                alert('Gagal menambah unit: ' + error.message);
+            }
+        });
+
+        // ========== DAFTAR KATEGORI ==========
+        async function loadDaftarKategori() {
+            try {
+                const list = await getAll(kategoriStore);
+                const tbody = document.getElementById('daftarKategoriBody');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
                     return;
                 }
-                tbody.innerHTML = semua.map(g => `
+                tbody.innerHTML = list.map(k => `
                     <tr>
-                        <td>${g.kode || '-'}</td>
-                        <td>${g.nama} ${!g.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                        <td>${g.lokasi || '-'}</td>
-                        <td>${g.kapasitas ? g.kapasitas + ' m³' : '-'}</td>
+                        <td>${k.nama} ${!k.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
                         <td>
-                            <button class="btn-icon edit" onclick="editGudang(${g.id})" title="Edit"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusGudang(${g.id})" title="Hapus"><i data-feather="trash-2"></i></button>
+                            <button class="btn-icon edit" onclick="editKategori('${k.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusKategori('${k.id}')"><i data-feather="trash-2"></i></button>
                         </td>
                     </tr>
                 `).join('');
                 feather.replace();
             } catch (error) {
-                console.error('Gagal memuat gudang:', error);
-                alert('Gagal memuat data: ' + error.message);
+                console.error(error);
+                alert('Gagal memuat kategori: ' + error.message);
             }
         }
+        submenus.daftarKategori.addEventListener('click', loadDaftarKategori);
 
-        // Form tambah gudang
-        const formTambah = document.getElementById('formTambahGudang');
-        formTambah.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // ========== DAFTAR UNIT ==========
+        async function loadDaftarUnit() {
             try {
-                const kode = document.getElementById('kodeGudang').value.trim();
-                const nama = document.getElementById('namaGudang').value.trim();
-                const lokasi = document.getElementById('lokasiGudang').value.trim();
-                const kapasitas = document.getElementById('kapasitasGudang').value.trim();
-
-                if (!kode || !nama) {
-                    alert('Kode dan Nama Gudang wajib diisi');
+                const list = await getAll(unitStore);
+                const tbody = document.getElementById('daftarUnitBody');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
                     return;
                 }
-
-                await add('gudang', {
-                    kode,
-                    nama,
-                    lokasi,
-                    kapasitas: kapasitas ? parseInt(kapasitas) : null,
-                    synced: false,
-                    idCloud: null
-                });
-
-                alert('Gudang berhasil ditambahkan');
-                formTambah.reset();
-                if (daftarSection.classList.contains('active')) {
-                    tampilkanDaftarGudang();
-                }
+                tbody.innerHTML = list.map(u => `
+                    <tr>
+                        <td>${u.nama} ${!u.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editUnit('${u.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusUnit('${u.id}')"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                feather.replace();
             } catch (error) {
-                console.error('Error tambah gudang:', error);
-                alert('Gagal menyimpan: ' + error.message);
+                console.error(error);
+                alert('Gagal memuat unit: ' + error.message);
             }
-        });
+        }
+        submenus.daftarUnit.addEventListener('click', loadDaftarUnit);
 
-        // Fungsi edit dan hapus (ditempel ke window)
-        window.editGudang = async (id) => {
-            try {
-                const gudang = await getById('gudang', id);
-                if (!gudang) return;
-
-                const kodeBaru = prompt('Edit Kode Gudang', gudang.kode);
-                if (kodeBaru === null) return;
-                const namaBaru = prompt('Edit Nama Gudang', gudang.nama);
-                if (namaBaru === null) return;
-                const lokasiBaru = prompt('Edit Lokasi', gudang.lokasi || '');
-                const kapasitasBaru = prompt('Edit Kapasitas (m³)', gudang.kapasitas || '');
-
-                gudang.kode = kodeBaru;
-                gudang.nama = namaBaru;
-                gudang.lokasi = lokasiBaru;
-                gudang.kapasitas = kapasitasBaru ? parseInt(kapasitasBaru) : null;
-                gudang.synced = false;
-
-                await update('gudang', gudang);
-                tampilkanDaftarGudang();
-            } catch (error) {
-                console.error('Edit error:', error);
-                alert('Gagal mengedit: ' + error.message);
+        // ========== FUNGSI EDIT/HAPUS GLOBAL ==========
+        window.editKategori = async (id) => {
+            const newName = prompt('Edit nama kategori:');
+            if (newName && newName.trim()) {
+                try {
+                    const kategori = await getById(kategoriStore, id);
+                    if (!kategori) return;
+                    kategori.nama = newName.trim();
+                    kategori.synced = false;
+                    await updateItem(kategoriStore, id, kategori);
+                    loadDaftarKategori();
+                    loadDropdowns();
+                } catch (error) {
+                    alert('Gagal edit: ' + error.message);
+                }
+            }
+        };
+        window.hapusKategori = async (id) => {
+            if (confirm('Yakin hapus kategori?')) {
+                try {
+                    await removeItem(kategoriStore, id);
+                    loadDaftarKategori();
+                    loadDropdowns();
+                } catch (error) {
+                    alert('Gagal hapus: ' + error.message);
+                }
+            }
+        };
+        window.editUnit = async (id) => {
+            const newName = prompt('Edit nama unit:');
+            if (newName && newName.trim()) {
+                try {
+                    const unit = await getById(unitStore, id);
+                    if (!unit) return;
+                    unit.nama = newName.trim();
+                    unit.synced = false;
+                    await updateItem(unitStore, id, unit);
+                    loadDaftarUnit();
+                    loadDropdowns();
+                } catch (error) {
+                    alert('Gagal edit: ' + error.message);
+                }
+            }
+        };
+        window.hapusUnit = async (id) => {
+            if (confirm('Yakin hapus unit?')) {
+                try {
+                    await removeItem(unitStore, id);
+                    loadDaftarUnit();
+                    loadDropdowns();
+                } catch (error) {
+                    alert('Gagal hapus: ' + error.message);
+                }
             }
         };
 
-        window.hapusGudang = async (id) => {
-            if (!confirm('Yakin ingin menghapus gudang ini?')) return;
+        // ========== KONVERSI UNIT DINAMIS ==========
+        const konversiContainer = document.getElementById('konversiContainer');
+        document.getElementById('tambahKonversi').addEventListener('click', () => {
+            const row = document.createElement('div');
+            row.className = 'konversi-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <select class="unitKonversi" required><option value="">Unit</option></select>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="nilaiKonversi" placeholder="Nilai" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" class="barcodeKonversi" placeholder="Barcode">
+                </div>
+                <div class="form-group" style="flex-direction:row; align-items:center; gap:0.3rem;">
+                    <input type="checkbox" class="aktifKonversi" checked> <span style="font-size:0.85rem;">Aktif</span>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaDasarKonversi" placeholder="Harga Dasar">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaJualKonversi" placeholder="Harga Jual">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="poinKonversi" placeholder="Poin">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="komisiKonversi" placeholder="Komisi">
+                </div>
+                <button type="button" class="remove-row"><i data-feather="x"></i></button>
+            `;
+            konversiContainer.appendChild(row);
+            // Isi dropdown unit
+            getAll(unitStore).then(units => {
+                const select = row.querySelector('.unitKonversi');
+                units.forEach(u => select.add(new Option(u.nama, u.id)));
+            }).catch(error => console.error(error));
+            feather.replace();
+            row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+        });
+
+        // ========== QTY BREAK DINAMIS ==========
+        const qtyBreakContainer = document.getElementById('qtyBreakContainer');
+        document.getElementById('tambahQtyBreak').addEventListener('click', () => {
+            const row = document.createElement('div');
+            row.className = 'qtybreak-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <input type="text" class="levelQty" placeholder="Level" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" step="0.01" class="minQty" placeholder="Min Qty" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaQty" placeholder="Harga" required>
+                </div>
+                <button type="button" class="remove-row"><i data-feather="x"></i></button>
+            `;
+            qtyBreakContainer.appendChild(row);
+            feather.replace();
+            row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+        });
+
+        // ========== SIMPAN PRODUK ==========
+        const formTambahProduk = document.getElementById('formTambahProduk');
+        formTambahProduk.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const produk = {
+                nama: document.getElementById('namaProduk').value,
+                kode: document.getElementById('kodeProduk').value,
+                barcode: document.getElementById('barcodeProduk').value,
+                kategoriId: document.getElementById('kategoriProduk').value,
+                hargaDasar: parseFloat(document.getElementById('hargaDasar').value),
+                hargaJual: parseFloat(document.getElementById('hargaJual').value),
+                berat: document.getElementById('berat').value ? parseFloat(document.getElementById('berat').value) : null,
+                unitId: document.getElementById('unit').value,
+                diskon: parseFloat(document.getElementById('diskon').value),
+                gudangId: document.getElementById('gudang').value,
+                stokAwal: parseInt(document.getElementById('stokAwal').value),
+                stokMinimal: parseInt(document.getElementById('stokMinimal').value),
+                produkTimbangan: document.getElementById('produkTimbangan').checked,
+                synced: false,
+                idCloud: null
+            };
+
+            if (!produk.nama || !produk.kategoriId || !produk.hargaDasar || !produk.hargaJual || !produk.unitId || !produk.gudangId) {
+                alert('Harap isi semua field wajib');
+                return;
+            }
+
             try {
-                await remove('gudang', id);
-                tampilkanDaftarGudang();
+                const produkId = await addItem(produkStore, produk);
+
+                // Simpan konversi unit
+                const konversiRows = document.querySelectorAll('.konversi-row');
+                for (let row of konversiRows) {
+                    const unitId = row.querySelector('.unitKonversi').value;
+                    if (!unitId) continue;
+                    await addItem(konversiStore, {
+                        produkId,
+                        produkIdCloud: null,
+                        unitId,
+                        nilai: parseFloat(row.querySelector('.nilaiKonversi').value),
+                        barcode: row.querySelector('.barcodeKonversi').value,
+                        aktif: row.querySelector('.aktifKonversi').checked,
+                        hargaDasar: row.querySelector('.hargaDasarKonversi').value ? parseFloat(row.querySelector('.hargaDasarKonversi').value) : null,
+                        hargaJual: row.querySelector('.hargaJualKonversi').value ? parseFloat(row.querySelector('.hargaJualKonversi').value) : null,
+                        poinPelanggan: row.querySelector('.poinKonversi').value ? parseInt(row.querySelector('.poinKonversi').value) : null,
+                        komisiSales: row.querySelector('.komisiKonversi').value ? parseFloat(row.querySelector('.komisiKonversi').value) : null,
+                        synced: false,
+                        idCloud: null
+                    });
+                }
+
+                // Simpan qty break
+                const qtyRows = document.querySelectorAll('.qtybreak-row');
+                for (let row of qtyRows) {
+                    const minQty = row.querySelector('.minQty').value;
+                    if (!minQty) continue;
+                    await addItem(qtyStore, {
+                        produkId,
+                        produkIdCloud: null,
+                        level: row.querySelector('.levelQty').value,
+                        minQty: parseFloat(minQty),
+                        harga: parseFloat(row.querySelector('.hargaQty').value),
+                        synced: false,
+                        idCloud: null
+                    });
+                }
+
+                alert('Produk berhasil disimpan');
+                formTambahProduk.reset();
+                konversiContainer.innerHTML = '';
+                qtyBreakContainer.innerHTML = '';
+                if (sections.daftarProduk.classList.contains('active')) loadDaftarProduk();
             } catch (error) {
-                console.error('Hapus error:', error);
-                alert('Gagal menghapus: ' + error.message);
+                console.error(error);
+                alert('Gagal menyimpan produk: ' + error.message);
+            }
+        });
+
+        // ========== DAFTAR PRODUK ==========
+        async function loadDaftarProduk() {
+            try {
+                const produkList = await getAll(produkStore);
+                const tbody = document.getElementById('daftarProdukBody');
+                if (produkList.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
+                    return;
+                }
+                const kategoris = await getAll(kategoriStore);
+                const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
+                const units = await getAll(unitStore);
+                const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
+
+                tbody.innerHTML = produkList.map(p => `
+                    <tr>
+                        <td>${p.kode || '-'}</td>
+                        <td>${p.nama} ${!p.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>${kategoriMap[p.kategoriId] || '-'}</td>
+                        <td>Rp ${p.hargaJual.toLocaleString()}</td>
+                        <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
+                        <td>${p.produkTimbangan ? '✓' : '-'}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editProduk('${p.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusProduk('${p.id}')"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                feather.replace();
+            } catch (error) {
+                console.error(error);
+                alert('Gagal memuat produk: ' + error.message);
+            }
+        }
+        submenus.daftarProduk.addEventListener('click', loadDaftarProduk);
+
+        window.editProduk = (id) => alert('Fungsi edit produk akan segera hadir');
+        window.hapusProduk = async (id) => {
+            if (confirm('Yakin hapus produk?')) {
+                try {
+                    await removeItem(produkStore, id);
+                    // Hapus juga relasi
+                    const konversi = await findByIndex(konversiStore, 'produkId', id);
+                    for (let k of konversi) {
+                        await removeItem(konversiStore, k.id);
+                    }
+                    const qty = await findByIndex(qtyStore, 'produkId', id);
+                    for (let q of qty) {
+                        await removeItem(qtyStore, q.id);
+                    }
+                    loadDaftarProduk();
+                } catch (error) {
+                    alert('Gagal hapus: ' + error.message);
+                }
             }
         };
 
@@ -432,14 +789,14 @@
 
         // ========== FUNGSI RESET DATABASE ==========
         window.resetDatabase = async function() {
-            if (!confirm('PERINGATAN: Semua data gudang akan dihapus permanen. Lanjutkan?')) return;
+            if (!confirm('PERINGATAN: Semua data lokal akan dihapus permanen. Lanjutkan?')) return;
             try {
-                const semua = await getAll('gudang');
-                for (let g of semua) {
-                    await remove('gudang', g.id);
+                const stores = [kategoriStore, unitStore, gudangStore, produkStore, konversiStore, qtyStore];
+                for (let store of stores) {
+                    await store.clear();
                 }
-                alert('Semua data gudang telah dihapus.');
-                tampilkanDaftarGudang();
+                alert('Semua data lokal telah dihapus. Halaman akan dimuat ulang.');
+                location.reload();
             } catch (error) {
                 console.error('Gagal reset DB:', error);
                 alert('Gagal reset: ' + error.message);
@@ -447,7 +804,7 @@
         };
         document.getElementById('resetDbBtn').addEventListener('click', window.resetDatabase);
 
-        // ========== SINKRONISASI ==========
+        // ========== SINKRONISASI (Firebase) ==========
         window.syncData = async function() {
             if (!auth.currentUser) {
                 alert('Anda harus login terlebih dahulu');
@@ -459,10 +816,14 @@
             feather.replace();
 
             try {
-                // Sinkron tabel gudang
-                await syncTable('gudang', 'gudang');
+                await syncTable(kategoriStore, 'kategori');
+                await syncTable(unitStore, 'unit');
+                await syncTable(gudangStore, 'gudang');
+                await syncProduk();
                 alert('Sinkronisasi selesai');
-                tampilkanDaftarGudang();
+                if (sections.daftarKategori.classList.contains('active')) loadDaftarKategori();
+                if (sections.daftarUnit.classList.contains('active')) loadDaftarUnit();
+                if (sections.daftarProduk.classList.contains('active')) loadDaftarProduk();
             } catch (error) {
                 console.error('Sync error:', error);
                 alert('Gagal sinkron: ' + error.message);
@@ -472,24 +833,25 @@
             }
         };
 
-        async function syncTable(namaLokal, koleksiFirestore) {
+        async function syncTable(store, koleksiFirestore) {
             // Upload data lokal yang belum sinkron
-            const pending = await queryByIndex(namaLokal, 'synced', false);
+            const items = await getAll(store);
+            const pending = items.filter(item => !item.synced);
             for (let item of pending) {
                 try {
                     if (item.idCloud && typeof item.idCloud === 'string' && item.idCloud.length > 0) {
                         const docRef = doc(dbCloud, koleksiFirestore, item.idCloud);
                         await setDoc(docRef, item);
                         item.synced = true;
-                        await update(namaLokal, item);
+                        await updateItem(store, item.id, item);
                     } else {
                         const docRef = await addDoc(collection(dbCloud, koleksiFirestore), item);
                         item.idCloud = docRef.id;
                         item.synced = true;
-                        await update(namaLokal, item);
+                        await updateItem(store, item.id, item);
                     }
                 } catch (e) {
-                    console.warn(`Gagal upload ${namaLokal} id ${item.id}:`, e);
+                    console.warn(`Gagal upload ${koleksiFirestore} id ${item.id}:`, e);
                 }
             }
 
@@ -500,25 +862,137 @@
                     const data = docSnap.data();
                     data.idCloud = docSnap.id;
                     data.synced = true;
-                    const existing = await queryByIndexFirst(namaLokal, 'idCloud', docSnap.id);
+                    const existing = await findOneByIndex(store, 'idCloud', docSnap.id);
                     if (existing) {
-                        await update(namaLokal, { ...existing, ...data, id: existing.id });
+                        await updateItem(store, existing.id, { ...existing, ...data });
                     } else {
-                        await add(namaLokal, data);
+                        await addItem(store, data);
                     }
                 } catch (e) {
-                    console.warn(`Gagal download ${namaLokal} dari cloud:`, e);
+                    console.warn(`Gagal download ${koleksiFirestore} dari cloud:`, e);
                 }
+            }
+        }
+
+        async function syncProduk() {
+            // Upload produk
+            const produkItems = await getAll(produkStore);
+            const produkPending = produkItems.filter(p => !p.synced);
+            for (let p of produkPending) {
+                try {
+                    if (p.idCloud && typeof p.idCloud === 'string' && p.idCloud.length > 0) {
+                        await setDoc(doc(dbCloud, 'produk', p.idCloud), p);
+                        p.synced = true;
+                        await updateItem(produkStore, p.id, p);
+                    } else {
+                        const docRef = await addDoc(collection(dbCloud, 'produk'), p);
+                        p.idCloud = docRef.id;
+                        p.synced = true;
+                        await updateItem(produkStore, p.id, p);
+                        // Update relasi dengan produkIdCloud
+                        const konversiList = await findByIndex(konversiStore, 'produkId', p.id);
+                        for (let k of konversiList) {
+                            k.produkIdCloud = docRef.id;
+                            await updateItem(konversiStore, k.id, k);
+                        }
+                        const qtyList = await findByIndex(qtyStore, 'produkId', p.id);
+                        for (let q of qtyList) {
+                            q.produkIdCloud = docRef.id;
+                            await updateItem(qtyStore, q.id, q);
+                        }
+                    }
+                } catch (e) { console.warn('Gagal upload produk id', p.id, e); }
+            }
+
+            // Upload konversiUnit
+            const konvItems = await getAll(konversiStore);
+            const konvPending = konvItems.filter(k => !k.synced);
+            for (let k of konvPending) {
+                try {
+                    if (k.idCloud && typeof k.idCloud === 'string' && k.idCloud.length > 0) {
+                        await setDoc(doc(dbCloud, 'konversiUnit', k.idCloud), k);
+                        k.synced = true;
+                        await updateItem(konversiStore, k.id, k);
+                    } else {
+                        const docRef = await addDoc(collection(dbCloud, 'konversiUnit'), k);
+                        k.idCloud = docRef.id;
+                        k.synced = true;
+                        await updateItem(konversiStore, k.id, k);
+                    }
+                } catch (e) { console.warn('Gagal upload konversiUnit id', k.id, e); }
+            }
+
+            // Upload qtyBreak
+            const qtyItems = await getAll(qtyStore);
+            const qtyPending = qtyItems.filter(q => !q.synced);
+            for (let q of qtyPending) {
+                try {
+                    if (q.idCloud && typeof q.idCloud === 'string' && q.idCloud.length > 0) {
+                        await setDoc(doc(dbCloud, 'qtyBreak', q.idCloud), q);
+                        q.synced = true;
+                        await updateItem(qtyStore, q.id, q);
+                    } else {
+                        const docRef = await addDoc(collection(dbCloud, 'qtyBreak'), q);
+                        q.idCloud = docRef.id;
+                        q.synced = true;
+                        await updateItem(qtyStore, q.id, q);
+                    }
+                } catch (e) { console.warn('Gagal upload qtyBreak id', q.id, e); }
+            }
+
+            // Download produk
+            const produkSnapshot = await getDocs(collection(dbCloud, 'produk'));
+            for (const docSnap of produkSnapshot.docs) {
+                try {
+                    const data = docSnap.data();
+                    data.idCloud = docSnap.id;
+                    data.synced = true;
+                    const existing = await findOneByIndex(produkStore, 'idCloud', docSnap.id);
+                    if (existing) {
+                        await updateItem(produkStore, existing.id, { ...existing, ...data });
+                    } else {
+                        await addItem(produkStore, data);
+                    }
+                } catch (e) { console.warn('Gagal download produk', e); }
+            }
+
+            // Download konversiUnit
+            const konvSnapshot = await getDocs(collection(dbCloud, 'konversiUnit'));
+            for (const docSnap of konvSnapshot.docs) {
+                try {
+                    const data = docSnap.data();
+                    data.idCloud = docSnap.id;
+                    data.synced = true;
+                    const existing = await findOneByIndex(konversiStore, 'idCloud', docSnap.id);
+                    if (existing) {
+                        await updateItem(konversiStore, existing.id, { ...existing, ...data });
+                    } else {
+                        await addItem(konversiStore, data);
+                    }
+                } catch (e) { console.warn('Gagal download konversiUnit', e); }
+            }
+
+            // Download qtyBreak
+            const qtySnapshot = await getDocs(collection(dbCloud, 'qtyBreak'));
+            for (const docSnap of qtySnapshot.docs) {
+                try {
+                    const data = docSnap.data();
+                    data.idCloud = docSnap.id;
+                    data.synced = true;
+                    const existing = await findOneByIndex(qtyStore, 'idCloud', docSnap.id);
+                    if (existing) {
+                        await updateItem(qtyStore, existing.id, { ...existing, ...data });
+                    } else {
+                        await addItem(qtyStore, data);
+                    }
+                } catch (e) { console.warn('Gagal download qtyBreak', e); }
             }
         }
 
         document.getElementById('syncBtn').addEventListener('click', syncData);
 
         // ========== INITIAL LOAD ==========
-        // Tampilkan daftar jika aktif
-        if (daftarSection.classList.contains('active')) {
-            tampilkanDaftarGudang();
-        }
+        loadDropdowns();
     </script>
 </body>
 </html>
