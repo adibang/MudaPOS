@@ -6,69 +6,300 @@
     <title>MUDA POS - Master Data</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- Dexie -->
+    <!-- Dexie (harus global) -->
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <style>
-        /* ===== CSS SAMA DENGAN VERSI SEBELUMNYA ===== */
-        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-        body { background:#f5f5f5; color:#333; font-size:14px; }
-        .text-primary { color:#006B54; }
-        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
-        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
-        .menu-toggle:hover { background:#f0f0f0; }
-        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
-        .btn-login:hover { background:#004d3b; }
-        .btn-sync { background:transparent; border:1px solid #006B54; color:#006B54; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; margin-right:0.5rem; font-size:0.9rem; }
-        .btn-sync:hover { background:#e6f0ec; }
-        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
-        .sidebar.open { transform:translateX(0); }
-        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
-        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
-        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
-        .sidebar-menu { list-style:none; }
-        .sidebar-menu li { margin-bottom:0.2rem; }
-        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
-        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
-        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
-        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
-        .has-submenu.open .submenu { display:block; }
-        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
-        .submenu a:hover { background:#e6f0ec; color:#006B54; }
-        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
-        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
-        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
-        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
-        .overlay.active { display:block; }
-        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
-        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
-        .content-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; display:none; }
-        .content-section.active { display:block; }
-        .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:1rem; margin-bottom:1.2rem; }
-        .form-group { display:flex; flex-direction:column; }
-        .form-group label { margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
-        .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; transition:border 0.2s; }
-        .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
-        .subform-section { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e0e0e0; }
-        .subform-title { font-size:1.1rem; font-weight:600; color:#006B54; margin-bottom:0.8rem; }
-        .konversi-row, .qtybreak-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:0.6rem; align-items:center; background:#fafafa; padding:0.8rem; border-radius:8px; margin-bottom:0.6rem; }
-        .konversi-row .form-group, .qtybreak-row .form-group { margin-bottom:0; }
-        .remove-row { background:none; border:none; color:#dc3545; cursor:pointer; justify-self:end; padding:0.2rem; }
-        .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; margin-right:0.5rem; }
-        .btn:hover { background:#004d3b; }
-        .btn-secondary { background:#6c757d; }
-        .btn-secondary:hover { background:#5a6268; }
-        .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; margin-top:0.5rem; }
-        .btn-outline:hover { background:#e6f0ec; }
-        .table-responsive { overflow-x:auto; margin-top:1rem; }
-        table { width:100%; border-collapse:collapse; font-size:0.9rem; }
-        th, td { padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
-        th { background:#f9f9f9; font-weight:600; color:#006B54; }
-        tr:hover { background:#f5f5f5; }
-        .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; }
-        .btn-icon.delete { color:#dc3545; }
+        /* ===== RESET & VARIABEL ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            color: #333333;
+            font-size: 14px;
+        }
+        .text-primary { color: #006B54; }
+
+        /* ===== HEADER ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 1.5rem;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .menu-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #006B54;
+            padding: 0.4rem;
+            border-radius: 6px;
+        }
+        .menu-toggle:hover { background-color: #f0f0f0; }
+        .btn-login {
+            background-color: #006B54;
+            color: white;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.9rem;
+        }
+        .btn-login:hover { background-color: #004d3b; }
+        .btn-sync {
+            background: transparent;
+            border: 1px solid #006B54;
+            color: #006B54;
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-right: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .btn-sync:hover { background-color: #e6f0ec; }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 260px;
+            height: 100%;
+            background-color: white;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+            transform: translateX(-100%);
+            transition: transform 0.3s;
+            z-index: 200;
+            padding: 1.2rem 0.8rem;
+            overflow-y: auto;
+        }
+        .sidebar.open { transform: translateX(0); }
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid #eee;
+        }
+        .sidebar-header h2 { color: #006B54; font-size: 1.2rem; }
+        .close-sidebar { background: none; border: none; cursor: pointer; color: #999; }
+        .sidebar-menu { list-style: none; }
+        .sidebar-menu li { margin-bottom: 0.2rem; }
+        .sidebar-menu .menu-link {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.6rem 0.8rem;
+            color: #006B54;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+        .sidebar-menu .menu-link:hover { background-color: #f0f5f3; }
+        .sidebar-menu .menu-link i { color: #006B54; width: 18px; }
+        .has-submenu .submenu {
+            list-style: none;
+            padding-left: 2.5rem;
+            display: none;
+        }
+        .has-submenu.open .submenu { display: block; }
+        .submenu a {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.5rem 0.8rem;
+            color: #333;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .submenu a:hover {
+            background-color: #e6f0ec;
+            color: #006B54;
+        }
+        .submenu a.active {
+            background-color: #e6f0ec;
+            color: #006B54;
+            font-weight: 500;
+        }
+        .has-submenu .menu-link .arrow {
+            margin-left: auto;
+            transition: transform 0.3s;
+        }
+        .has-submenu.open .menu-link .arrow { transform: rotate(180deg); }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 150;
+            display: none;
+        }
+        .overlay.active { display: block; }
+
+        /* ===== MAIN CONTENT ===== */
+        .main-content {
+            padding: 1.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .page-title {
+            margin-bottom: 1.2rem;
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #006B54;
+        }
+        .content-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            border: 1px solid #f0f0f0;
+            display: none;
+        }
+        .content-section.active { display: block; }
+
+        /* Form */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
+            gap: 1rem;
+            margin-bottom: 1.2rem;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: #444;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 0.6rem 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #006B54;
+        }
+        .subform-section {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e0e0e0;
+        }
+        .subform-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #006B54;
+            margin-bottom: 0.8rem;
+        }
+        .konversi-row, .qtybreak-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px,1fr));
+            gap: 0.6rem;
+            align-items: center;
+            background: #fafafa;
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 0.6rem;
+        }
+        .konversi-row .form-group, .qtybreak-row .form-group {
+            margin-bottom: 0;
+        }
+        .remove-row {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            justify-self: end;
+            padding: 0.2rem;
+        }
+        .btn {
+            background: #006B54;
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-right: 0.5rem;
+        }
+        .btn:hover { background: #004d3b; }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #006B54;
+            color: #006B54;
+            margin-top: 0.5rem;
+        }
+        .btn-outline:hover { background: #e6f0ec; }
+
+        /* Tabel */
+        .table-responsive {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            min-width: 600px;
+        }
+        th, td {
+            padding: 0.6rem 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            white-space: nowrap;
+        }
+        th {
+            background: #f9f9f9;
+            font-weight: 600;
+            color: #006B54;
+        }
+        tr:hover { background: #f5f5f5; }
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #006B54;
+            padding: 0.2rem;
+        }
+        .btn-icon.delete { color: #dc3545; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
-        @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
+        @media (max-width:640px) {
+            .main-content { padding:0.8rem; }
+            .content-section { padding:1rem; }
+        }
     </style>
 </head>
 <body>
@@ -123,39 +354,75 @@
     <main class="main-content">
         <h1 class="page-title">Master Data</h1>
 
-        <!-- ========== SECTION TAMBAH PRODUK ========== -->
+        <!-- Section Tambah Produk -->
         <div id="tambahProdukSection" class="content-section active">
-            <h2 style="margin-bottom:1rem;">Tambah Produk Baru</h2>
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Produk Baru</h2>
             <form id="formTambahProduk">
                 <div class="form-grid">
-                    <div class="form-group"><label>Nama Produk *</label><input type="text" id="namaProduk" required></div>
-                    <div class="form-group"><label>Kode Produk (timbangan)</label><input type="text" id="kodeProduk"></div>
+                    <div class="form-group">
+                        <label>Nama Produk *</label>
+                        <input type="text" id="namaProduk" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kode Produk (timbangan)</label>
+                        <input type="text" id="kodeProduk">
+                    </div>
                 </div>
                 <div class="form-grid" style="margin-bottom:1rem;">
                     <div class="form-group" style="flex-direction:row; align-items:center; gap:0.5rem;">
                         <input type="checkbox" id="produkTimbangan" style="width:auto;">
-                        <label for="produkTimbangan">Produk Timbangan</label>
+                        <label for="produkTimbangan" style="margin-bottom:0;">Produk Timbangan</label>
                     </div>
                 </div>
                 <div class="form-grid">
-                    <div class="form-group"><label>Barcode</label><input type="text" id="barcodeProduk"></div>
-                    <div class="form-group"><label>Kategori *</label><select id="kategoriProduk" required><option value="">Pilih Kategori</option></select></div>
+                    <div class="form-group">
+                        <label>Barcode</label>
+                        <input type="text" id="barcodeProduk">
+                    </div>
+                    <div class="form-group">
+                        <label>Kategori *</label>
+                        <select id="kategoriProduk" required><option value="">Pilih Kategori</option></select>
+                    </div>
                 </div>
                 <div class="form-grid">
-                    <div class="form-group"><label>Harga Dasar *</label><input type="number" id="hargaDasar" required></div>
-                    <div class="form-group"><label>Harga Jual *</label><input type="number" id="hargaJual" required></div>
+                    <div class="form-group">
+                        <label>Harga Dasar *</label>
+                        <input type="number" id="hargaDasar" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Harga Jual *</label>
+                        <input type="number" id="hargaJual" required>
+                    </div>
                 </div>
                 <div class="form-grid">
-                    <div class="form-group"><label>Berat (kg)</label><input type="number" step="0.01" id="berat"></div>
-                    <div class="form-group"><label>Unit *</label><select id="unit" required><option value="">Pilih Unit</option></select></div>
+                    <div class="form-group">
+                        <label>Berat (kg)</label>
+                        <input type="number" step="0.01" id="berat">
+                    </div>
+                    <div class="form-group">
+                        <label>Unit *</label>
+                        <select id="unit" required><option value="">Pilih Unit</option></select>
+                    </div>
                 </div>
                 <div class="form-grid">
-                    <div class="form-group"><label>Diskon (%)</label><input type="number" id="diskon" value="0"></div>
-                    <div class="form-group"><label>Gudang *</label><select id="gudang" required><option value="">Pilih Gudang</option></select></div>
+                    <div class="form-group">
+                        <label>Diskon (%)</label>
+                        <input type="number" id="diskon" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Gudang *</label>
+                        <select id="gudang" required><option value="">Pilih Gudang</option></select>
+                    </div>
                 </div>
                 <div class="form-grid">
-                    <div class="form-group"><label>Stok Awal *</label><input type="number" id="stokAwal" required></div>
-                    <div class="form-group"><label>Stok Minimal *</label><input type="number" id="stokMinimal" required></div>
+                    <div class="form-group">
+                        <label>Stok Awal *</label>
+                        <input type="number" id="stokAwal" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stok Minimal *</label>
+                        <input type="number" id="stokMinimal" required>
+                    </div>
                 </div>
 
                 <!-- Konversi Unit -->
@@ -179,9 +446,9 @@
             </form>
         </div>
 
-        <!-- ========== SECTION DAFTAR PRODUK ========== -->
+        <!-- Section Daftar Produk -->
         <div id="daftarProdukSection" class="content-section">
-            <h2 style="margin-bottom:1rem;">Daftar Produk</h2>
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Produk</h2>
             <div class="table-responsive">
                 <table>
                     <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Timbangan</th><th>Aksi</th></tr></thead>
@@ -190,50 +457,56 @@
             </div>
         </div>
 
-        <!-- ========== SECTION TAMBAH KATEGORI ========== -->
+        <!-- Section Tambah Kategori -->
         <div id="tambahKategoriSection" class="content-section">
-            <h2 style="margin-bottom:1rem;">Tambah Kategori</h2>
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Kategori</h2>
             <form id="formTambahKategori">
-                <div class="form-group" style="max-width:350px;"><label>Nama Kategori</label><input type="text" id="namaKategori" required></div>
+                <div class="form-group" style="max-width:350px;">
+                    <label>Nama Kategori</label>
+                    <input type="text" id="namaKategori" required>
+                </div>
                 <button type="submit" class="btn">Simpan Kategori</button>
             </form>
         </div>
 
-        <!-- ========== SECTION DAFTAR KATEGORI ========== -->
+        <!-- Section Daftar Kategori -->
         <div id="daftarKategoriSection" class="content-section">
-            <h2 style="margin-bottom:1rem;">Daftar Kategori</h2>
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Kategori</h2>
             <div class="table-responsive">
                 <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
-                <tbody id="daftarKategoriBody"><tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr></tbody></table>
+                <tbody id="daftarKategoriBody"><tr><td colspan="2">Belum ada data</td></tr></tbody></table>
             </div>
         </div>
 
-        <!-- ========== SECTION TAMBAH UNIT ========== -->
+        <!-- Section Tambah Unit -->
         <div id="tambahUnitSection" class="content-section">
-            <h2 style="margin-bottom:1rem;">Tambah Unit</h2>
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Unit</h2>
             <form id="formTambahUnit">
-                <div class="form-group" style="max-width:350px;"><label>Nama Unit</label><input type="text" id="namaUnit" required></div>
+                <div class="form-group" style="max-width:350px;">
+                    <label>Nama Unit</label>
+                    <input type="text" id="namaUnit" required>
+                </div>
                 <button type="submit" class="btn">Simpan Unit</button>
             </form>
         </div>
 
-        <!-- ========== SECTION DAFTAR UNIT ========== -->
+        <!-- Section Daftar Unit -->
         <div id="daftarUnitSection" class="content-section">
-            <h2 style="margin-bottom:1rem;">Daftar Unit</h2>
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Unit</h2>
             <div class="table-responsive">
                 <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
-                <tbody id="daftarUnitBody"><tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr></tbody></table>
+                <tbody id="daftarUnitBody"><tr><td colspan="2">Belum ada data</td></tr></tbody></table>
             </div>
         </div>
     </main>
 
     <!-- Script module utama -->
     <script type="module">
-        // Impor dari firebase-config
         import { dbLokal, auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { collection, doc, getDocs, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
+        // Inisialisasi Feather Icons
         feather.replace();
 
         // ========== SIDEBAR ==========
@@ -289,26 +562,24 @@
 
         // ========== LOAD DROPDOWNS ==========
         async function loadDropdowns() {
-            try {
-                const kategoriSelect = document.getElementById('kategoriProduk');
-                if (kategoriSelect) {
-                    const kategoris = await dbLokal.kategori.toArray();
-                    kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
-                        kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
-                }
-                const unitSelect = document.getElementById('unit');
-                if (unitSelect) {
-                    const units = await dbLokal.unit.toArray();
-                    unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
-                        units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
-                }
-                const gudangSelect = document.getElementById('gudang');
-                if (gudangSelect) {
-                    const gudangs = await dbLokal.gudang.toArray();
-                    gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
-                        gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
-                }
-            } catch (e) { console.error('Load dropdowns error:', e); }
+            const kategoriSelect = document.getElementById('kategoriProduk');
+            if (kategoriSelect) {
+                const kategoris = await dbLokal.kategori.toArray();
+                kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
+                    kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
+            }
+            const unitSelect = document.getElementById('unit');
+            if (unitSelect) {
+                const units = await dbLokal.unit.toArray();
+                unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
+                    units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
+            }
+            const gudangSelect = document.getElementById('gudang');
+            if (gudangSelect) {
+                const gudangs = await dbLokal.gudang.toArray();
+                gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
+                    gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
+            }
         }
 
         // ========== TAMBAH KATEGORI ==========
@@ -325,7 +596,7 @@
                 if (sections.daftarKategori.classList.contains('active')) loadDaftarKategori();
             } catch (error) {
                 console.error(error);
-                alert('Gagal menambah kategori: ' + error.message);
+                alert('Gagal menambah kategori');
             }
         });
 
@@ -343,53 +614,49 @@
                 if (sections.daftarUnit.classList.contains('active')) loadDaftarUnit();
             } catch (error) {
                 console.error(error);
-                alert('Gagal menambah unit: ' + error.message);
+                alert('Gagal menambah unit');
             }
         });
 
         // ========== DAFTAR KATEGORI ==========
         async function loadDaftarKategori() {
-            try {
-                const list = await dbLokal.kategori.toArray();
-                const tbody = document.getElementById('daftarKategoriBody');
-                if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                    return;
-                }
-                tbody.innerHTML = list.map(k => `
-                    <tr>
-                        <td>${k.nama} ${!k.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                        <td>
-                            <button class="btn-icon edit" onclick="editKategori(${k.id})"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusKategori(${k.id})"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>
-                `).join('');
-                feather.replace();
-            } catch (e) { console.error('Load kategori error:', e); }
+            const list = await dbLokal.kategori.toArray();
+            const tbody = document.getElementById('daftarKategoriBody');
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.map(k => `
+                <tr>
+                    <td>${k.nama} ${!k.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                    <td>
+                        <button class="btn-icon edit" onclick="editKategori(${k.id})"><i data-feather="edit-2"></i></button>
+                        <button class="btn-icon delete" onclick="hapusKategori(${k.id})"><i data-feather="trash-2"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            feather.replace();
         }
         submenus.daftarKategori.addEventListener('click', loadDaftarKategori);
 
         // ========== DAFTAR UNIT ==========
         async function loadDaftarUnit() {
-            try {
-                const list = await dbLokal.unit.toArray();
-                const tbody = document.getElementById('daftarUnitBody');
-                if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                    return;
-                }
-                tbody.innerHTML = list.map(u => `
-                    <tr>
-                        <td>${u.nama} ${!u.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                        <td>
-                            <button class="btn-icon edit" onclick="editUnit(${u.id})"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusUnit(${u.id})"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>
-                `).join('');
-                feather.replace();
-            } catch (e) { console.error('Load unit error:', e); }
+            const list = await dbLokal.unit.toArray();
+            const tbody = document.getElementById('daftarUnitBody');
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.map(u => `
+                <tr>
+                    <td>${u.nama} ${!u.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                    <td>
+                        <button class="btn-icon edit" onclick="editUnit(${u.id})"><i data-feather="edit-2"></i></button>
+                        <button class="btn-icon delete" onclick="hapusUnit(${u.id})"><i data-feather="trash-2"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            feather.replace();
         }
         submenus.daftarUnit.addEventListener('click', loadDaftarUnit);
 
@@ -397,39 +664,31 @@
         window.editKategori = async (id) => {
             const newName = prompt('Edit nama kategori:');
             if (newName && newName.trim()) {
-                try {
-                    await dbLokal.kategori.update(id, { nama: newName.trim(), synced: false });
-                    loadDaftarKategori();
-                    loadDropdowns();
-                } catch (e) { alert('Gagal edit: ' + e.message); }
+                await dbLokal.kategori.update(id, { nama: newName.trim(), synced: false });
+                loadDaftarKategori();
+                loadDropdowns();
             }
         };
         window.hapusKategori = async (id) => {
             if (confirm('Yakin hapus kategori?')) {
-                try {
-                    await dbLokal.kategori.delete(id);
-                    loadDaftarKategori();
-                    loadDropdowns();
-                } catch (e) { alert('Gagal hapus: ' + e.message); }
+                await dbLokal.kategori.delete(id);
+                loadDaftarKategori();
+                loadDropdowns();
             }
         };
         window.editUnit = async (id) => {
             const newName = prompt('Edit nama unit:');
             if (newName && newName.trim()) {
-                try {
-                    await dbLokal.unit.update(id, { nama: newName.trim(), synced: false });
-                    loadDaftarUnit();
-                    loadDropdowns();
-                } catch (e) { alert('Gagal edit: ' + e.message); }
+                await dbLokal.unit.update(id, { nama: newName.trim(), synced: false });
+                loadDaftarUnit();
+                loadDropdowns();
             }
         };
         window.hapusUnit = async (id) => {
             if (confirm('Yakin hapus unit?')) {
-                try {
-                    await dbLokal.unit.delete(id);
-                    loadDaftarUnit();
-                    loadDropdowns();
-                } catch (e) { alert('Gagal hapus: ' + e.message); }
+                await dbLokal.unit.delete(id);
+                loadDaftarUnit();
+                loadDropdowns();
             }
         };
 
@@ -439,14 +698,30 @@
             const row = document.createElement('div');
             row.className = 'konversi-row';
             row.innerHTML = `
-                <div class="form-group"><select class="unitKonversi" required><option value="">Unit</option></select></div>
-                <div class="form-group"><input type="number" class="nilaiKonversi" placeholder="Nilai" required></div>
-                <div class="form-group"><input type="text" class="barcodeKonversi" placeholder="Barcode"></div>
-                <div class="form-group" style="flex-direction:row; gap:0.3rem;"><input type="checkbox" class="aktifKonversi" checked> <span>Aktif</span></div>
-                <div class="form-group"><input type="number" class="hargaDasarKonversi" placeholder="Harga Dasar"></div>
-                <div class="form-group"><input type="number" class="hargaJualKonversi" placeholder="Harga Jual"></div>
-                <div class="form-group"><input type="number" class="poinKonversi" placeholder="Poin"></div>
-                <div class="form-group"><input type="number" class="komisiKonversi" placeholder="Komisi"></div>
+                <div class="form-group">
+                    <select class="unitKonversi" required><option value="">Unit</option></select>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="nilaiKonversi" placeholder="Nilai" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" class="barcodeKonversi" placeholder="Barcode">
+                </div>
+                <div class="form-group" style="flex-direction:row; align-items:center; gap:0.3rem;">
+                    <input type="checkbox" class="aktifKonversi" checked> <span style="font-size:0.85rem;">Aktif</span>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaDasarKonversi" placeholder="Harga Dasar">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaJualKonversi" placeholder="Harga Jual">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="poinKonversi" placeholder="Poin">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="komisiKonversi" placeholder="Komisi">
+                </div>
                 <button type="button" class="remove-row"><i data-feather="x"></i></button>
             `;
             konversiContainer.appendChild(row);
@@ -464,9 +739,15 @@
             const row = document.createElement('div');
             row.className = 'qtybreak-row';
             row.innerHTML = `
-                <div class="form-group"><input type="text" class="levelQty" placeholder="Level" required></div>
-                <div class="form-group"><input type="number" step="0.01" class="minQty" placeholder="Min Qty" required></div>
-                <div class="form-group"><input type="number" class="hargaQty" placeholder="Harga" required></div>
+                <div class="form-group">
+                    <input type="text" class="levelQty" placeholder="Level" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" step="0.01" class="minQty" placeholder="Min Qty" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaQty" placeholder="Harga" required>
+                </div>
                 <button type="button" class="remove-row"><i data-feather="x"></i></button>
             `;
             qtyBreakContainer.appendChild(row);
@@ -504,12 +785,14 @@
             try {
                 const produkId = await dbLokal.produk.add(produk);
 
+                // Simpan konversi unit
                 const konversiRows = document.querySelectorAll('.konversi-row');
                 for (let row of konversiRows) {
                     const unitId = row.querySelector('.unitKonversi').value;
                     if (!unitId) continue;
                     await dbLokal.konversiUnit.add({
-                        produkId, produkIdCloud: null,
+                        produkId,
+                        produkIdCloud: null,
                         unitId: parseInt(unitId),
                         nilai: parseFloat(row.querySelector('.nilaiKonversi').value),
                         barcode: row.querySelector('.barcodeKonversi').value,
@@ -518,20 +801,24 @@
                         hargaJual: row.querySelector('.hargaJualKonversi').value ? parseFloat(row.querySelector('.hargaJualKonversi').value) : null,
                         poinPelanggan: row.querySelector('.poinKonversi').value ? parseInt(row.querySelector('.poinKonversi').value) : null,
                         komisiSales: row.querySelector('.komisiKonversi').value ? parseFloat(row.querySelector('.komisiKonversi').value) : null,
-                        synced: false, idCloud: null
+                        synced: false,
+                        idCloud: null
                     });
                 }
 
+                // Simpan qty break
                 const qtyRows = document.querySelectorAll('.qtybreak-row');
                 for (let row of qtyRows) {
                     const minQty = row.querySelector('.minQty').value;
                     if (!minQty) continue;
                     await dbLokal.qtyBreak.add({
-                        produkId, produkIdCloud: null,
+                        produkId,
+                        produkIdCloud: null,
                         level: row.querySelector('.levelQty').value,
                         minQty: parseFloat(minQty),
                         harga: parseFloat(row.querySelector('.hargaQty').value),
-                        synced: false, idCloud: null
+                        synced: false,
+                        idCloud: null
                     });
                 }
 
@@ -542,52 +829,48 @@
                 if (sections.daftarProduk.classList.contains('active')) loadDaftarProduk();
             } catch (error) {
                 console.error(error);
-                alert('Gagal menyimpan produk: ' + error.message);
+                alert('Gagal menyimpan produk');
             }
         });
 
         // ========== DAFTAR PRODUK ==========
         async function loadDaftarProduk() {
-            try {
-                const produkList = await dbLokal.produk.toArray();
-                const tbody = document.getElementById('daftarProdukBody');
-                if (produkList.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
-                    return;
-                }
-                const kategoris = await dbLokal.kategori.toArray();
-                const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
-                const units = await dbLokal.unit.toArray();
-                const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
+            const produkList = await dbLokal.produk.toArray();
+            const tbody = document.getElementById('daftarProdukBody');
+            if (produkList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
+                return;
+            }
+            const kategoris = await dbLokal.kategori.toArray();
+            const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
+            const units = await dbLokal.unit.toArray();
+            const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
 
-                tbody.innerHTML = produkList.map(p => `
-                    <tr>
-                        <td>${p.kode || '-'}</td>
-                        <td>${p.nama} ${!p.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                        <td>${kategoriMap[p.kategoriId] || '-'}</td>
-                        <td>Rp ${p.hargaJual.toLocaleString()}</td>
-                        <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
-                        <td>${p.produkTimbangan ? '✓' : '-'}</td>
-                        <td>
-                            <button class="btn-icon edit" onclick="editProduk(${p.id})"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusProduk(${p.id})"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>
-                `).join('');
-                feather.replace();
-            } catch (e) { console.error('Load produk error:', e); }
+            tbody.innerHTML = produkList.map(p => `
+                <tr>
+                    <td>${p.kode || '-'}</td>
+                    <td>${p.nama} ${!p.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                    <td>${kategoriMap[p.kategoriId] || '-'}</td>
+                    <td>Rp ${p.hargaJual.toLocaleString()}</td>
+                    <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
+                    <td>${p.produkTimbangan ? '✓' : '-'}</td>
+                    <td>
+                        <button class="btn-icon edit" onclick="editProduk(${p.id})"><i data-feather="edit-2"></i></button>
+                        <button class="btn-icon delete" onclick="hapusProduk(${p.id})"><i data-feather="trash-2"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            feather.replace();
         }
         submenus.daftarProduk.addEventListener('click', loadDaftarProduk);
 
         window.editProduk = (id) => alert('Fungsi edit produk akan segera hadir');
         window.hapusProduk = async (id) => {
             if (confirm('Yakin hapus produk?')) {
-                try {
-                    await dbLokal.produk.delete(id);
-                    await dbLokal.konversiUnit.where('produkId').equals(id).delete();
-                    await dbLokal.qtyBreak.where('produkId').equals(id).delete();
-                    loadDaftarProduk();
-                } catch (e) { alert('Gagal hapus: ' + e.message); }
+                await dbLokal.produk.delete(id);
+                await dbLokal.konversiUnit.where('produkId').equals(id).delete();
+                await dbLokal.qtyBreak.where('produkId').equals(id).delete();
+                loadDaftarProduk();
             }
         };
 
@@ -610,8 +893,12 @@
             }
         });
 
-        // ========== FUNGSI SINKRONISASI ==========
+        // ========== SINKRONISASI (dengan validasi key) ==========
         window.syncData = async function() {
+            if (!auth.currentUser) {
+                alert('Anda harus login terlebih dahulu');
+                return;
+            }
             const syncBtn = document.getElementById('syncBtn');
             const originalText = syncBtn.innerHTML;
             syncBtn.innerHTML = '<i data-feather="loader" class="spin"></i><span>Syncing...</span>';
@@ -622,9 +909,7 @@
                 await syncTable('unit', dbLokal.unit, 'unit');
                 await syncTable('gudang', dbLokal.gudang, 'gudang');
                 await syncProduk();
-
                 alert('Sinkronisasi selesai');
-                // Refresh tampilan jika sedang di daftar
                 if (sections.daftarKategori.classList.contains('active')) loadDaftarKategori();
                 if (sections.daftarUnit.classList.contains('active')) loadDaftarUnit();
                 if (sections.daftarProduk.classList.contains('active')) loadDaftarProduk();
@@ -638,24 +923,26 @@
         };
 
         async function syncTable(namaLokal, tableLokal, koleksiFirestore) {
-            // Upload lokal yang belum sinkron
+            // Upload data lokal yang belum sinkron
             const pending = await tableLokal.where('synced').equals(false).toArray();
             for (let item of pending) {
                 try {
-                    if (item.idCloud && typeof item.idCloud === 'string') {
+                    if (item.idCloud && typeof item.idCloud === 'string' && item.idCloud.length > 0) {
+                        // Update dokumen yang sudah ada
                         const docRef = doc(dbCloud, koleksiFirestore, item.idCloud);
                         await setDoc(docRef, item);
                         await tableLokal.update(item.id, { synced: true });
                     } else {
+                        // Tambah dokumen baru
                         const docRef = await addDoc(collection(dbCloud, koleksiFirestore), item);
                         await tableLokal.update(item.id, { idCloud: docRef.id, synced: true });
                     }
                 } catch (e) {
-                    console.warn(`Gagal upload ${namaLokal} ${item.id}`, e);
+                    console.warn(`Gagal upload ${namaLokal} id ${item.id}:`, e);
                 }
             }
 
-            // Download semua dari cloud
+            // Download semua data dari cloud
             const snapshot = await getDocs(collection(dbCloud, koleksiFirestore));
             for (const docSnap of snapshot.docs) {
                 try {
@@ -669,7 +956,7 @@
                         await tableLokal.add(data);
                     }
                 } catch (e) {
-                    console.warn(`Gagal download ${namaLokal}`, e);
+                    console.warn(`Gagal download ${namaLokal} dari cloud:`, e);
                 }
             }
         }
@@ -679,47 +966,47 @@
             const produkPending = await dbLokal.produk.where('synced').equals(false).toArray();
             for (let p of produkPending) {
                 try {
-                    if (p.idCloud && typeof p.idCloud === 'string') {
+                    if (p.idCloud && typeof p.idCloud === 'string' && p.idCloud.length > 0) {
                         await setDoc(doc(dbCloud, 'produk', p.idCloud), p);
                         await dbLokal.produk.update(p.id, { synced: true });
                     } else {
                         const docRef = await addDoc(collection(dbCloud, 'produk'), p);
                         await dbLokal.produk.update(p.id, { idCloud: docRef.id, synced: true });
-                        // Update relasi dengan produkIdCloud, pastikan p.id valid
-                        if (p.id != null && typeof p.id === 'number') {
+                        // Update relasi dengan produkIdCloud, pastikan p.id valid (number)
+                        if (p.id && typeof p.id === 'number') {
                             await dbLokal.konversiUnit.where('produkId').equals(p.id).modify({ produkIdCloud: docRef.id });
                             await dbLokal.qtyBreak.where('produkId').equals(p.id).modify({ produkIdCloud: docRef.id });
                         }
                     }
-                } catch (e) { console.warn('Gagal upload produk', e); }
+                } catch (e) { console.warn('Gagal upload produk id', p.id, e); }
             }
 
             // Upload konversiUnit
             const konvPending = await dbLokal.konversiUnit.where('synced').equals(false).toArray();
             for (let k of konvPending) {
                 try {
-                    if (k.idCloud && typeof k.idCloud === 'string') {
+                    if (k.idCloud && typeof k.idCloud === 'string' && k.idCloud.length > 0) {
                         await setDoc(doc(dbCloud, 'konversiUnit', k.idCloud), k);
                         await dbLokal.konversiUnit.update(k.id, { synced: true });
                     } else {
                         const docRef = await addDoc(collection(dbCloud, 'konversiUnit'), k);
                         await dbLokal.konversiUnit.update(k.id, { idCloud: docRef.id, synced: true });
                     }
-                } catch (e) { console.warn('Gagal upload konversiUnit', e); }
+                } catch (e) { console.warn('Gagal upload konversiUnit id', k.id, e); }
             }
 
             // Upload qtyBreak
             const qtyPending = await dbLokal.qtyBreak.where('synced').equals(false).toArray();
             for (let q of qtyPending) {
                 try {
-                    if (q.idCloud && typeof q.idCloud === 'string') {
+                    if (q.idCloud && typeof q.idCloud === 'string' && q.idCloud.length > 0) {
                         await setDoc(doc(dbCloud, 'qtyBreak', q.idCloud), q);
                         await dbLokal.qtyBreak.update(q.id, { synced: true });
                     } else {
                         const docRef = await addDoc(collection(dbCloud, 'qtyBreak'), q);
                         await dbLokal.qtyBreak.update(q.id, { idCloud: docRef.id, synced: true });
                     }
-                } catch (e) { console.warn('Gagal upload qtyBreak', e); }
+                } catch (e) { console.warn('Gagal upload qtyBreak id', q.id, e); }
             }
 
             // Download produk
@@ -771,6 +1058,7 @@
             }
         }
 
+        // Event listener tombol sync
         document.getElementById('syncBtn').addEventListener('click', syncData);
 
         // ========== INITIAL LOAD ==========
