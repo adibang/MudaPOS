@@ -9,315 +9,62 @@
     <!-- Dexie -->
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        body {
-            background-color: #f5f5f5;
-            color: #333;
-            font-size: 14px; /* lebih kecil */
-        }
-
-        /* Warna utama */
-        .text-primary { color: #006B54; }
-
-        /* Header */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.6rem 1.5rem;
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .menu-toggle {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #006B54;
-            padding: 0.4rem;
-            border-radius: 6px;
-        }
-        .menu-toggle:hover { background-color: #f0f0f0; }
-
-        .btn-login {
-            background-color: #006B54;
-            color: white;
-            border: none;
-            padding: 0.4rem 1rem;
-            border-radius: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.9rem;
-        }
-        .btn-login:hover { background-color: #004d3b; }
-
-        /* Sidebar */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 260px;
-            height: 100%;
-            background-color: white;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-            z-index: 200;
-            padding: 1.2rem 0.8rem;
-            overflow-y: auto;
-        }
-        .sidebar.open { transform: translateX(0); }
-
-        .sidebar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.8rem;
-            border-bottom: 1px solid #eee;
-        }
-        .sidebar-header h2 {
-            color: #006B54;
-            font-size: 1.2rem;
-        }
-        .close-sidebar {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #999;
-        }
-
-        .sidebar-menu {
-            list-style: none;
-        }
-        .sidebar-menu li { margin-bottom: 0.2rem; }
-        .sidebar-menu .menu-link {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            padding: 0.6rem 0.8rem;
-            color: #006B54;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-        }
-        .sidebar-menu .menu-link:hover { background-color: #f0f5f3; }
-        .sidebar-menu .menu-link i { color: #006B54; width: 18px; }
-
-        .has-submenu .submenu {
-            list-style: none;
-            padding-left: 2.5rem;
-            display: none;
-        }
-        .has-submenu.open .submenu { display: block; }
-        .submenu a {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            padding: 0.5rem 0.8rem;
-            color: #333;
-            text-decoration: none;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-        .submenu a:hover {
-            background-color: #e6f0ec;
-            color: #006B54;
-        }
-        .submenu a.active {
-            background-color: #e6f0ec;
-            color: #006B54;
-            font-weight: 500;
-        }
-        .has-submenu .menu-link .arrow {
-            margin-left: auto;
-            transition: transform 0.3s;
-        }
-        .has-submenu.open .menu-link .arrow { transform: rotate(180deg); }
-
-        /* Overlay */
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.3);
-            z-index: 150;
-            display: none;
-        }
-        .overlay.active { display: block; }
-
-        /* Main content */
-        .main-content {
-            padding: 1.5rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .page-title {
-            margin-bottom: 1.2rem;
-            font-size: 1.6rem;
-            font-weight: 600;
-            color: #006B54;
-        }
-
-        /* Section konten */
-        .content-section {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-            border: 1px solid #f0f0f0;
-            display: none;
-        }
-        .content-section.active { display: block; }
-
-        /* Form styling */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.2rem;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .form-group label {
-            margin-bottom: 0.3rem;
-            font-weight: 500;
-            font-size: 0.9rem;
-            color: #444;
-        }
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            padding: 0.6rem 0.8rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            transition: border 0.2s;
-        }
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #006B54;
-        }
-
-        /* Subform (konversi, qty break) */
-        .subform-section {
-            margin-top: 1.5rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e0e0e0;
-        }
-        .subform-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #006B54;
-            margin-bottom: 0.8rem;
-        }
-        .konversi-row, .qtybreak-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 0.6rem;
-            align-items: center;
-            background: #fafafa;
-            padding: 0.8rem;
-            border-radius: 8px;
-            margin-bottom: 0.6rem;
-        }
-        .konversi-row .form-group,
-        .qtybreak-row .form-group {
-            margin-bottom: 0;
-        }
-        .remove-row {
-            background: none;
-            border: none;
-            color: #dc3545;
-            cursor: pointer;
-            justify-self: end;
-            padding: 0.2rem;
-        }
-
-        /* Tombol */
-        .btn {
-            background-color: #006B54;
-            color: white;
-            border: none;
-            padding: 0.6rem 1.2rem;
-            border-radius: 6px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-right: 0.5rem;
-        }
-        .btn:hover { background-color: #004d3b; }
-        .btn-secondary {
-            background-color: #6c757d;
-        }
-        .btn-secondary:hover { background-color: #5a6268; }
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #006B54;
-            color: #006B54;
-            margin-top: 0.5rem;
-        }
-        .btn-outline:hover { background-color: #e6f0ec; }
-
-        /* Tabel */
-        .table-responsive {
-            overflow-x: auto;
-            margin-top: 1rem;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-        th, td {
-            padding: 0.6rem 0.8rem;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-            white-space: nowrap;
-        }
-        th {
-            background-color: #f9f9f9;
-            font-weight: 600;
-            color: #006B54;
-        }
-        tr:hover { background-color: #f5f5f5; }
-
-        /* Tombol aksi dalam tabel */
-        .btn-icon {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #006B54;
-            padding: 0.2rem;
-        }
-        .btn-icon.delete { color: #dc3545; }
-
-        /* Responsif */
-        @media (max-width: 640px) {
-            .main-content { padding: 0.8rem; }
-            .content-section { padding: 1rem; }
-        }
+        /* ===== CSS SAMA SEPERTI SEBELUMNYA (tidak diubah) ===== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        body { background:#f5f5f5; color:#333; font-size:14px; }
+        .text-primary { color:#006B54; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
+        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
+        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
+        .sidebar-menu { list-style:none; }
+        .sidebar-menu li { margin-bottom:0.2rem; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
+        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
+        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
+        .has-submenu.open .submenu { display:block; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
+        .submenu a:hover { background:#e6f0ec; color:#006B54; }
+        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
+        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
+        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
+        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+        .content-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; display:none; }
+        .content-section.active { display:block; }
+        .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:1rem; margin-bottom:1.2rem; }
+        .form-group { display:flex; flex-direction:column; }
+        .form-group label { margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
+        .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; transition:border 0.2s; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
+        .subform-section { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e0e0e0; }
+        .subform-title { font-size:1.1rem; font-weight:600; color:#006B54; margin-bottom:0.8rem; }
+        .konversi-row, .qtybreak-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:0.6rem; align-items:center; background:#fafafa; padding:0.8rem; border-radius:8px; margin-bottom:0.6rem; }
+        .konversi-row .form-group, .qtybreak-row .form-group { margin-bottom:0; }
+        .remove-row { background:none; border:none; color:#dc3545; cursor:pointer; justify-self:end; padding:0.2rem; }
+        .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; margin-right:0.5rem; }
+        .btn:hover { background:#004d3b; }
+        .btn-secondary { background:#6c757d; }
+        .btn-secondary:hover { background:#5a6268; }
+        .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; margin-top:0.5rem; }
+        .btn-outline:hover { background:#e6f0ec; }
+        .table-responsive { overflow-x:auto; margin-top:1rem; }
+        table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+        th, td { padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
+        th { background:#f9f9f9; font-weight:600; color:#006B54; }
+        tr:hover { background:#f5f5f5; }
+        .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; }
+        .btn-icon.delete { color:#dc3545; }
+        @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
     </style>
 </head>
 <body>
@@ -383,6 +130,13 @@
                     <div class="form-group">
                         <label>Kode Produk (timbangan)</label>
                         <input type="text" id="kodeProduk">
+                    </div>
+                </div>
+                <!-- Checkbox Produk Timbangan -->
+                <div class="form-grid" style="margin-bottom:1rem;">
+                    <div class="form-group" style="flex-direction:row; align-items:center; gap:0.5rem;">
+                        <input type="checkbox" id="produkTimbangan" style="width:auto;">
+                        <label for="produkTimbangan" style="margin-bottom:0;">Produk Timbangan</label>
                     </div>
                 </div>
                 <div class="form-grid">
@@ -469,10 +223,10 @@
             <div class="table-responsive">
                 <table>
                     <thead>
-                        <tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Aksi</th></tr>
+                        <tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Timbangan</th><th>Aksi</th></tr>
                     </thead>
                     <tbody id="daftarProdukBody">
-                        <tr><td colspan="6" style="text-align:center;">Belum ada data</td></tr>
+                        <tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -555,7 +309,7 @@
         // ========== DEXIE INIT ==========
         const dbLokal = new Dexie("MudaPosDB");
         dbLokal.version(1).stores({
-            produk: '++id, kode, nama, barcode, kategoriId, hargaDasar, hargaJual, berat, unitId, diskon, gudangId, stokAwal, stokMinimal, synced, idCloud',
+            produk: '++id, kode, nama, barcode, kategoriId, hargaDasar, hargaJual, berat, unitId, diskon, gudangId, stokAwal, stokMinimal, produkTimbangan, synced, idCloud',
             konversiUnit: '++id, produkId, unitId, nilai, barcode, aktif, hargaDasar, hargaJual, poinPelanggan, komisiSales',
             qtyBreak: '++id, produkId, level, minQty, harga',
             kategori: '++id, nama',
@@ -596,7 +350,7 @@
         submenus.tambahUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahUnit'); });
         submenus.daftarUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); });
 
-        // ========== LOAD DROPDOWNS (KATEGORI, UNIT, GUDANG) ==========
+        // ========== LOAD DROPDOWNS ==========
         async function loadDropdowns() {
             const kategoriSelect = document.getElementById('kategoriProduk');
             if (kategoriSelect) {
@@ -761,7 +515,6 @@
                 <button type="button" class="remove-row"><i data-feather="x"></i></button>
             `;
             konversiContainer.appendChild(row);
-            // Isi dropdown unit
             dbLokal.unit.toArray().then(units => {
                 const select = row.querySelector('.unitKonversi');
                 units.forEach(u => select.add(new Option(u.nama, u.id)));
@@ -770,7 +523,7 @@
             row.querySelector('.remove-row').addEventListener('click', () => row.remove());
         });
 
-        // ========== QTY BREAK DINAMIS ==========
+        // ========== QTY BREAK DINAMIS (dengan step 0.01) ==========
         const qtyBreakContainer = document.getElementById('qtyBreakContainer');
         document.getElementById('tambahQtyBreak').addEventListener('click', () => {
             const row = document.createElement('div');
@@ -780,7 +533,7 @@
                     <input type="text" class="levelQty" placeholder="Level" required>
                 </div>
                 <div class="form-group">
-                    <input type="number" class="minQty" placeholder="Min Qty" required>
+                    <input type="number" step="0.01" class="minQty" placeholder="Min Qty" required>
                 </div>
                 <div class="form-group">
                     <input type="number" class="hargaQty" placeholder="Harga" required>
@@ -796,7 +549,6 @@
         const formTambahProduk = document.getElementById('formTambahProduk');
         formTambahProduk.addEventListener('submit', async (e) => {
             e.preventDefault();
-            // Ambil data produk
             const produk = {
                 nama: document.getElementById('namaProduk').value,
                 kode: document.getElementById('kodeProduk').value,
@@ -810,6 +562,7 @@
                 gudangId: parseInt(document.getElementById('gudang').value),
                 stokAwal: parseInt(document.getElementById('stokAwal').value),
                 stokMinimal: parseInt(document.getElementById('stokMinimal').value),
+                produkTimbangan: document.getElementById('produkTimbangan').checked,
                 synced: false,
                 idCloud: null
             };
@@ -840,7 +593,7 @@
                     });
                 }
 
-                // Simpan qty break
+                // Simpan qty break (minQty sebagai float)
                 const qtyRows = document.querySelectorAll('.qtybreak-row');
                 for (let row of qtyRows) {
                     const minQty = row.querySelector('.minQty').value;
@@ -848,7 +601,7 @@
                     await dbLokal.qtyBreak.add({
                         produkId,
                         level: row.querySelector('.levelQty').value,
-                        minQty: parseInt(minQty),
+                        minQty: parseFloat(minQty),
                         harga: parseFloat(row.querySelector('.hargaQty').value)
                     });
                 }
@@ -869,7 +622,7 @@
             const produkList = await dbLokal.produk.toArray();
             const tbody = document.getElementById('daftarProdukBody');
             if (produkList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Belum ada data</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
                 return;
             }
             const kategoris = await dbLokal.kategori.toArray();
@@ -884,6 +637,7 @@
                     <td>${kategoriMap[p.kategoriId] || '-'}</td>
                     <td>Rp ${p.hargaJual.toLocaleString()}</td>
                     <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
+                    <td>${p.produkTimbangan ? '✓' : '-'}</td>
                     <td>
                         <button class="btn-icon edit" onclick="editProduk(${p.id})"><i data-feather="edit-2"></i></button>
                         <button class="btn-icon delete" onclick="hapusProduk(${p.id})"><i data-feather="trash-2"></i></button>
