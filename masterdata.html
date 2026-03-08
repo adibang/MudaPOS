@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDA POS - Master Data (IndexedDB Langsung)</title>
+    <title>MUDA POS - Master Data (LocalForage)</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
+    <!-- LocalForage -->
+    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <style>
-        /* ===== CSS (sama seperti sebelumnya, ringkas) ===== */
+        /* ===== CSS SAMA PERSIS DENGAN SEBELUMNYA (tidak diubah) ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -20,7 +22,6 @@
         .btn-sync:hover { background:#e6f0ec; }
         .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
         .reset-btn:hover { background:#c82333; }
-        /* Sidebar, main content, dll (salin dari kode sebelumnya) */
         .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
         .sidebar.open { transform:translateX(0); }
         .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
@@ -76,7 +77,7 @@
     <!-- Overlay -->
     <div class="overlay" id="overlay"></div>
 
-    <!-- Sidebar -->
+    <!-- Sidebar (sama persis) -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2>MUDA POS</h2>
@@ -123,7 +124,7 @@
     <!-- Tombol Reset Darurat -->
     <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset DB</button>
 
-    <!-- Main Content -->
+    <!-- Main Content (sama persis) -->
     <main class="main-content">
         <h1 class="page-title">Master Data</h1>
 
@@ -273,6 +274,7 @@
         </div>
     </main>
 
+    <!-- Script utama dengan LocalForage -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -280,146 +282,69 @@
 
         feather.replace();
 
-        // ========== INDEXEDDB WRAPPER ==========
-        const DB_NAME = 'MudaPosDB';
-        const DB_VERSION = 1;
-        let db = null;
+        // ========== LOCALFORAGE INSTANCES ==========
+        const kategoriStore = localforage.createInstance({ name: 'kategori' });
+        const unitStore = localforage.createInstance({ name: 'unit' });
+        const gudangStore = localforage.createInstance({ name: 'gudang' });
+        const produkStore = localforage.createInstance({ name: 'produk' });
+        const konversiStore = localforage.createInstance({ name: 'konversiUnit' });
+        const qtyStore = localforage.createInstance({ name: 'qtyBreak' });
 
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                if (db) return resolve(db);
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => {
-                    db = request.result;
-                    resolve(db);
-                };
-                request.onupgradeneeded = (event) => {
-                    const db = event.target.result;
-                    // Buat object stores jika belum ada
-                    if (!db.objectStoreNames.contains('kategori')) {
-                        const kategoriStore = db.createObjectStore('kategori', { keyPath: 'id', autoIncrement: true });
-                        kategoriStore.createIndex('nama', 'nama', { unique: false });
-                        kategoriStore.createIndex('synced', 'synced', { unique: false });
-                        kategoriStore.createIndex('idCloud', 'idCloud', { unique: true });
-                    }
-                    if (!db.objectStoreNames.contains('unit')) {
-                        const unitStore = db.createObjectStore('unit', { keyPath: 'id', autoIncrement: true });
-                        unitStore.createIndex('nama', 'nama', { unique: false });
-                        unitStore.createIndex('synced', 'synced', { unique: false });
-                        unitStore.createIndex('idCloud', 'idCloud', { unique: true });
-                    }
-                    if (!db.objectStoreNames.contains('gudang')) {
-                        const gudangStore = db.createObjectStore('gudang', { keyPath: 'id', autoIncrement: true });
-                        gudangStore.createIndex('kode', 'kode', { unique: true });
-                        gudangStore.createIndex('nama', 'nama', { unique: false });
-                        gudangStore.createIndex('synced', 'synced', { unique: false });
-                        gudangStore.createIndex('idCloud', 'idCloud', { unique: true });
-                    }
-                    if (!db.objectStoreNames.contains('produk')) {
-                        const produkStore = db.createObjectStore('produk', { keyPath: 'id', autoIncrement: true });
-                        produkStore.createIndex('kode', 'kode', { unique: false });
-                        produkStore.createIndex('nama', 'nama', { unique: false });
-                        produkStore.createIndex('kategoriId', 'kategoriId', { unique: false });
-                        produkStore.createIndex('synced', 'synced', { unique: false });
-                        produkStore.createIndex('idCloud', 'idCloud', { unique: true });
-                    }
-                    if (!db.objectStoreNames.contains('konversiUnit')) {
-                        const konversiStore = db.createObjectStore('konversiUnit', { keyPath: 'id', autoIncrement: true });
-                        konversiStore.createIndex('produkId', 'produkId', { unique: false });
-                        konversiStore.createIndex('produkIdCloud', 'produkIdCloud', { unique: false });
-                        konversiStore.createIndex('synced', 'synced', { unique: false });
-                        konversiStore.createIndex('idCloud', 'idCloud', { unique: true });
-                    }
-                    if (!db.objectStoreNames.contains('qtyBreak')) {
-                        const qtyStore = db.createObjectStore('qtyBreak', { keyPath: 'id', autoIncrement: true });
-                        qtyStore.createIndex('produkId', 'produkId', { unique: false });
-                        qtyStore.createIndex('produkIdCloud', 'produkIdCloud', { unique: false });
-                        qtyStore.createIndex('synced', 'synced', { unique: false });
-                        qtyStore.createIndex('idCloud', 'idCloud', { unique: true });
-                    }
-                };
-            });
+        // Fungsi bantu untuk generate ID unik
+        function generateId() {
+            return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         }
 
-        // Fungsi CRUD generik
-        async function getAll(storeName) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readonly');
-                const store = tx.objectStore(storeName);
-                const request = store.getAll();
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
+        // Fungsi untuk mengambil semua data dari store (dalam bentuk array)
+        async function getAll(store) {
+            let items = [];
+            await store.iterate((value, key) => {
+                items.push({ ...value, id: key });
             });
+            return items;
         }
 
-        async function getById(storeName, id) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readonly');
-                const store = tx.objectStore(storeName);
-                const request = store.get(id);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
+        // Fungsi untuk mendapatkan item berdasarkan id
+        async function getById(store, id) {
+            return await store.getItem(id);
         }
 
-        async function add(storeName, data) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readwrite');
-                const store = tx.objectStore(storeName);
-                const request = store.add(data);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
+        // Fungsi untuk menambah item (otomatis generate id)
+        async function addItem(store, data) {
+            const id = generateId();
+            await store.setItem(id, data);
+            return id;
         }
 
-        async function update(storeName, data) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readwrite');
-                const store = tx.objectStore(storeName);
-                const request = store.put(data);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
+        // Fungsi untuk mengupdate item
+        async function updateItem(store, id, data) {
+            await store.setItem(id, data);
         }
 
-        async function remove(storeName, id) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readwrite');
-                const store = tx.objectStore(storeName);
-                const request = store.delete(id);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
+        // Fungsi untuk menghapus item
+        async function removeItem(store, id) {
+            await store.removeItem(id);
         }
 
-        async function queryByIndex(storeName, indexName, value) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readonly');
-                const store = tx.objectStore(storeName);
-                const index = store.index(indexName);
-                const request = index.getAll(value);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
+        // Fungsi untuk mencari berdasarkan indeks (misal field tertentu)
+        async function findByIndex(store, field, value) {
+            let results = [];
+            await store.iterate((item, key) => {
+                if (item[field] === value) {
+                    results.push({ ...item, id: key });
+                }
             });
+            return results;
         }
 
-        async function queryByIndexFirst(storeName, indexName, value) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(storeName, 'readonly');
-                const store = tx.objectStore(storeName);
-                const index = store.index(indexName);
-                const request = index.get(value);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
+        async function findOneByIndex(store, field, value) {
+            let found = null;
+            await store.iterate((item, key) => {
+                if (!found && item[field] === value) {
+                    found = { ...item, id: key };
+                }
             });
+            return found;
         }
 
         // ========== SIDEBAR ==========
@@ -478,19 +403,19 @@
             try {
                 const kategoriSelect = document.getElementById('kategoriProduk');
                 if (kategoriSelect) {
-                    const kategoris = await getAll('kategori');
+                    const kategoris = await getAll(kategoriStore);
                     kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
                         kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
                 }
                 const unitSelect = document.getElementById('unit');
                 if (unitSelect) {
-                    const units = await getAll('unit');
+                    const units = await getAll(unitStore);
                     unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
                         units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
                 }
                 const gudangSelect = document.getElementById('gudang');
                 if (gudangSelect) {
-                    const gudangs = await getAll('gudang');
+                    const gudangs = await getAll(gudangStore);
                     gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
                         gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
                 }
@@ -507,7 +432,7 @@
             const nama = document.getElementById('namaKategori').value.trim();
             if (!nama) return alert('Nama kategori harus diisi');
             try {
-                await add('kategori', { nama, synced: false, idCloud: null });
+                await addItem(kategoriStore, { nama, synced: false, idCloud: null });
                 alert('Kategori berhasil ditambahkan');
                 formTambahKategori.reset();
                 loadDropdowns();
@@ -525,7 +450,7 @@
             const nama = document.getElementById('namaUnit').value.trim();
             if (!nama) return alert('Nama unit harus diisi');
             try {
-                await add('unit', { nama, synced: false, idCloud: null });
+                await addItem(unitStore, { nama, synced: false, idCloud: null });
                 alert('Unit berhasil ditambahkan');
                 formTambahUnit.reset();
                 loadDropdowns();
@@ -539,7 +464,7 @@
         // ========== DAFTAR KATEGORI ==========
         async function loadDaftarKategori() {
             try {
-                const list = await getAll('kategori');
+                const list = await getAll(kategoriStore);
                 const tbody = document.getElementById('daftarKategoriBody');
                 if (list.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
@@ -549,8 +474,8 @@
                     <tr>
                         <td>${k.nama} ${!k.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
                         <td>
-                            <button class="btn-icon edit" onclick="editKategori(${k.id})"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusKategori(${k.id})"><i data-feather="trash-2"></i></button>
+                            <button class="btn-icon edit" onclick="editKategori('${k.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusKategori('${k.id}')"><i data-feather="trash-2"></i></button>
                         </td>
                     </tr>
                 `).join('');
@@ -565,7 +490,7 @@
         // ========== DAFTAR UNIT ==========
         async function loadDaftarUnit() {
             try {
-                const list = await getAll('unit');
+                const list = await getAll(unitStore);
                 const tbody = document.getElementById('daftarUnitBody');
                 if (list.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
@@ -575,8 +500,8 @@
                     <tr>
                         <td>${u.nama} ${!u.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
                         <td>
-                            <button class="btn-icon edit" onclick="editUnit(${u.id})"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusUnit(${u.id})"><i data-feather="trash-2"></i></button>
+                            <button class="btn-icon edit" onclick="editUnit('${u.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusUnit('${u.id}')"><i data-feather="trash-2"></i></button>
                         </td>
                     </tr>
                 `).join('');
@@ -593,11 +518,11 @@
             const newName = prompt('Edit nama kategori:');
             if (newName && newName.trim()) {
                 try {
-                    const kategori = await getById('kategori', id);
+                    const kategori = await getById(kategoriStore, id);
                     if (!kategori) return;
                     kategori.nama = newName.trim();
                     kategori.synced = false;
-                    await update('kategori', kategori);
+                    await updateItem(kategoriStore, id, kategori);
                     loadDaftarKategori();
                     loadDropdowns();
                 } catch (error) {
@@ -608,7 +533,7 @@
         window.hapusKategori = async (id) => {
             if (confirm('Yakin hapus kategori?')) {
                 try {
-                    await remove('kategori', id);
+                    await removeItem(kategoriStore, id);
                     loadDaftarKategori();
                     loadDropdowns();
                 } catch (error) {
@@ -620,11 +545,11 @@
             const newName = prompt('Edit nama unit:');
             if (newName && newName.trim()) {
                 try {
-                    const unit = await getById('unit', id);
+                    const unit = await getById(unitStore, id);
                     if (!unit) return;
                     unit.nama = newName.trim();
                     unit.synced = false;
-                    await update('unit', unit);
+                    await updateItem(unitStore, id, unit);
                     loadDaftarUnit();
                     loadDropdowns();
                 } catch (error) {
@@ -635,7 +560,7 @@
         window.hapusUnit = async (id) => {
             if (confirm('Yakin hapus unit?')) {
                 try {
-                    await remove('unit', id);
+                    await removeItem(unitStore, id);
                     loadDaftarUnit();
                     loadDropdowns();
                 } catch (error) {
@@ -678,7 +603,7 @@
             `;
             konversiContainer.appendChild(row);
             // Isi dropdown unit
-            getAll('unit').then(units => {
+            getAll(unitStore).then(units => {
                 const select = row.querySelector('.unitKonversi');
                 units.forEach(u => select.add(new Option(u.nama, u.id)));
             }).catch(error => console.error(error));
@@ -716,13 +641,13 @@
                 nama: document.getElementById('namaProduk').value,
                 kode: document.getElementById('kodeProduk').value,
                 barcode: document.getElementById('barcodeProduk').value,
-                kategoriId: parseInt(document.getElementById('kategoriProduk').value),
+                kategoriId: document.getElementById('kategoriProduk').value,
                 hargaDasar: parseFloat(document.getElementById('hargaDasar').value),
                 hargaJual: parseFloat(document.getElementById('hargaJual').value),
                 berat: document.getElementById('berat').value ? parseFloat(document.getElementById('berat').value) : null,
-                unitId: parseInt(document.getElementById('unit').value),
+                unitId: document.getElementById('unit').value,
                 diskon: parseFloat(document.getElementById('diskon').value),
-                gudangId: parseInt(document.getElementById('gudang').value),
+                gudangId: document.getElementById('gudang').value,
                 stokAwal: parseInt(document.getElementById('stokAwal').value),
                 stokMinimal: parseInt(document.getElementById('stokMinimal').value),
                 produkTimbangan: document.getElementById('produkTimbangan').checked,
@@ -736,17 +661,17 @@
             }
 
             try {
-                const produkId = await add('produk', produk);
+                const produkId = await addItem(produkStore, produk);
 
                 // Simpan konversi unit
                 const konversiRows = document.querySelectorAll('.konversi-row');
                 for (let row of konversiRows) {
                     const unitId = row.querySelector('.unitKonversi').value;
                     if (!unitId) continue;
-                    await add('konversiUnit', {
+                    await addItem(konversiStore, {
                         produkId,
                         produkIdCloud: null,
-                        unitId: parseInt(unitId),
+                        unitId,
                         nilai: parseFloat(row.querySelector('.nilaiKonversi').value),
                         barcode: row.querySelector('.barcodeKonversi').value,
                         aktif: row.querySelector('.aktifKonversi').checked,
@@ -764,7 +689,7 @@
                 for (let row of qtyRows) {
                     const minQty = row.querySelector('.minQty').value;
                     if (!minQty) continue;
-                    await add('qtyBreak', {
+                    await addItem(qtyStore, {
                         produkId,
                         produkIdCloud: null,
                         level: row.querySelector('.levelQty').value,
@@ -789,15 +714,15 @@
         // ========== DAFTAR PRODUK ==========
         async function loadDaftarProduk() {
             try {
-                const produkList = await getAll('produk');
+                const produkList = await getAll(produkStore);
                 const tbody = document.getElementById('daftarProdukBody');
                 if (produkList.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
                     return;
                 }
-                const kategoris = await getAll('kategori');
+                const kategoris = await getAll(kategoriStore);
                 const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
-                const units = await getAll('unit');
+                const units = await getAll(unitStore);
                 const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
 
                 tbody.innerHTML = produkList.map(p => `
@@ -809,8 +734,8 @@
                         <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
                         <td>${p.produkTimbangan ? '✓' : '-'}</td>
                         <td>
-                            <button class="btn-icon edit" onclick="editProduk(${p.id})"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusProduk(${p.id})"><i data-feather="trash-2"></i></button>
+                            <button class="btn-icon edit" onclick="editProduk('${p.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusProduk('${p.id}')"><i data-feather="trash-2"></i></button>
                         </td>
                     </tr>
                 `).join('');
@@ -826,15 +751,15 @@
         window.hapusProduk = async (id) => {
             if (confirm('Yakin hapus produk?')) {
                 try {
-                    await remove('produk', id);
+                    await removeItem(produkStore, id);
                     // Hapus juga relasi
-                    const konversi = await queryByIndex('konversiUnit', 'produkId', id);
+                    const konversi = await findByIndex(konversiStore, 'produkId', id);
                     for (let k of konversi) {
-                        await remove('konversiUnit', k.id);
+                        await removeItem(konversiStore, k.id);
                     }
-                    const qty = await queryByIndex('qtyBreak', 'produkId', id);
+                    const qty = await findByIndex(qtyStore, 'produkId', id);
                     for (let q of qty) {
-                        await remove('qtyBreak', q.id);
+                        await removeItem(qtyStore, q.id);
                     }
                     loadDaftarProduk();
                 } catch (error) {
@@ -866,13 +791,9 @@
         window.resetDatabase = async function() {
             if (!confirm('PERINGATAN: Semua data lokal akan dihapus permanen. Lanjutkan?')) return;
             try {
-                // Hapus semua data di setiap store
-                const stores = ['produk', 'konversiUnit', 'qtyBreak', 'kategori', 'unit', 'gudang'];
+                const stores = [kategoriStore, unitStore, gudangStore, produkStore, konversiStore, qtyStore];
                 for (let store of stores) {
-                    const data = await getAll(store);
-                    for (let item of data) {
-                        await remove(store, item.id);
-                    }
+                    await store.clear();
                 }
                 alert('Semua data lokal telah dihapus. Halaman akan dimuat ulang.');
                 location.reload();
@@ -895,9 +816,9 @@
             feather.replace();
 
             try {
-                await syncTable('kategori', 'kategori');
-                await syncTable('unit', 'unit');
-                await syncTable('gudang', 'gudang');
+                await syncTable(kategoriStore, 'kategori');
+                await syncTable(unitStore, 'unit');
+                await syncTable(gudangStore, 'gudang');
                 await syncProduk();
                 alert('Sinkronisasi selesai');
                 if (sections.daftarKategori.classList.contains('active')) loadDaftarKategori();
@@ -912,24 +833,25 @@
             }
         };
 
-        async function syncTable(namaLokal, koleksiFirestore) {
+        async function syncTable(store, koleksiFirestore) {
             // Upload data lokal yang belum sinkron
-            const pending = await queryByIndex(namaLokal, 'synced', false);
+            const items = await getAll(store);
+            const pending = items.filter(item => !item.synced);
             for (let item of pending) {
                 try {
                     if (item.idCloud && typeof item.idCloud === 'string' && item.idCloud.length > 0) {
                         const docRef = doc(dbCloud, koleksiFirestore, item.idCloud);
                         await setDoc(docRef, item);
                         item.synced = true;
-                        await update(namaLokal, item);
+                        await updateItem(store, item.id, item);
                     } else {
                         const docRef = await addDoc(collection(dbCloud, koleksiFirestore), item);
                         item.idCloud = docRef.id;
                         item.synced = true;
-                        await update(namaLokal, item);
+                        await updateItem(store, item.id, item);
                     }
                 } catch (e) {
-                    console.warn(`Gagal upload ${namaLokal} id ${item.id}:`, e);
+                    console.warn(`Gagal upload ${koleksiFirestore} id ${item.id}:`, e);
                 }
             }
 
@@ -940,77 +862,80 @@
                     const data = docSnap.data();
                     data.idCloud = docSnap.id;
                     data.synced = true;
-                    const existing = await queryByIndexFirst(namaLokal, 'idCloud', docSnap.id);
+                    const existing = await findOneByIndex(store, 'idCloud', docSnap.id);
                     if (existing) {
-                        await update(namaLokal, { ...existing, ...data, id: existing.id });
+                        await updateItem(store, existing.id, { ...existing, ...data });
                     } else {
-                        await add(namaLokal, data);
+                        await addItem(store, data);
                     }
                 } catch (e) {
-                    console.warn(`Gagal download ${namaLokal} dari cloud:`, e);
+                    console.warn(`Gagal download ${koleksiFirestore} dari cloud:`, e);
                 }
             }
         }
 
         async function syncProduk() {
             // Upload produk
-            const produkPending = await queryByIndex('produk', 'synced', false);
+            const produkItems = await getAll(produkStore);
+            const produkPending = produkItems.filter(p => !p.synced);
             for (let p of produkPending) {
                 try {
                     if (p.idCloud && typeof p.idCloud === 'string' && p.idCloud.length > 0) {
                         await setDoc(doc(dbCloud, 'produk', p.idCloud), p);
                         p.synced = true;
-                        await update('produk', p);
+                        await updateItem(produkStore, p.id, p);
                     } else {
                         const docRef = await addDoc(collection(dbCloud, 'produk'), p);
                         p.idCloud = docRef.id;
                         p.synced = true;
-                        await update('produk', p);
+                        await updateItem(produkStore, p.id, p);
                         // Update relasi dengan produkIdCloud
-                        const konversiList = await queryByIndex('konversiUnit', 'produkId', p.id);
+                        const konversiList = await findByIndex(konversiStore, 'produkId', p.id);
                         for (let k of konversiList) {
                             k.produkIdCloud = docRef.id;
-                            await update('konversiUnit', k);
+                            await updateItem(konversiStore, k.id, k);
                         }
-                        const qtyList = await queryByIndex('qtyBreak', 'produkId', p.id);
+                        const qtyList = await findByIndex(qtyStore, 'produkId', p.id);
                         for (let q of qtyList) {
                             q.produkIdCloud = docRef.id;
-                            await update('qtyBreak', q);
+                            await updateItem(qtyStore, q.id, q);
                         }
                     }
                 } catch (e) { console.warn('Gagal upload produk id', p.id, e); }
             }
 
             // Upload konversiUnit
-            const konvPending = await queryByIndex('konversiUnit', 'synced', false);
+            const konvItems = await getAll(konversiStore);
+            const konvPending = konvItems.filter(k => !k.synced);
             for (let k of konvPending) {
                 try {
                     if (k.idCloud && typeof k.idCloud === 'string' && k.idCloud.length > 0) {
                         await setDoc(doc(dbCloud, 'konversiUnit', k.idCloud), k);
                         k.synced = true;
-                        await update('konversiUnit', k);
+                        await updateItem(konversiStore, k.id, k);
                     } else {
                         const docRef = await addDoc(collection(dbCloud, 'konversiUnit'), k);
                         k.idCloud = docRef.id;
                         k.synced = true;
-                        await update('konversiUnit', k);
+                        await updateItem(konversiStore, k.id, k);
                     }
                 } catch (e) { console.warn('Gagal upload konversiUnit id', k.id, e); }
             }
 
             // Upload qtyBreak
-            const qtyPending = await queryByIndex('qtyBreak', 'synced', false);
+            const qtyItems = await getAll(qtyStore);
+            const qtyPending = qtyItems.filter(q => !q.synced);
             for (let q of qtyPending) {
                 try {
                     if (q.idCloud && typeof q.idCloud === 'string' && q.idCloud.length > 0) {
                         await setDoc(doc(dbCloud, 'qtyBreak', q.idCloud), q);
                         q.synced = true;
-                        await update('qtyBreak', q);
+                        await updateItem(qtyStore, q.id, q);
                     } else {
                         const docRef = await addDoc(collection(dbCloud, 'qtyBreak'), q);
                         q.idCloud = docRef.id;
                         q.synced = true;
-                        await update('qtyBreak', q);
+                        await updateItem(qtyStore, q.id, q);
                     }
                 } catch (e) { console.warn('Gagal upload qtyBreak id', q.id, e); }
             }
@@ -1022,11 +947,11 @@
                     const data = docSnap.data();
                     data.idCloud = docSnap.id;
                     data.synced = true;
-                    const existing = await queryByIndexFirst('produk', 'idCloud', docSnap.id);
+                    const existing = await findOneByIndex(produkStore, 'idCloud', docSnap.id);
                     if (existing) {
-                        await update('produk', { ...existing, ...data, id: existing.id });
+                        await updateItem(produkStore, existing.id, { ...existing, ...data });
                     } else {
-                        await add('produk', data);
+                        await addItem(produkStore, data);
                     }
                 } catch (e) { console.warn('Gagal download produk', e); }
             }
@@ -1038,11 +963,11 @@
                     const data = docSnap.data();
                     data.idCloud = docSnap.id;
                     data.synced = true;
-                    const existing = await queryByIndexFirst('konversiUnit', 'idCloud', docSnap.id);
+                    const existing = await findOneByIndex(konversiStore, 'idCloud', docSnap.id);
                     if (existing) {
-                        await update('konversiUnit', { ...existing, ...data, id: existing.id });
+                        await updateItem(konversiStore, existing.id, { ...existing, ...data });
                     } else {
-                        await add('konversiUnit', data);
+                        await addItem(konversiStore, data);
                     }
                 } catch (e) { console.warn('Gagal download konversiUnit', e); }
             }
@@ -1054,11 +979,11 @@
                     const data = docSnap.data();
                     data.idCloud = docSnap.id;
                     data.synced = true;
-                    const existing = await queryByIndexFirst('qtyBreak', 'idCloud', docSnap.id);
+                    const existing = await findOneByIndex(qtyStore, 'idCloud', docSnap.id);
                     if (existing) {
-                        await update('qtyBreak', { ...existing, ...data, id: existing.id });
+                        await updateItem(qtyStore, existing.id, { ...existing, ...data });
                     } else {
-                        await add('qtyBreak', data);
+                        await addItem(qtyStore, data);
                     }
                 } catch (e) { console.warn('Gagal download qtyBreak', e); }
             }
