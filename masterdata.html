@@ -9,7 +9,7 @@
     <!-- LocalForage -->
     <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <style>
-        /* ===== CSS (sama seperti sebelumnya) ===== */
+        /* ===== CSS (lengkap) ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -124,11 +124,154 @@
     <!-- Tombol Reset Darurat -->
     <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset DB</button>
 
-    <!-- Main Content (sama persis) -->
+    <!-- Main Content dengan semua section -->
     <main class="main-content">
         <h1 class="page-title">Master Data</h1>
-        <!-- Semua section tetap sama, untuk hemat tidak ditulis ulang di sini, tapi di kode asli harus lengkap -->
-        <!-- ... -->
+
+        <!-- ========== SECTION TAMBAH PRODUK ========== -->
+        <div id="tambahProdukSection" class="content-section active">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Produk Baru</h2>
+            <form id="formTambahProduk">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nama Produk *</label>
+                        <input type="text" id="namaProduk" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kode Produk (timbangan)</label>
+                        <input type="text" id="kodeProduk">
+                    </div>
+                </div>
+                <div class="form-grid" style="margin-bottom:1rem;">
+                    <div class="form-group" style="flex-direction:row; align-items:center; gap:0.5rem;">
+                        <input type="checkbox" id="produkTimbangan" style="width:auto;">
+                        <label for="produkTimbangan" style="margin-bottom:0;">Produk Timbangan</label>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Barcode</label>
+                        <input type="text" id="barcodeProduk">
+                    </div>
+                    <div class="form-group">
+                        <label>Kategori *</label>
+                        <select id="kategoriProduk" required><option value="">Pilih Kategori</option></select>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Harga Dasar *</label>
+                        <input type="number" id="hargaDasar" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Harga Jual *</label>
+                        <input type="number" id="hargaJual" required>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Berat (kg)</label>
+                        <input type="number" step="0.01" id="berat">
+                    </div>
+                    <div class="form-group">
+                        <label>Unit *</label>
+                        <select id="unit" required><option value="">Pilih Unit</option></select>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Diskon (%)</label>
+                        <input type="number" id="diskon" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Gudang *</label>
+                        <select id="gudang" required><option value="">Pilih Gudang</option></select>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Stok Awal *</label>
+                        <input type="number" id="stokAwal" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stok Minimal *</label>
+                        <input type="number" id="stokMinimal" required>
+                    </div>
+                </div>
+
+                <!-- Konversi Unit -->
+                <div class="subform-section">
+                    <div class="subform-title">Konversi Unit</div>
+                    <div id="konversiContainer"></div>
+                    <button type="button" class="btn btn-outline" id="tambahKonversi">+ Tambah Konversi</button>
+                </div>
+
+                <!-- Qty Break -->
+                <div class="subform-section">
+                    <div class="subform-title">Quantity Break (Level Harga)</div>
+                    <div id="qtyBreakContainer"></div>
+                    <button type="button" class="btn btn-outline" id="tambahQtyBreak">+ Tambah Qty Break</button>
+                </div>
+
+                <div style="margin-top:1.5rem;">
+                    <button type="submit" class="btn">Simpan Produk</button>
+                    <button type="reset" class="btn btn-secondary">Reset</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ========== SECTION DAFTAR PRODUK ========== -->
+        <div id="daftarProdukSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Produk</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Timbangan</th><th>Aksi</th></tr></thead>
+                    <tbody id="daftarProdukBody"><tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ========== SECTION TAMBAH KATEGORI ========== -->
+        <div id="tambahKategoriSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Kategori</h2>
+            <form id="formTambahKategori">
+                <div class="form-group" style="max-width:350px;">
+                    <label>Nama Kategori</label>
+                    <input type="text" id="namaKategori" required>
+                </div>
+                <button type="submit" class="btn">Simpan Kategori</button>
+            </form>
+        </div>
+
+        <!-- ========== SECTION DAFTAR KATEGORI ========== -->
+        <div id="daftarKategoriSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Kategori</h2>
+            <div class="table-responsive">
+                <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
+                <tbody id="daftarKategoriBody"><tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr></tbody></table>
+            </div>
+        </div>
+
+        <!-- ========== SECTION TAMBAH UNIT ========== -->
+        <div id="tambahUnitSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Unit</h2>
+            <form id="formTambahUnit">
+                <div class="form-group" style="max-width:350px;">
+                    <label>Nama Unit</label>
+                    <input type="text" id="namaUnit" required>
+                </div>
+                <button type="submit" class="btn">Simpan Unit</button>
+            </form>
+        </div>
+
+        <!-- ========== SECTION DAFTAR UNIT ========== -->
+        <div id="daftarUnitSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Unit</h2>
+            <div class="table-responsive">
+                <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
+                <tbody id="daftarUnitBody"><tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr></tbody></table>
+            </div>
+        </div>
     </main>
 
     <!-- Script biasa untuk sidebar (non-module) agar selalu jalan -->
@@ -164,9 +307,9 @@
             });
         }
 
-        // Navigasi section (fungsi ini akan didefinisikan ulang di module, tapi kita perlu referensi global)
+        // Navigasi section (fungsi ini akan di-override di module, tapi kita perlu referensi global)
         window.showSection = function(sectionName) {
-            // Akan di-override di module, tapi kita buat dummy
+            // Akan di-override di module
         };
     </script>
 
@@ -252,19 +395,30 @@
             Object.values(submenus).forEach(s => s && s.classList.remove('active'));
             if (sections[sectionName]) sections[sectionName].classList.add('active');
             if (submenus[sectionName]) submenus[sectionName].classList.add('active');
-            if (window.innerWidth <= 768) {
-                // panggil fungsi closeSidebar dari script biasa
-                if (typeof closeSidebarFunc === 'function') closeSidebarFunc();
+            if (window.innerWidth <= 768 && typeof closeSidebarFunc === 'function') {
+                closeSidebarFunc();
             }
         }
 
         // Pasang event listener untuk submenu
-        submenus.tambahProduk?.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahProduk'); });
-        submenus.daftarProduk?.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarProduk'); });
-        submenus.tambahKategori?.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahKategori'); });
-        submenus.daftarKategori?.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarKategori'); });
-        submenus.tambahUnit?.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahUnit'); });
-        submenus.daftarUnit?.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); });
+        if (submenus.tambahProduk) {
+            submenus.tambahProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahProduk'); });
+        }
+        if (submenus.daftarProduk) {
+            submenus.daftarProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarProduk'); });
+        }
+        if (submenus.tambahKategori) {
+            submenus.tambahKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahKategori'); });
+        }
+        if (submenus.daftarKategori) {
+            submenus.daftarKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarKategori'); });
+        }
+        if (submenus.tambahUnit) {
+            submenus.tambahUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahUnit'); });
+        }
+        if (submenus.daftarUnit) {
+            submenus.daftarUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); });
+        }
 
         // Ekspor fungsi showSection ke global agar bisa dipakai di script biasa jika perlu
         window.showSection = showSection;
