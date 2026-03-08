@@ -9,7 +9,7 @@
     <!-- LocalForage -->
     <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <style>
-        /* ===== CSS (lengkap) ===== */
+        /* ===== CSS LENGKAP ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -128,10 +128,11 @@
     <main class="main-content">
         <h1 class="page-title">Master Data</h1>
 
-        <!-- ========== SECTION TAMBAH PRODUK ========== -->
+        <!-- ========== SECTION TAMBAH PRODUK (juga untuk edit) ========== -->
         <div id="tambahProdukSection" class="content-section active">
-            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Produk Baru</h2>
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;" id="formProdukTitle">Tambah Produk Baru</h2>
             <form id="formTambahProduk">
+                <input type="hidden" id="produkId" value="">
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Nama Produk *</label>
@@ -328,7 +329,7 @@
         const konversiStore = localforage.createInstance({ name: 'konversiUnit' });
         const qtyStore = localforage.createInstance({ name: 'qtyBreak' });
 
-        // Fungsi bantu (sama seperti sebelumnya)
+        // Fungsi bantu
         function generateId() {
             return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         }
@@ -372,6 +373,12 @@
             return found;
         }
 
+        // ========== ELEMEN DOM ==========
+        const produkIdInput = document.getElementById('produkId');
+        const formProdukTitle = document.getElementById('formProdukTitle');
+        const konversiContainer = document.getElementById('konversiContainer');
+        const qtyBreakContainer = document.getElementById('qtyBreakContainer');
+
         // ========== OVERRIDE NAVIGASI SECTION ==========
         const sections = {
             tambahProduk: document.getElementById('tambahProdukSection'),
@@ -405,22 +412,22 @@
             submenus.tambahProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahProduk'); });
         }
         if (submenus.daftarProduk) {
-            submenus.daftarProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarProduk'); });
+            submenus.daftarProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarProduk'); loadDaftarProduk(); });
         }
         if (submenus.tambahKategori) {
             submenus.tambahKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahKategori'); });
         }
         if (submenus.daftarKategori) {
-            submenus.daftarKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarKategori'); });
+            submenus.daftarKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarKategori'); loadDaftarKategori(); });
         }
         if (submenus.tambahUnit) {
             submenus.tambahUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahUnit'); });
         }
         if (submenus.daftarUnit) {
-            submenus.daftarUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); });
+            submenus.daftarUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); loadDaftarUnit(); });
         }
 
-        // Ekspor fungsi showSection ke global agar bisa dipakai di script biasa jika perlu
+        // Ekspor fungsi showSection ke global
         window.showSection = showSection;
 
         // ========== LOAD DROPDOWNS ==========
@@ -449,6 +456,101 @@
                 alert('Gagal memuat data: ' + error.message);
             }
         }
+
+        // ========== FUNGSI UNTUK ROW KONVERSI DAN QTY BREAK ==========
+        function tambahKonversiRow(data = null) {
+            const row = document.createElement('div');
+            row.className = 'konversi-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <select class="unitKonversi" required><option value="">Unit</option></select>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="nilaiKonversi" placeholder="Nilai" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" class="barcodeKonversi" placeholder="Barcode">
+                </div>
+                <div class="form-group" style="flex-direction:row; align-items:center; gap:0.3rem;">
+                    <input type="checkbox" class="aktifKonversi" checked> <span style="font-size:0.85rem;">Aktif</span>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaDasarKonversi" placeholder="Harga Dasar">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaJualKonversi" placeholder="Harga Jual">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="poinKonversi" placeholder="Poin">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="komisiKonversi" placeholder="Komisi">
+                </div>
+                <button type="button" class="remove-row"><i data-feather="x"></i></button>
+            `;
+            konversiContainer.appendChild(row);
+
+            // Isi data jika ada
+            if (data) {
+                const select = row.querySelector('.unitKonversi');
+                // Isi opsi unit setelah select tersedia
+                getAll(unitStore).then(units => {
+                    units.forEach(u => select.add(new Option(u.nama, u.id)));
+                    select.value = data.unitId || '';
+                }).catch(console.error);
+                row.querySelector('.nilaiKonversi').value = data.nilai || '';
+                row.querySelector('.barcodeKonversi').value = data.barcode || '';
+                row.querySelector('.aktifKonversi').checked = data.aktif !== false;
+                row.querySelector('.hargaDasarKonversi').value = data.hargaDasar || '';
+                row.querySelector('.hargaJualKonversi').value = data.hargaJual || '';
+                row.querySelector('.poinKonversi').value = data.poinPelanggan || '';
+                row.querySelector('.komisiKonversi').value = data.komisiSales || '';
+            } else {
+                // Isi opsi unit saja
+                getAll(unitStore).then(units => {
+                    const select = row.querySelector('.unitKonversi');
+                    units.forEach(u => select.add(new Option(u.nama, u.id)));
+                }).catch(console.error);
+            }
+
+            feather.replace();
+            row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+        }
+
+        function tambahQtyBreakRow(data = null) {
+            const row = document.createElement('div');
+            row.className = 'qtybreak-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <input type="text" class="levelQty" placeholder="Level" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" step="0.01" class="minQty" placeholder="Min Qty" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaQty" placeholder="Harga" required>
+                </div>
+                <button type="button" class="remove-row"><i data-feather="x"></i></button>
+            `;
+            qtyBreakContainer.appendChild(row);
+
+            if (data) {
+                row.querySelector('.levelQty').value = data.level || '';
+                row.querySelector('.minQty').value = data.minQty || '';
+                row.querySelector('.hargaQty').value = data.harga || '';
+            }
+
+            feather.replace();
+            row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+        }
+
+        // ========== TAMBAH KONVERSI / QTY BREAK ==========
+        document.getElementById('tambahKonversi').addEventListener('click', () => {
+            tambahKonversiRow();
+        });
+        document.getElementById('tambahQtyBreak').addEventListener('click', () => {
+            tambahQtyBreakRow();
+        });
 
         // ========== TAMBAH KATEGORI ==========
         const formTambahKategori = document.getElementById('formTambahKategori');
@@ -598,81 +700,13 @@
             }
         };
 
-        // ========== KONVERSI UNIT DINAMIS ==========
-        const konversiContainer = document.getElementById('konversiContainer');
-        const tambahKonversiBtn = document.getElementById('tambahKonversi');
-        if (tambahKonversiBtn) {
-            tambahKonversiBtn.addEventListener('click', () => {
-                const row = document.createElement('div');
-                row.className = 'konversi-row';
-                row.innerHTML = `
-                    <div class="form-group">
-                        <select class="unitKonversi" required><option value="">Unit</option></select>
-                    </div>
-                    <div class="form-group">
-                        <input type="number" class="nilaiKonversi" placeholder="Nilai" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="text" class="barcodeKonversi" placeholder="Barcode">
-                    </div>
-                    <div class="form-group" style="flex-direction:row; align-items:center; gap:0.3rem;">
-                        <input type="checkbox" class="aktifKonversi" checked> <span style="font-size:0.85rem;">Aktif</span>
-                    </div>
-                    <div class="form-group">
-                        <input type="number" class="hargaDasarKonversi" placeholder="Harga Dasar">
-                    </div>
-                    <div class="form-group">
-                        <input type="number" class="hargaJualKonversi" placeholder="Harga Jual">
-                    </div>
-                    <div class="form-group">
-                        <input type="number" class="poinKonversi" placeholder="Poin">
-                    </div>
-                    <div class="form-group">
-                        <input type="number" class="komisiKonversi" placeholder="Komisi">
-                    </div>
-                    <button type="button" class="remove-row"><i data-feather="x"></i></button>
-                `;
-                konversiContainer.appendChild(row);
-                getAll(unitStore).then(units => {
-                    const select = row.querySelector('.unitKonversi');
-                    units.forEach(u => select.add(new Option(u.nama, u.id)));
-                }).catch(console.error);
-                feather.replace();
-                row.querySelector('.remove-row').addEventListener('click', () => row.remove());
-            });
-        }
-
-        // ========== QTY BREAK DINAMIS ==========
-        const qtyBreakContainer = document.getElementById('qtyBreakContainer');
-        const tambahQtyBreakBtn = document.getElementById('tambahQtyBreak');
-        if (tambahQtyBreakBtn) {
-            tambahQtyBreakBtn.addEventListener('click', () => {
-                const row = document.createElement('div');
-                row.className = 'qtybreak-row';
-                row.innerHTML = `
-                    <div class="form-group">
-                        <input type="text" class="levelQty" placeholder="Level" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="number" step="0.01" class="minQty" placeholder="Min Qty" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="number" class="hargaQty" placeholder="Harga" required>
-                    </div>
-                    <button type="button" class="remove-row"><i data-feather="x"></i></button>
-                `;
-                qtyBreakContainer.appendChild(row);
-                feather.replace();
-                row.querySelector('.remove-row').addEventListener('click', () => row.remove());
-            });
-        }
-
-        // ========== SIMPAN PRODUK ==========
+        // ========== SIMPAN PRODUK (TAMBAH / EDIT) ==========
         const formTambahProduk = document.getElementById('formTambahProduk');
         if (formTambahProduk) {
             formTambahProduk.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const produk = {
+                const produkId = produkIdInput.value;
+                const produkData = {
                     nama: document.getElementById('namaProduk').value,
                     kode: document.getElementById('kodeProduk').value,
                     barcode: document.getElementById('barcodeProduk').value,
@@ -690,22 +724,46 @@
                     idCloud: null
                 };
 
-                if (!produk.nama || !produk.kategoriId || !produk.hargaDasar || !produk.hargaJual || !produk.unitId || !produk.gudangId) {
+                if (!produkData.nama || !produkData.kategoriId || !produkData.hargaDasar || !produkData.hargaJual || !produkData.unitId || !produkData.gudangId) {
                     alert('Harap isi semua field wajib');
                     return;
                 }
 
                 try {
-                    const produkId = await addItem(produkStore, produk);
+                    let finalProdukId = produkId;
+                    if (produkId) {
+                        // UPDATE: ambil data lama untuk pertahankan idCloud
+                        const existing = await getById(produkStore, produkId);
+                        if (!existing) {
+                            alert('Produk tidak ditemukan');
+                            return;
+                        }
+                        produkData.idCloud = existing.idCloud;
+                        produkData.synced = false; // tandai belum sinkron
+                        await updateItem(produkStore, produkId, produkData);
 
-                    // Simpan konversi unit
+                        // Hapus semua konversi dan qty break lama
+                        const konversiLama = await findByIndex(konversiStore, 'produkId', produkId);
+                        for (let k of konversiLama) {
+                            await removeItem(konversiStore, k.id);
+                        }
+                        const qtyLama = await findByIndex(qtyStore, 'produkId', produkId);
+                        for (let q of qtyLama) {
+                            await removeItem(qtyStore, q.id);
+                        }
+                    } else {
+                        // TAMBAH BARU
+                        finalProdukId = await addItem(produkStore, produkData);
+                    }
+
+                    // Simpan konversi unit (untuk edit, sudah hapus lama, jadi tinggal tambah baru)
                     const konversiRows = document.querySelectorAll('.konversi-row');
                     for (let row of konversiRows) {
                         const unitId = row.querySelector('.unitKonversi').value;
                         if (!unitId) continue;
                         await addItem(konversiStore, {
-                            produkId,
-                            produkIdCloud: null,
+                            produkId: finalProdukId,
+                            produkIdCloud: produkData.idCloud, // akan null untuk produk baru
                             unitId,
                             nilai: parseFloat(row.querySelector('.nilaiKonversi').value),
                             barcode: row.querySelector('.barcodeKonversi').value,
@@ -725,8 +783,8 @@
                         const minQty = row.querySelector('.minQty').value;
                         if (!minQty) continue;
                         await addItem(qtyStore, {
-                            produkId,
-                            produkIdCloud: null,
+                            produkId: finalProdukId,
+                            produkIdCloud: produkData.idCloud,
                             level: row.querySelector('.levelQty').value,
                             minQty: parseFloat(minQty),
                             harga: parseFloat(row.querySelector('.hargaQty').value),
@@ -735,17 +793,35 @@
                         });
                     }
 
-                    alert('Produk berhasil disimpan');
+                    alert(produkId ? 'Produk berhasil diperbarui' : 'Produk berhasil ditambahkan');
+
+                    // Reset form dan kembali ke mode tambah
                     formTambahProduk.reset();
                     konversiContainer.innerHTML = '';
                     qtyBreakContainer.innerHTML = '';
-                    if (sections.daftarProduk?.classList.contains('active')) loadDaftarProduk();
+                    produkIdInput.value = '';
+                    formProdukTitle.innerText = 'Tambah Produk Baru';
+
+                    // Tampilkan daftar produk jika sedang aktif
+                    if (sections.daftarProduk?.classList.contains('active')) {
+                        loadDaftarProduk();
+                    } else {
+                        showSection('daftarProduk');
+                    }
                 } catch (error) {
                     console.error(error);
                     alert('Gagal menyimpan produk: ' + error.message);
                 }
             });
         }
+
+        // ========== RESET FORM PRODUK ==========
+        document.querySelector('button[type="reset"]').addEventListener('click', function() {
+            produkIdInput.value = '';
+            formProdukTitle.innerText = 'Tambah Produk Baru';
+            konversiContainer.innerHTML = '';
+            qtyBreakContainer.innerHTML = '';
+        });
 
         // ========== DAFTAR PRODUK ==========
         async function loadDaftarProduk() {
@@ -783,7 +859,62 @@
         }
         if (submenus.daftarProduk) submenus.daftarProduk.addEventListener('click', loadDaftarProduk);
 
-        window.editProduk = (id) => alert('Fungsi edit produk akan segera hadir');
+        // ========== LOAD PRODUK UNTUK EDIT ==========
+        async function loadProdukUntukEdit(id) {
+            try {
+                const produk = await getById(produkStore, id);
+                if (!produk) {
+                    alert('Produk tidak ditemukan');
+                    return;
+                }
+
+                // Isi form dengan data produk
+                document.getElementById('namaProduk').value = produk.nama || '';
+                document.getElementById('kodeProduk').value = produk.kode || '';
+                document.getElementById('barcodeProduk').value = produk.barcode || '';
+                document.getElementById('kategoriProduk').value = produk.kategoriId || '';
+                document.getElementById('hargaDasar').value = produk.hargaDasar || '';
+                document.getElementById('hargaJual').value = produk.hargaJual || '';
+                document.getElementById('berat').value = produk.berat || '';
+                document.getElementById('unit').value = produk.unitId || '';
+                document.getElementById('diskon').value = produk.diskon || 0;
+                document.getElementById('gudang').value = produk.gudangId || '';
+                document.getElementById('stokAwal').value = produk.stokAwal || '';
+                document.getElementById('stokMinimal').value = produk.stokMinimal || '';
+                document.getElementById('produkTimbangan').checked = produk.produkTimbangan || false;
+
+                // Set hidden ID
+                produkIdInput.value = id;
+
+                // Bersihkan container dan muat konversi
+                konversiContainer.innerHTML = '';
+                const konversiList = await findByIndex(konversiStore, 'produkId', id);
+                for (let konv of konversiList) {
+                    tambahKonversiRow(konv);
+                }
+
+                // Muat qty break
+                qtyBreakContainer.innerHTML = '';
+                const qtyList = await findByIndex(qtyStore, 'produkId', id);
+                for (let q of qtyList) {
+                    tambahQtyBreakRow(q);
+                }
+
+                // Ubah judul
+                formProdukTitle.innerText = 'Edit Produk';
+
+                // Tampilkan section form
+                showSection('tambahProduk');
+            } catch (error) {
+                console.error('Error loading produk for edit:', error);
+                alert('Gagal memuat data produk: ' + error.message);
+            }
+        }
+
+        window.editProduk = async (id) => {
+            await loadProdukUntukEdit(id);
+        };
+
         window.hapusProduk = async (id) => {
             if (confirm('Yakin hapus produk?')) {
                 try {
