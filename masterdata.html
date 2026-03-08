@@ -6,300 +6,72 @@
     <title>MUDA POS - Master Data</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- Dexie (harus global) -->
+    <!-- Dexie -->
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <style>
-        /* ===== RESET & VARIABEL ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-        }
-        body {
-            background-color: #f5f5f5;
-            color: #333333;
-            font-size: 14px;
-        }
-        .text-primary { color: #006B54; }
-
-        /* ===== HEADER ===== */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.6rem 1.5rem;
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .menu-toggle {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #006B54;
-            padding: 0.4rem;
-            border-radius: 6px;
-        }
-        .menu-toggle:hover { background-color: #f0f0f0; }
-        .btn-login {
-            background-color: #006B54;
-            color: white;
-            border: none;
-            padding: 0.4rem 1rem;
-            border-radius: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.9rem;
-        }
-        .btn-login:hover { background-color: #004d3b; }
-        .btn-sync {
-            background: transparent;
-            border: 1px solid #006B54;
-            color: #006B54;
-            padding: 0.4rem 1rem;
-            border-radius: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            margin-right: 0.5rem;
-            font-size: 0.9rem;
-        }
-        .btn-sync:hover { background-color: #e6f0ec; }
-
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 260px;
-            height: 100%;
-            background-color: white;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-            transform: translateX(-100%);
-            transition: transform 0.3s;
-            z-index: 200;
-            padding: 1.2rem 0.8rem;
-            overflow-y: auto;
-        }
-        .sidebar.open { transform: translateX(0); }
-        .sidebar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.8rem;
-            border-bottom: 1px solid #eee;
-        }
-        .sidebar-header h2 { color: #006B54; font-size: 1.2rem; }
-        .close-sidebar { background: none; border: none; cursor: pointer; color: #999; }
-        .sidebar-menu { list-style: none; }
-        .sidebar-menu li { margin-bottom: 0.2rem; }
-        .sidebar-menu .menu-link {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            padding: 0.6rem 0.8rem;
-            color: #006B54;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-        }
-        .sidebar-menu .menu-link:hover { background-color: #f0f5f3; }
-        .sidebar-menu .menu-link i { color: #006B54; width: 18px; }
-        .has-submenu .submenu {
-            list-style: none;
-            padding-left: 2.5rem;
-            display: none;
-        }
-        .has-submenu.open .submenu { display: block; }
-        .submenu a {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            padding: 0.5rem 0.8rem;
-            color: #333;
-            text-decoration: none;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-        .submenu a:hover {
-            background-color: #e6f0ec;
-            color: #006B54;
-        }
-        .submenu a.active {
-            background-color: #e6f0ec;
-            color: #006B54;
-            font-weight: 500;
-        }
-        .has-submenu .menu-link .arrow {
-            margin-left: auto;
-            transition: transform 0.3s;
-        }
-        .has-submenu.open .menu-link .arrow { transform: rotate(180deg); }
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.3);
-            z-index: 150;
-            display: none;
-        }
-        .overlay.active { display: block; }
-
-        /* ===== MAIN CONTENT ===== */
-        .main-content {
-            padding: 1.5rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .page-title {
-            margin-bottom: 1.2rem;
-            font-size: 1.6rem;
-            font-weight: 600;
-            color: #006B54;
-        }
-        .content-section {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-            border: 1px solid #f0f0f0;
-            display: none;
-        }
-        .content-section.active { display: block; }
-
-        /* Form */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
-            gap: 1rem;
-            margin-bottom: 1.2rem;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .form-group label {
-            margin-bottom: 0.3rem;
-            font-weight: 500;
-            font-size: 0.9rem;
-            color: #444;
-        }
-        .form-group input, .form-group select, .form-group textarea {
-            padding: 0.6rem 0.8rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.95rem;
-        }
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #006B54;
-        }
-        .subform-section {
-            margin-top: 1.5rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e0e0e0;
-        }
-        .subform-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #006B54;
-            margin-bottom: 0.8rem;
-        }
-        .konversi-row, .qtybreak-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px,1fr));
-            gap: 0.6rem;
-            align-items: center;
-            background: #fafafa;
-            padding: 0.8rem;
-            border-radius: 8px;
-            margin-bottom: 0.6rem;
-        }
-        .konversi-row .form-group, .qtybreak-row .form-group {
-            margin-bottom: 0;
-        }
-        .remove-row {
-            background: none;
-            border: none;
-            color: #dc3545;
-            cursor: pointer;
-            justify-self: end;
-            padding: 0.2rem;
-        }
-        .btn {
-            background: #006B54;
-            color: white;
-            border: none;
-            padding: 0.6rem 1.2rem;
-            border-radius: 6px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-right: 0.5rem;
-        }
-        .btn:hover { background: #004d3b; }
-        .btn-secondary { background: #6c757d; }
-        .btn-secondary:hover { background: #5a6268; }
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #006B54;
-            color: #006B54;
-            margin-top: 0.5rem;
-        }
-        .btn-outline:hover { background: #e6f0ec; }
-
-        /* Tabel */
-        .table-responsive {
-            overflow-x: auto;
-            margin-top: 1rem;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-            min-width: 600px;
-        }
-        th, td {
-            padding: 0.6rem 0.8rem;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-            white-space: nowrap;
-        }
-        th {
-            background: #f9f9f9;
-            font-weight: 600;
-            color: #006B54;
-        }
-        tr:hover { background: #f5f5f5; }
-        .btn-icon {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #006B54;
-            padding: 0.2rem;
-        }
-        .btn-icon.delete { color: #dc3545; }
+        /* ===== CSS (sama seperti sebelumnya, ringkas) ===== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background:#f5f5f5; color:#333; font-size:14px; }
+        .text-primary { color:#006B54; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .btn-sync { background:transparent; border:1px solid #006B54; color:#006B54; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; margin-right:0.5rem; font-size:0.9rem; }
+        .btn-sync:hover { background:#e6f0ec; }
+        .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
+        .reset-btn:hover { background:#c82333; }
+        /* Sidebar, main content, dll (salin dari kode sebelumnya) */
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
+        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
+        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
+        .sidebar-menu { list-style:none; }
+        .sidebar-menu li { margin-bottom:0.2rem; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
+        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
+        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
+        .has-submenu.open .submenu { display:block; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
+        .submenu a:hover { background:#e6f0ec; color:#006B54; }
+        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
+        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
+        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
+        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+        .content-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; display:none; }
+        .content-section.active { display:block; }
+        .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:1rem; margin-bottom:1.2rem; }
+        .form-group { display:flex; flex-direction:column; }
+        .form-group label { margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
+        .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
+        .subform-section { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e0e0e0; }
+        .subform-title { font-size:1.1rem; font-weight:600; color:#006B54; margin-bottom:0.8rem; }
+        .konversi-row, .qtybreak-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:0.6rem; align-items:center; background:#fafafa; padding:0.8rem; border-radius:8px; margin-bottom:0.6rem; }
+        .konversi-row .form-group, .qtybreak-row .form-group { margin-bottom:0; }
+        .remove-row { background:none; border:none; color:#dc3545; cursor:pointer; justify-self:end; padding:0.2rem; }
+        .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; margin-right:0.5rem; }
+        .btn:hover { background:#004d3b; }
+        .btn-secondary { background:#6c757d; }
+        .btn-secondary:hover { background:#5a6268; }
+        .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; margin-top:0.5rem; }
+        .btn-outline:hover { background:#e6f0ec; }
+        .table-responsive { overflow-x:auto; margin-top:1rem; }
+        table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:600px; }
+        th, td { padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
+        th { background:#f9f9f9; font-weight:600; color:#006B54; }
+        tr:hover { background:#f5f5f5; }
+        .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; }
+        .btn-icon.delete { color:#dc3545; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
-        @media (max-width:640px) {
-            .main-content { padding:0.8rem; }
-            .content-section { padding:1rem; }
-        }
+        @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
     </style>
 </head>
 <body>
@@ -349,6 +121,9 @@
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
+
+    <!-- Tombol Reset Darurat -->
+    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset DB</button>
 
     <!-- Main Content -->
     <main class="main-content">
@@ -506,7 +281,6 @@
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { collection, doc, getDocs, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Inisialisasi Feather Icons
         feather.replace();
 
         // ========== SIDEBAR ==========
@@ -562,23 +336,28 @@
 
         // ========== LOAD DROPDOWNS ==========
         async function loadDropdowns() {
-            const kategoriSelect = document.getElementById('kategoriProduk');
-            if (kategoriSelect) {
-                const kategoris = await dbLokal.kategori.toArray();
-                kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
-                    kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
-            }
-            const unitSelect = document.getElementById('unit');
-            if (unitSelect) {
-                const units = await dbLokal.unit.toArray();
-                unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
-                    units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
-            }
-            const gudangSelect = document.getElementById('gudang');
-            if (gudangSelect) {
-                const gudangs = await dbLokal.gudang.toArray();
-                gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
-                    gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
+            try {
+                const kategoriSelect = document.getElementById('kategoriProduk');
+                if (kategoriSelect) {
+                    const kategoris = await dbLokal.kategori.toArray();
+                    kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
+                        kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
+                }
+                const unitSelect = document.getElementById('unit');
+                if (unitSelect) {
+                    const units = await dbLokal.unit.toArray();
+                    unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
+                        units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
+                }
+                const gudangSelect = document.getElementById('gudang');
+                if (gudangSelect) {
+                    const gudangs = await dbLokal.gudang.toArray();
+                    gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
+                        gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('loadDropdowns error:', error);
+                alert('Gagal memuat data: ' + error.message);
             }
         }
 
@@ -596,7 +375,7 @@
                 if (sections.daftarKategori.classList.contains('active')) loadDaftarKategori();
             } catch (error) {
                 console.error(error);
-                alert('Gagal menambah kategori');
+                alert('Gagal menambah kategori: ' + error.message);
             }
         });
 
@@ -614,49 +393,59 @@
                 if (sections.daftarUnit.classList.contains('active')) loadDaftarUnit();
             } catch (error) {
                 console.error(error);
-                alert('Gagal menambah unit');
+                alert('Gagal menambah unit: ' + error.message);
             }
         });
 
         // ========== DAFTAR KATEGORI ==========
         async function loadDaftarKategori() {
-            const list = await dbLokal.kategori.toArray();
-            const tbody = document.getElementById('daftarKategoriBody');
-            if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                return;
+            try {
+                const list = await dbLokal.kategori.toArray();
+                const tbody = document.getElementById('daftarKategoriBody');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(k => `
+                    <tr>
+                        <td>${k.nama} ${!k.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editKategori(${k.id})"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusKategori(${k.id})"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                feather.replace();
+            } catch (error) {
+                console.error(error);
+                alert('Gagal memuat kategori: ' + error.message);
             }
-            tbody.innerHTML = list.map(k => `
-                <tr>
-                    <td>${k.nama} ${!k.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                    <td>
-                        <button class="btn-icon edit" onclick="editKategori(${k.id})"><i data-feather="edit-2"></i></button>
-                        <button class="btn-icon delete" onclick="hapusKategori(${k.id})"><i data-feather="trash-2"></i></button>
-                    </td>
-                </tr>
-            `).join('');
-            feather.replace();
         }
         submenus.daftarKategori.addEventListener('click', loadDaftarKategori);
 
         // ========== DAFTAR UNIT ==========
         async function loadDaftarUnit() {
-            const list = await dbLokal.unit.toArray();
-            const tbody = document.getElementById('daftarUnitBody');
-            if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                return;
+            try {
+                const list = await dbLokal.unit.toArray();
+                const tbody = document.getElementById('daftarUnitBody');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(u => `
+                    <tr>
+                        <td>${u.nama} ${!u.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editUnit(${u.id})"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusUnit(${u.id})"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                feather.replace();
+            } catch (error) {
+                console.error(error);
+                alert('Gagal memuat unit: ' + error.message);
             }
-            tbody.innerHTML = list.map(u => `
-                <tr>
-                    <td>${u.nama} ${!u.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                    <td>
-                        <button class="btn-icon edit" onclick="editUnit(${u.id})"><i data-feather="edit-2"></i></button>
-                        <button class="btn-icon delete" onclick="hapusUnit(${u.id})"><i data-feather="trash-2"></i></button>
-                    </td>
-                </tr>
-            `).join('');
-            feather.replace();
         }
         submenus.daftarUnit.addEventListener('click', loadDaftarUnit);
 
@@ -664,31 +453,47 @@
         window.editKategori = async (id) => {
             const newName = prompt('Edit nama kategori:');
             if (newName && newName.trim()) {
-                await dbLokal.kategori.update(id, { nama: newName.trim(), synced: false });
-                loadDaftarKategori();
-                loadDropdowns();
+                try {
+                    await dbLokal.kategori.update(id, { nama: newName.trim(), synced: false });
+                    loadDaftarKategori();
+                    loadDropdowns();
+                } catch (error) {
+                    alert('Gagal edit: ' + error.message);
+                }
             }
         };
         window.hapusKategori = async (id) => {
             if (confirm('Yakin hapus kategori?')) {
-                await dbLokal.kategori.delete(id);
-                loadDaftarKategori();
-                loadDropdowns();
+                try {
+                    await dbLokal.kategori.delete(id);
+                    loadDaftarKategori();
+                    loadDropdowns();
+                } catch (error) {
+                    alert('Gagal hapus: ' + error.message);
+                }
             }
         };
         window.editUnit = async (id) => {
             const newName = prompt('Edit nama unit:');
             if (newName && newName.trim()) {
-                await dbLokal.unit.update(id, { nama: newName.trim(), synced: false });
-                loadDaftarUnit();
-                loadDropdowns();
+                try {
+                    await dbLokal.unit.update(id, { nama: newName.trim(), synced: false });
+                    loadDaftarUnit();
+                    loadDropdowns();
+                } catch (error) {
+                    alert('Gagal edit: ' + error.message);
+                }
             }
         };
         window.hapusUnit = async (id) => {
             if (confirm('Yakin hapus unit?')) {
-                await dbLokal.unit.delete(id);
-                loadDaftarUnit();
-                loadDropdowns();
+                try {
+                    await dbLokal.unit.delete(id);
+                    loadDaftarUnit();
+                    loadDropdowns();
+                } catch (error) {
+                    alert('Gagal hapus: ' + error.message);
+                }
             }
         };
 
@@ -728,7 +533,7 @@
             dbLokal.unit.toArray().then(units => {
                 const select = row.querySelector('.unitKonversi');
                 units.forEach(u => select.add(new Option(u.nama, u.id)));
-            });
+            }).catch(error => console.error(error));
             feather.replace();
             row.querySelector('.remove-row').addEventListener('click', () => row.remove());
         });
@@ -829,48 +634,57 @@
                 if (sections.daftarProduk.classList.contains('active')) loadDaftarProduk();
             } catch (error) {
                 console.error(error);
-                alert('Gagal menyimpan produk');
+                alert('Gagal menyimpan produk: ' + error.message);
             }
         });
 
         // ========== DAFTAR PRODUK ==========
         async function loadDaftarProduk() {
-            const produkList = await dbLokal.produk.toArray();
-            const tbody = document.getElementById('daftarProdukBody');
-            if (produkList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
-                return;
-            }
-            const kategoris = await dbLokal.kategori.toArray();
-            const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
-            const units = await dbLokal.unit.toArray();
-            const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
+            try {
+                const produkList = await dbLokal.produk.toArray();
+                const tbody = document.getElementById('daftarProdukBody');
+                if (produkList.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
+                    return;
+                }
+                const kategoris = await dbLokal.kategori.toArray();
+                const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
+                const units = await dbLokal.unit.toArray();
+                const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
 
-            tbody.innerHTML = produkList.map(p => `
-                <tr>
-                    <td>${p.kode || '-'}</td>
-                    <td>${p.nama} ${!p.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                    <td>${kategoriMap[p.kategoriId] || '-'}</td>
-                    <td>Rp ${p.hargaJual.toLocaleString()}</td>
-                    <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
-                    <td>${p.produkTimbangan ? '✓' : '-'}</td>
-                    <td>
-                        <button class="btn-icon edit" onclick="editProduk(${p.id})"><i data-feather="edit-2"></i></button>
-                        <button class="btn-icon delete" onclick="hapusProduk(${p.id})"><i data-feather="trash-2"></i></button>
-                    </td>
-                </tr>
-            `).join('');
-            feather.replace();
+                tbody.innerHTML = produkList.map(p => `
+                    <tr>
+                        <td>${p.kode || '-'}</td>
+                        <td>${p.nama} ${!p.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>${kategoriMap[p.kategoriId] || '-'}</td>
+                        <td>Rp ${p.hargaJual.toLocaleString()}</td>
+                        <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
+                        <td>${p.produkTimbangan ? '✓' : '-'}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editProduk(${p.id})"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusProduk(${p.id})"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                feather.replace();
+            } catch (error) {
+                console.error(error);
+                alert('Gagal memuat produk: ' + error.message);
+            }
         }
         submenus.daftarProduk.addEventListener('click', loadDaftarProduk);
 
         window.editProduk = (id) => alert('Fungsi edit produk akan segera hadir');
         window.hapusProduk = async (id) => {
             if (confirm('Yakin hapus produk?')) {
-                await dbLokal.produk.delete(id);
-                await dbLokal.konversiUnit.where('produkId').equals(id).delete();
-                await dbLokal.qtyBreak.where('produkId').equals(id).delete();
-                loadDaftarProduk();
+                try {
+                    await dbLokal.produk.delete(id);
+                    await dbLokal.konversiUnit.where('produkId').equals(id).delete();
+                    await dbLokal.qtyBreak.where('produkId').equals(id).delete();
+                    loadDaftarProduk();
+                } catch (error) {
+                    alert('Gagal hapus: ' + error.message);
+                }
             }
         };
 
@@ -893,6 +707,25 @@
             }
         });
 
+        // ========== FUNGSI RESET DATABASE ==========
+        window.resetDatabase = async function() {
+            if (!confirm('PERINGATAN: Semua data lokal akan dihapus permanen. Lanjutkan?')) return;
+            try {
+                await dbLokal.produk.clear();
+                await dbLokal.konversiUnit.clear();
+                await dbLokal.qtyBreak.clear();
+                await dbLokal.kategori.clear();
+                await dbLokal.unit.clear();
+                await dbLokal.gudang.clear();
+                alert('Semua data lokal telah dihapus. Halaman akan dimuat ulang.');
+                location.reload();
+            } catch (error) {
+                console.error('Gagal reset DB:', error);
+                alert('Gagal reset: ' + error.message);
+            }
+        };
+        document.getElementById('resetDbBtn').addEventListener('click', window.resetDatabase);
+
         // ========== SINKRONISASI (dengan validasi key) ==========
         window.syncData = async function() {
             if (!auth.currentUser) {
@@ -914,7 +747,7 @@
                 if (sections.daftarUnit.classList.contains('active')) loadDaftarUnit();
                 if (sections.daftarProduk.classList.contains('active')) loadDaftarProduk();
             } catch (error) {
-                console.error(error);
+                console.error('Sync error:', error);
                 alert('Gagal sinkron: ' + error.message);
             } finally {
                 syncBtn.innerHTML = originalText;
@@ -926,14 +759,17 @@
             // Upload data lokal yang belum sinkron
             const pending = await tableLokal.where('synced').equals(false).toArray();
             for (let item of pending) {
+                // Pastikan item.id ada dan valid
+                if (!item.id || typeof item.id !== 'number') {
+                    console.warn(`Item ${namaLokal} memiliki id tidak valid:`, item);
+                    continue;
+                }
                 try {
                     if (item.idCloud && typeof item.idCloud === 'string' && item.idCloud.length > 0) {
-                        // Update dokumen yang sudah ada
                         const docRef = doc(dbCloud, koleksiFirestore, item.idCloud);
                         await setDoc(docRef, item);
                         await tableLokal.update(item.id, { synced: true });
                     } else {
-                        // Tambah dokumen baru
                         const docRef = await addDoc(collection(dbCloud, koleksiFirestore), item);
                         await tableLokal.update(item.id, { idCloud: docRef.id, synced: true });
                     }
@@ -942,13 +778,14 @@
                 }
             }
 
-            // Download semua data dari cloud
+            // Download data dari cloud
             const snapshot = await getDocs(collection(dbCloud, koleksiFirestore));
             for (const docSnap of snapshot.docs) {
                 try {
                     const data = docSnap.data();
                     data.idCloud = docSnap.id;
                     data.synced = true;
+                    // Cari berdasarkan idCloud
                     const existing = await tableLokal.where('idCloud').equals(docSnap.id).first();
                     if (existing) {
                         await tableLokal.update(existing.id, data);
@@ -965,6 +802,10 @@
             // Upload produk
             const produkPending = await dbLokal.produk.where('synced').equals(false).toArray();
             for (let p of produkPending) {
+                if (!p.id || typeof p.id !== 'number') {
+                    console.warn('Produk dengan id tidak valid:', p);
+                    continue;
+                }
                 try {
                     if (p.idCloud && typeof p.idCloud === 'string' && p.idCloud.length > 0) {
                         await setDoc(doc(dbCloud, 'produk', p.idCloud), p);
@@ -973,10 +814,8 @@
                         const docRef = await addDoc(collection(dbCloud, 'produk'), p);
                         await dbLokal.produk.update(p.id, { idCloud: docRef.id, synced: true });
                         // Update relasi dengan produkIdCloud, pastikan p.id valid (number)
-                        if (p.id && typeof p.id === 'number') {
-                            await dbLokal.konversiUnit.where('produkId').equals(p.id).modify({ produkIdCloud: docRef.id });
-                            await dbLokal.qtyBreak.where('produkId').equals(p.id).modify({ produkIdCloud: docRef.id });
-                        }
+                        await dbLokal.konversiUnit.where('produkId').equals(p.id).modify({ produkIdCloud: docRef.id });
+                        await dbLokal.qtyBreak.where('produkId').equals(p.id).modify({ produkIdCloud: docRef.id });
                     }
                 } catch (e) { console.warn('Gagal upload produk id', p.id, e); }
             }
@@ -984,6 +823,10 @@
             // Upload konversiUnit
             const konvPending = await dbLokal.konversiUnit.where('synced').equals(false).toArray();
             for (let k of konvPending) {
+                if (!k.id || typeof k.id !== 'number') {
+                    console.warn('KonversiUnit dengan id tidak valid:', k);
+                    continue;
+                }
                 try {
                     if (k.idCloud && typeof k.idCloud === 'string' && k.idCloud.length > 0) {
                         await setDoc(doc(dbCloud, 'konversiUnit', k.idCloud), k);
@@ -998,6 +841,10 @@
             // Upload qtyBreak
             const qtyPending = await dbLokal.qtyBreak.where('synced').equals(false).toArray();
             for (let q of qtyPending) {
+                if (!q.id || typeof q.id !== 'number') {
+                    console.warn('QtyBreak dengan id tidak valid:', q);
+                    continue;
+                }
                 try {
                     if (q.idCloud && typeof q.idCloud === 'string' && q.idCloud.length > 0) {
                         await setDoc(doc(dbCloud, 'qtyBreak', q.idCloud), q);
@@ -1058,7 +905,6 @@
             }
         }
 
-        // Event listener tombol sync
         document.getElementById('syncBtn').addEventListener('click', syncData);
 
         // ========== INITIAL LOAD ==========
