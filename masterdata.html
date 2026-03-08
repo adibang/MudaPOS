@@ -6,10 +6,10 @@
     <title>MUDA POS - Master Data</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- Dexie -->
+    <!-- Dexie (harus global karena firebase-config membutuhkannya) -->
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <style>
-        /* ===== CSS SAMA SEPERTI SEBELUMNYA (sudah diperbaiki ukuran) ===== */
+        /* ===== CSS SAMA SEPERTI SEBELUMNYA ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -66,7 +66,6 @@
         tr:hover { background:#f5f5f5; }
         .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; }
         .btn-icon.delete { color:#dc3545; }
-        /* Animasi spin */
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
@@ -292,8 +291,14 @@
         </div>
     </main>
 
-    <script>
-        // Inisialisasi Feather Icons
+    <!-- SCRIPT UTAMA - MODULE -->
+    <script type="module">
+        // Impor dari firebase-config
+        import { dbLokal, auth, provider } from './js/firebase-config.js';
+        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { collection, doc, getDocs, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // Feather Icons (global)
         feather.replace();
 
         // ========== SIDEBAR ==========
@@ -314,13 +319,6 @@
             e.preventDefault();
             masterdataItem.classList.toggle('open');
         });
-
-        // ========== DEXIE INIT (dengan field sync) ==========
-        // ========== DEXIE INIT (gunakan instance global dari firebase-config) ==========
-        const dbLokal = window.dbLokal;
-        if (!dbLokal) {
-            console.error('dbLokal tidak tersedia!');
-        }
 
         // ========== NAVIGASI SECTION ==========
         const sections = {
@@ -357,139 +355,165 @@
 
         // ========== LOAD DROPDOWNS ==========
         async function loadDropdowns() {
-            const kategoriSelect = document.getElementById('kategoriProduk');
-            if (kategoriSelect) {
-                const kategoris = await dbLokal.kategori.toArray();
-                kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
-                    kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
-            }
-            const unitSelect = document.getElementById('unit');
-            if (unitSelect) {
-                const units = await dbLokal.unit.toArray();
-                unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
-                    units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
-            }
-            const gudangSelect = document.getElementById('gudang');
-            if (gudangSelect) {
-                const gudangs = await dbLokal.gudang.toArray();
-                gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
-                    gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
+            try {
+                const kategoriSelect = document.getElementById('kategoriProduk');
+                if (kategoriSelect) {
+                    const kategoris = await dbLokal.kategori.toArray();
+                    kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
+                        kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
+                }
+                const unitSelect = document.getElementById('unit');
+                if (unitSelect) {
+                    const units = await dbLokal.unit.toArray();
+                    unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
+                        units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
+                }
+                const gudangSelect = document.getElementById('gudang');
+                if (gudangSelect) {
+                    const gudangs = await dbLokal.gudang.toArray();
+                    gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
+                        gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('Gagal load dropdowns:', error);
             }
         }
 
-        // ========== TAMBAH KATEGORI (dengan synced=false) ==========
+        // ========== TAMBAH KATEGORI ==========
         const formTambahKategori = document.getElementById('formTambahKategori');
         formTambahKategori.addEventListener('submit', async (e) => {
             e.preventDefault();
             const nama = document.getElementById('namaKategori').value.trim();
             if (!nama) return alert('Nama kategori harus diisi');
             try {
-                await dbLokal.kategori.add({ 
-                    nama, 
-                    synced: false, 
-                    idCloud: null 
-                });
+                await dbLokal.kategori.add({ nama, synced: false, idCloud: null });
                 alert('Kategori berhasil ditambahkan');
                 formTambahKategori.reset();
-                loadDropdowns();
-                if (sections.daftarKategori.classList.contains('active')) loadDaftarKategori();
+                await loadDropdowns();
+                if (sections.daftarKategori.classList.contains('active')) await loadDaftarKategori();
             } catch (error) {
-                alert('Gagal menambah kategori');
+                console.error('Error tambah kategori:', error);
+                alert('Gagal menambah kategori: ' + error.message);
             }
         });
 
-        // ========== TAMBAH UNIT (dengan synced=false) ==========
+        // ========== TAMBAH UNIT ==========
         const formTambahUnit = document.getElementById('formTambahUnit');
         formTambahUnit.addEventListener('submit', async (e) => {
             e.preventDefault();
             const nama = document.getElementById('namaUnit').value.trim();
             if (!nama) return alert('Nama unit harus diisi');
             try {
-                await dbLokal.unit.add({ 
-                    nama, 
-                    synced: false, 
-                    idCloud: null 
-                });
+                await dbLokal.unit.add({ nama, synced: false, idCloud: null });
                 alert('Unit berhasil ditambahkan');
                 formTambahUnit.reset();
-                loadDropdowns();
-                if (sections.daftarUnit.classList.contains('active')) loadDaftarUnit();
+                await loadDropdowns();
+                if (sections.daftarUnit.classList.contains('active')) await loadDaftarUnit();
             } catch (error) {
-                alert('Gagal menambah unit');
+                console.error('Error tambah unit:', error);
+                alert('Gagal menambah unit: ' + error.message);
             }
         });
 
         // ========== DAFTAR KATEGORI ==========
         async function loadDaftarKategori() {
-            const list = await dbLokal.kategori.toArray();
-            const tbody = document.getElementById('daftarKategoriBody');
-            if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                return;
+            try {
+                const list = await dbLokal.kategori.toArray();
+                const tbody = document.getElementById('daftarKategoriBody');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(k => `
+                    <tr>
+                        <td>${k.nama} ${!k.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editKategori(${k.id})"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusKategori(${k.id})"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                feather.replace();
+            } catch (error) {
+                console.error('Error load kategori:', error);
             }
-            tbody.innerHTML = list.map(k => `
-                <tr>
-                    <td>${k.nama} ${!k.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                    <td>
-                        <button class="btn-icon edit" onclick="editKategori(${k.id})"><i data-feather="edit-2"></i></button>
-                        <button class="btn-icon delete" onclick="hapusKategori(${k.id})"><i data-feather="trash-2"></i></button>
-                    </td>
-                </tr>
-            `).join('');
-            feather.replace();
         }
         submenus.daftarKategori.addEventListener('click', loadDaftarKategori);
 
         // ========== DAFTAR UNIT ==========
         async function loadDaftarUnit() {
-            const list = await dbLokal.unit.toArray();
-            const tbody = document.getElementById('daftarUnitBody');
-            if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                return;
+            try {
+                const list = await dbLokal.unit.toArray();
+                const tbody = document.getElementById('daftarUnitBody');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(u => `
+                    <tr>
+                        <td>${u.nama} ${!u.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editUnit(${u.id})"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusUnit(${u.id})"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                feather.replace();
+            } catch (error) {
+                console.error('Error load unit:', error);
             }
-            tbody.innerHTML = list.map(u => `
-                <tr>
-                    <td>${u.nama} ${!u.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                    <td>
-                        <button class="btn-icon edit" onclick="editUnit(${u.id})"><i data-feather="edit-2"></i></button>
-                        <button class="btn-icon delete" onclick="hapusUnit(${u.id})"><i data-feather="trash-2"></i></button>
-                    </td>
-                </tr>
-            `).join('');
-            feather.replace();
         }
         submenus.daftarUnit.addEventListener('click', loadDaftarUnit);
 
-        // ========== FUNGSI EDIT/HAPUS GLOBAL ==========
+        // ========== FUNGSI EDIT/HAPUS (global untuk onclick) ==========
         window.editKategori = async (id) => {
-            const newName = prompt('Edit nama kategori:');
-            if (newName && newName.trim()) {
-                await dbLokal.kategori.update(id, { nama: newName.trim(), synced: false });
-                loadDaftarKategori();
-                loadDropdowns();
+            try {
+                const newName = prompt('Edit nama kategori:');
+                if (newName && newName.trim()) {
+                    await dbLokal.kategori.update(id, { nama: newName.trim(), synced: false });
+                    await loadDaftarKategori();
+                    await loadDropdowns();
+                }
+            } catch (error) {
+                console.error('Edit error:', error);
+                alert('Gagal edit: ' + error.message);
             }
         };
         window.hapusKategori = async (id) => {
             if (confirm('Yakin hapus kategori?')) {
-                await dbLokal.kategori.delete(id);
-                loadDaftarKategori();
-                loadDropdowns();
+                try {
+                    await dbLokal.kategori.delete(id);
+                    await loadDaftarKategori();
+                    await loadDropdowns();
+                } catch (error) {
+                    console.error('Hapus error:', error);
+                    alert('Gagal hapus: ' + error.message);
+                }
             }
         };
         window.editUnit = async (id) => {
-            const newName = prompt('Edit nama unit:');
-            if (newName && newName.trim()) {
-                await dbLokal.unit.update(id, { nama: newName.trim(), synced: false });
-                loadDaftarUnit();
-                loadDropdowns();
+            try {
+                const newName = prompt('Edit nama unit:');
+                if (newName && newName.trim()) {
+                    await dbLokal.unit.update(id, { nama: newName.trim(), synced: false });
+                    await loadDaftarUnit();
+                    await loadDropdowns();
+                }
+            } catch (error) {
+                console.error('Edit error:', error);
+                alert('Gagal edit: ' + error.message);
             }
         };
         window.hapusUnit = async (id) => {
             if (confirm('Yakin hapus unit?')) {
-                await dbLokal.unit.delete(id);
-                loadDaftarUnit();
-                loadDropdowns();
+                try {
+                    await dbLokal.unit.delete(id);
+                    await loadDaftarUnit();
+                    await loadDropdowns();
+                } catch (error) {
+                    console.error('Hapus error:', error);
+                    alert('Gagal hapus: ' + error.message);
+                }
             }
         };
 
@@ -528,10 +552,11 @@
                 <button type="button" class="remove-row"><i data-feather="x"></i></button>
             `;
             konversiContainer.appendChild(row);
+            // Isi dropdown unit
             dbLokal.unit.toArray().then(units => {
                 const select = row.querySelector('.unitKonversi');
                 units.forEach(u => select.add(new Option(u.nama, u.id)));
-            });
+            }).catch(err => console.error('Gagal load unit:', err));
             feather.replace();
             row.querySelector('.remove-row').addEventListener('click', () => row.remove());
         });
@@ -558,34 +583,34 @@
             row.querySelector('.remove-row').addEventListener('click', () => row.remove());
         });
 
-        // ========== SIMPAN PRODUK (dengan synced=false) ==========
+        // ========== SIMPAN PRODUK ==========
         const formTambahProduk = document.getElementById('formTambahProduk');
         formTambahProduk.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const produk = {
-                nama: document.getElementById('namaProduk').value,
-                kode: document.getElementById('kodeProduk').value,
-                barcode: document.getElementById('barcodeProduk').value,
-                kategoriId: parseInt(document.getElementById('kategoriProduk').value),
-                hargaDasar: parseFloat(document.getElementById('hargaDasar').value),
-                hargaJual: parseFloat(document.getElementById('hargaJual').value),
-                berat: document.getElementById('berat').value ? parseFloat(document.getElementById('berat').value) : null,
-                unitId: parseInt(document.getElementById('unit').value),
-                diskon: parseFloat(document.getElementById('diskon').value),
-                gudangId: parseInt(document.getElementById('gudang').value),
-                stokAwal: parseInt(document.getElementById('stokAwal').value),
-                stokMinimal: parseInt(document.getElementById('stokMinimal').value),
-                produkTimbangan: document.getElementById('produkTimbangan').checked,
-                synced: false,
-                idCloud: null
-            };
-
-            if (!produk.nama || !produk.kategoriId || !produk.hargaDasar || !produk.hargaJual || !produk.unitId || !produk.gudangId) {
-                alert('Harap isi semua field wajib');
-                return;
-            }
-
             try {
+                const produk = {
+                    nama: document.getElementById('namaProduk').value,
+                    kode: document.getElementById('kodeProduk').value,
+                    barcode: document.getElementById('barcodeProduk').value,
+                    kategoriId: parseInt(document.getElementById('kategoriProduk').value),
+                    hargaDasar: parseFloat(document.getElementById('hargaDasar').value),
+                    hargaJual: parseFloat(document.getElementById('hargaJual').value),
+                    berat: document.getElementById('berat').value ? parseFloat(document.getElementById('berat').value) : null,
+                    unitId: parseInt(document.getElementById('unit').value),
+                    diskon: parseFloat(document.getElementById('diskon').value),
+                    gudangId: parseInt(document.getElementById('gudang').value),
+                    stokAwal: parseInt(document.getElementById('stokAwal').value),
+                    stokMinimal: parseInt(document.getElementById('stokMinimal').value),
+                    produkTimbangan: document.getElementById('produkTimbangan').checked,
+                    synced: false,
+                    idCloud: null
+                };
+
+                if (!produk.nama || !produk.kategoriId || !produk.hargaDasar || !produk.hargaJual || !produk.unitId || !produk.gudangId) {
+                    alert('Harap isi semua field wajib');
+                    return;
+                }
+
                 const produkId = await dbLokal.produk.add(produk);
 
                 // Simpan konversi unit
@@ -629,74 +654,73 @@
                 formTambahProduk.reset();
                 konversiContainer.innerHTML = '';
                 qtyBreakContainer.innerHTML = '';
-                if (sections.daftarProduk.classList.contains('active')) loadDaftarProduk();
+                if (sections.daftarProduk.classList.contains('active')) await loadDaftarProduk();
             } catch (error) {
-                console.error(error);
-                alert('Gagal menyimpan produk');
+                console.error('Error simpan produk:', error);
+                alert('Gagal menyimpan produk: ' + error.message);
             }
         });
 
         // ========== DAFTAR PRODUK ==========
         async function loadDaftarProduk() {
-            const produkList = await dbLokal.produk.toArray();
-            const tbody = document.getElementById('daftarProdukBody');
-            if (produkList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
-                return;
-            }
-            const kategoris = await dbLokal.kategori.toArray();
-            const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
-            const units = await dbLokal.unit.toArray();
-            const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
+            try {
+                const produkList = await dbLokal.produk.toArray();
+                const tbody = document.getElementById('daftarProdukBody');
+                if (produkList.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
+                    return;
+                }
+                const kategoris = await dbLokal.kategori.toArray();
+                const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
+                const units = await dbLokal.unit.toArray();
+                const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
 
-            tbody.innerHTML = produkList.map(p => `
-                <tr>
-                    <td>${p.kode || '-'}</td>
-                    <td>${p.nama} ${!p.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                    <td>${kategoriMap[p.kategoriId] || '-'}</td>
-                    <td>Rp ${p.hargaJual.toLocaleString()}</td>
-                    <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
-                    <td>${p.produkTimbangan ? '✓' : '-'}</td>
-                    <td>
-                        <button class="btn-icon edit" onclick="editProduk(${p.id})"><i data-feather="edit-2"></i></button>
-                        <button class="btn-icon delete" onclick="hapusProduk(${p.id})"><i data-feather="trash-2"></i></button>
-                    </td>
-                </tr>
-            `).join('');
-            feather.replace();
+                tbody.innerHTML = produkList.map(p => `
+                    <tr>
+                        <td>${p.kode || '-'}</td>
+                        <td>${p.nama} ${!p.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>${kategoriMap[p.kategoriId] || '-'}</td>
+                        <td>Rp ${p.hargaJual.toLocaleString()}</td>
+                        <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
+                        <td>${p.produkTimbangan ? '✓' : '-'}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editProduk(${p.id})"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusProduk(${p.id})"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                feather.replace();
+            } catch (error) {
+                console.error('Error load produk:', error);
+            }
         }
         submenus.daftarProduk.addEventListener('click', loadDaftarProduk);
 
         window.editProduk = (id) => alert('Fungsi edit produk akan segera hadir');
         window.hapusProduk = async (id) => {
             if (confirm('Yakin hapus produk?')) {
-                await dbLokal.produk.delete(id);
-                await dbLokal.konversiUnit.where('produkId').equals(id).delete();
-                await dbLokal.qtyBreak.where('produkId').equals(id).delete();
-                loadDaftarProduk();
+                try {
+                    await dbLokal.produk.delete(id);
+                    await dbLokal.konversiUnit.where('produkId').equals(id).delete();
+                    await dbLokal.qtyBreak.where('produkId').equals(id).delete();
+                    await loadDaftarProduk();
+                } catch (error) {
+                    console.error('Hapus produk error:', error);
+                    alert('Gagal hapus: ' + error.message);
+                }
             }
         };
 
-        // ========== INITIAL LOAD ==========
-        loadDropdowns();
-    </script>
-
-    <!-- Script module untuk Firebase Auth & Sinkronisasi -->
-    <script type="module">
-        import { auth, provider, dbCloud } from './js/firebase-config.js';
-        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { collection, doc, getDocs, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
+        // ========== AUTH ==========
         const loginBtn = document.getElementById('loginBtn');
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                loginBtn.innerHTML = '<i data-feather="log-out" width="18" height="18"></i><span>Logout</span>';
+                loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
             } else {
-                loginBtn.innerHTML = '<i data-feather="log-in" width="18" height="18"></i><span>Login</span>';
+                loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
             }
             feather.replace();
         });
-
         loginBtn.addEventListener('click', async () => {
             const user = auth.currentUser;
             if (user) {
@@ -714,20 +738,16 @@
             feather.replace();
 
             try {
-                // Sinkron tabel master (kategori, unit, gudang)
                 await syncTable('kategori', dbLokal.kategori, 'kategori');
                 await syncTable('unit', dbLokal.unit, 'unit');
                 await syncTable('gudang', dbLokal.gudang, 'gudang');
-                // Sinkron produk + relasi
                 await syncProduk();
-
                 alert('Sinkronisasi selesai');
-                // Refresh tampilan jika sedang di daftar
-                if (sections.daftarKategori.classList.contains('active')) loadDaftarKategori();
-                if (sections.daftarUnit.classList.contains('active')) loadDaftarUnit();
-                if (sections.daftarProduk.classList.contains('active')) loadDaftarProduk();
+                if (sections.daftarKategori.classList.contains('active')) await loadDaftarKategori();
+                if (sections.daftarUnit.classList.contains('active')) await loadDaftarUnit();
+                if (sections.daftarProduk.classList.contains('active')) await loadDaftarProduk();
             } catch (error) {
-                console.error(error);
+                console.error('Sync error:', error);
                 alert('Gagal sinkron: ' + error.message);
             } finally {
                 syncBtn.innerHTML = originalText;
@@ -736,37 +756,29 @@
         };
 
         async function syncTable(namaLokal, tableLokal, koleksiFirestore) {
-            // Upload data lokal yang belum sinkron
+            // Upload
             const pending = await tableLokal.where('synced').equals(false).toArray();
             for (let item of pending) {
                 try {
                     if (item.idCloud) {
-                        // Update dokumen yang sudah ada
                         const docRef = doc(dbCloud, koleksiFirestore, item.idCloud);
                         await setDoc(docRef, item);
                         await tableLokal.update(item.id, { synced: true });
                     } else {
-                        // Tambah dokumen baru
                         const docRef = await addDoc(collection(dbCloud, koleksiFirestore), item);
                         await tableLokal.update(item.id, { idCloud: docRef.id, synced: true });
                     }
-                } catch (e) {
-                    console.warn(`Gagal upload ${namaLokal} ${item.id}`, e);
-                }
+                } catch (e) { console.warn(`Gagal upload ${namaLokal}`, e); }
             }
-
-            // Download semua data dari cloud
+            // Download
             const snapshot = await getDocs(collection(dbCloud, koleksiFirestore));
             for (const docSnap of snapshot.docs) {
                 const data = docSnap.data();
                 data.idCloud = docSnap.id;
                 data.synced = true;
                 const existing = await tableLokal.where('idCloud').equals(docSnap.id).first();
-                if (existing) {
-                    await tableLokal.update(existing.id, data);
-                } else {
-                    await tableLokal.add(data);
-                }
+                if (existing) await tableLokal.update(existing.id, data);
+                else await tableLokal.add(data);
             }
         }
 
@@ -781,14 +793,12 @@
                     } else {
                         const docRef = await addDoc(collection(dbCloud, 'produk'), p);
                         await dbLokal.produk.update(p.id, { idCloud: docRef.id, synced: true });
-                        // Update relasi dengan produkIdCloud
                         await dbLokal.konversiUnit.where('produkId').equals(p.id).modify({ produkIdCloud: docRef.id });
                         await dbLokal.qtyBreak.where('produkId').equals(p.id).modify({ produkIdCloud: docRef.id });
                     }
                 } catch (e) { console.warn('Gagal upload produk', e); }
             }
-
-            // Upload konversiUnit
+            // Upload konversi
             const konvPending = await dbLokal.konversiUnit.where('synced').equals(false).toArray();
             for (let k of konvPending) {
                 try {
@@ -799,10 +809,9 @@
                         const docRef = await addDoc(collection(dbCloud, 'konversiUnit'), k);
                         await dbLokal.konversiUnit.update(k.id, { idCloud: docRef.id, synced: true });
                     }
-                } catch (e) { console.warn('Gagal upload konversiUnit', e); }
+                } catch (e) { console.warn('Gagal upload konversi', e); }
             }
-
-            // Upload qtyBreak
+            // Upload qty
             const qtyPending = await dbLokal.qtyBreak.where('synced').equals(false).toArray();
             for (let q of qtyPending) {
                 try {
@@ -813,54 +822,36 @@
                         const docRef = await addDoc(collection(dbCloud, 'qtyBreak'), q);
                         await dbLokal.qtyBreak.update(q.id, { idCloud: docRef.id, synced: true });
                     }
-                } catch (e) { console.warn('Gagal upload qtyBreak', e); }
+                } catch (e) { console.warn('Gagal upload qty', e); }
             }
-
-            // Download produk
-            const produkSnapshot = await getDocs(collection(dbCloud, 'produk'));
-            for (const docSnap of produkSnapshot.docs) {
-                const data = docSnap.data();
-                data.idCloud = docSnap.id;
-                data.synced = true;
+            // Download semua
+            const [produkSnap, konvSnap, qtySnap] = await Promise.all([
+                getDocs(collection(dbCloud, 'produk')),
+                getDocs(collection(dbCloud, 'konversiUnit')),
+                getDocs(collection(dbCloud, 'qtyBreak'))
+            ]);
+            for (const docSnap of produkSnap.docs) {
+                const data = docSnap.data(); data.idCloud = docSnap.id; data.synced = true;
                 const existing = await dbLokal.produk.where('idCloud').equals(docSnap.id).first();
-                if (existing) {
-                    await dbLokal.produk.update(existing.id, data);
-                } else {
-                    await dbLokal.produk.add(data);
-                }
+                existing ? await dbLokal.produk.update(existing.id, data) : await dbLokal.produk.add(data);
             }
-
-            // Download konversiUnit
-            const konvSnapshot = await getDocs(collection(dbCloud, 'konversiUnit'));
-            for (const docSnap of konvSnapshot.docs) {
-                const data = docSnap.data();
-                data.idCloud = docSnap.id;
-                data.synced = true;
+            for (const docSnap of konvSnap.docs) {
+                const data = docSnap.data(); data.idCloud = docSnap.id; data.synced = true;
                 const existing = await dbLokal.konversiUnit.where('idCloud').equals(docSnap.id).first();
-                if (existing) {
-                    await dbLokal.konversiUnit.update(existing.id, data);
-                } else {
-                    await dbLokal.konversiUnit.add(data);
-                }
+                existing ? await dbLokal.konversiUnit.update(existing.id, data) : await dbLokal.konversiUnit.add(data);
             }
-
-            // Download qtyBreak
-            const qtySnapshot = await getDocs(collection(dbCloud, 'qtyBreak'));
-            for (const docSnap of qtySnapshot.docs) {
-                const data = docSnap.data();
-                data.idCloud = docSnap.id;
-                data.synced = true;
+            for (const docSnap of qtySnap.docs) {
+                const data = docSnap.data(); data.idCloud = docSnap.id; data.synced = true;
                 const existing = await dbLokal.qtyBreak.where('idCloud').equals(docSnap.id).first();
-                if (existing) {
-                    await dbLokal.qtyBreak.update(existing.id, data);
-                } else {
-                    await dbLokal.qtyBreak.add(data);
-                }
+                existing ? await dbLokal.qtyBreak.update(existing.id, data) : await dbLokal.qtyBreak.add(data);
             }
         }
 
         // Event listener untuk tombol sync
         document.getElementById('syncBtn').addEventListener('click', syncData);
+
+        // ========== INITIAL LOAD ==========
+        loadDropdowns();
     </script>
 </body>
 </html>
