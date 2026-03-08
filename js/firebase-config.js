@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import Dexie from "https://unpkg.com/dexie/dist/dexie.js"; 
 
 const firebaseConfig = {
     apiKey: "AIzaSyDvty30S6y_qc1eMs3kVctcIpLt6Suw4dA",
@@ -16,8 +17,7 @@ const dbCloud = getFirestore(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-// Inisialisasi Dexie (untuk digunakan di halaman lain)
-import "https://unpkg.com/dexie/dist/dexie.js"; // Dexie harus sudah di-global
+// Inisialisasi Dexie
 const dbLokal = new Dexie("MudaPosDB");
 dbLokal.version(1).stores({
     produk: '++id, kode, nama, harga, stok, kategori, synced, idCloud',
