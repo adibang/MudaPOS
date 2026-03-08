@@ -50,7 +50,7 @@
         .search-box input { flex:1; border:none; padding:0.6rem 1rem; font-size:1rem; outline:none; }
         .search-box button { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; cursor:pointer; display:flex; align-items:center; gap:0.3rem; }
         .search-box button:hover { background:#004d3b; }
-        .btn-add-product { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; }
+        .btn-add-product { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; text-decoration:none; }
         .btn-add-product:hover { background:#004d3b; }
         
         .product-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:1rem; margin-bottom:2rem; }
@@ -66,14 +66,16 @@
 
         .cart-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; margin-bottom:2rem; }
         .cart-section h3 { margin-bottom:1rem; color:#006B54; font-size:1.2rem; }
-        .cart-table { width:100%; border-collapse:collapse; }
-        .cart-table th, .cart-table td { padding:0.8rem 0.5rem; text-align:left; border-bottom:1px solid #eee; }
+        .table-responsive { overflow-x: auto; } /* Tambahan untuk scroll horizontal */
+        .cart-table { width:100%; border-collapse:collapse; min-width:800px; } /* Lebar minimum agar tidak terlalu sempit */
+        .cart-table th, .cart-table td { padding:0.8rem 0.5rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
         .cart-table th { background:#f9f9f9; font-weight:600; color:#006B54; }
         .cart-table .qty-control { display:flex; align-items:center; gap:0.3rem; }
         .cart-table .qty-control button { background:#f0f0f0; border:none; width:24px; height:24px; border-radius:4px; cursor:pointer; }
         .cart-table .qty-control button:hover { background:#006B54; color:white; }
         .cart-table .qty-control input { width:50px; text-align:center; border:1px solid #ddd; border-radius:4px; padding:0.2rem; }
         .cart-table .remove { color:#dc3545; cursor:pointer; }
+        .cart-table input[type="number"].harga-beli { width:100px; padding:0.2rem; border:1px solid #ddd; border-radius:4px; }
 
         .transaction-details { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:1.5rem; margin-bottom:2rem; }
         .detail-box { background:white; border-radius:12px; padding:1.5rem; border:1px solid #f0f0f0; }
@@ -187,7 +189,7 @@
                     <thead>
                         <tr>
                             <th>Produk</th>
-                            <th>Harga</th>
+                            <th>Harga Beli</th>
                             <th>Qty</th>
                             <th>Subtotal</th>
                             <th>Aksi</th>
@@ -311,8 +313,8 @@
             return results;
         }
 
-        // State keranjang
-        let cart = []; // array { id, nama, kode, harga, qty, konversiId? }
+        // State keranjang: setiap item memiliki id, nama, kode, hargaBeli, qty
+        let cart = [];
 
         // Elemen DOM
         const supplierSelect = document.getElementById('supplierSelect');
@@ -357,7 +359,6 @@
                 );
                 // Cari juga berdasarkan barcode konversi
                 if (filtered.length === 0) {
-                    // Cari di konversi
                     const semuaKonversi = await getAll(konversiStore);
                     const konvMatch = semuaKonversi.filter(k => k.barcode && k.barcode.toLowerCase().includes(lower));
                     const produkIds = [...new Set(konvMatch.map(k => k.produkId))];
@@ -368,11 +369,12 @@
                 productListContainer.innerHTML = '<div style="grid-column:1/-1; text-align:center;">Tidak ada produk</div>';
                 return;
             }
+            // Tampilkan harga jual hanya sebagai referensi, tapi kita tidak akan menggunakannya untuk pembelian
             productListContainer.innerHTML = filtered.map(p => `
                 <div class="product-card" data-id="${p.id}">
                     <div class="nama">${p.nama}</div>
                     <div class="kode">${p.kode || p.barcode || '-'}</div>
-                    <div class="harga">Rp ${p.hargaJual?.toLocaleString() || 0}</div>
+                    <div class="harga">Harga Jual: Rp ${p.hargaJual?.toLocaleString() || 0}</div>
                     <div class="qty-control">
                         <button class="minus" data-id="${p.id}">-</button>
                         <input type="number" class="qty" value="1" min="1" data-id="${p.id}">
@@ -382,7 +384,7 @@
             `).join('');
             feather.replace();
 
-            // Tambahkan event listener ke tombol +/- di kartu
+            // Event listener untuk tombol +/- di kartu
             document.querySelectorAll('.product-card .minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -401,32 +403,42 @@
                     input.value = val + 1;
                 });
             });
-            // Klik kartu menambahkan ke keranjang dengan qty dari input
+            // Klik kartu menambahkan ke keranjang dengan meminta harga beli
             document.querySelectorAll('.product-card').forEach(card => {
                 card.addEventListener('click', (e) => {
-                    // Jangan tambah jika klik tombol
                     if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
                     const id = card.dataset.id;
                     const qtyInput = card.querySelector('.qty');
                     const qty = parseInt(qtyInput.value) || 1;
-                    tambahKeCart(id, qty);
+                    // Minta harga beli via prompt
+                    const hargaBeli = prompt('Masukkan harga beli per unit (Rp):', '0');
+                    if (hargaBeli === null) return; // batal
+                    const harga = parseFloat(hargaBeli.replace(/[^0-9.-]+/g, ''));
+                    if (isNaN(harga) || harga <= 0) {
+                        alert('Harga beli harus angka positif');
+                        return;
+                    }
+                    tambahKeCart(id, qty, harga);
                 });
             });
         }
 
-        // Tambah produk ke keranjang
-        async function tambahKeCart(produkId, qty) {
+        // Tambah produk ke keranjang dengan harga beli tertentu
+        async function tambahKeCart(produkId, qty, hargaBeli) {
             const produk = await getById(produkStore, produkId);
             if (!produk) return;
             const existing = cart.find(item => item.id === produkId);
             if (existing) {
                 existing.qty += qty;
+                // Harga beli tidak digabung, kita asumsikan harga beli bisa berbeda? 
+                // Untuk sederhana, kita update harga beli menjadi rata-rata? Atau biarkan user edit nanti.
+                // Di sini kita tidak mengubah harga beli, biarkan user edit manual di keranjang.
             } else {
                 cart.push({
                     id: produkId,
                     nama: produk.nama,
                     kode: produk.kode || produk.barcode || '-',
-                    harga: produk.hargaJual || 0,
+                    hargaBeli: hargaBeli,
                     qty: qty
                 });
             }
@@ -440,10 +452,14 @@
                 hitungTotal();
                 return;
             }
-            cartBody.innerHTML = cart.map((item, index) => `
+            cartBody.innerHTML = cart.map((item, index) => {
+                const subtotal = item.hargaBeli * item.qty;
+                return `
                 <tr>
                     <td>${item.nama}<br><small>${item.kode}</small></td>
-                    <td>Rp ${item.harga.toLocaleString()}</td>
+                    <td>
+                        <input type="number" class="harga-beli" data-index="${index}" value="${item.hargaBeli}" min="0" step="100">
+                    </td>
                     <td>
                         <div class="qty-control">
                             <button class="cart-minus" data-index="${index}">-</button>
@@ -451,11 +467,22 @@
                             <button class="cart-plus" data-index="${index}">+</button>
                         </div>
                     </td>
-                    <td>Rp ${(item.harga * item.qty).toLocaleString()}</td>
+                    <td>Rp ${subtotal.toLocaleString()}</td>
                     <td><i data-feather="trash-2" class="remove" data-index="${index}" style="cursor:pointer;"></i></td>
                 </tr>
-            `).join('');
+            `}).join('');
             feather.replace();
+
+            // Event untuk input harga beli
+            document.querySelectorAll('.harga-beli').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const index = e.target.dataset.index;
+                    let val = parseFloat(e.target.value);
+                    if (isNaN(val) || val < 0) val = 0;
+                    cart[index].hargaBeli = val;
+                    renderCart();
+                });
+            });
 
             // Event untuk tombol di keranjang
             document.querySelectorAll('.cart-minus').forEach(btn => {
@@ -495,7 +522,7 @@
 
         // Hitung subtotal, total, kembalian, utang
         function hitungTotal() {
-            let subtotal = cart.reduce((sum, item) => sum + (item.harga * item.qty), 0);
+            let subtotal = cart.reduce((sum, item) => sum + (item.hargaBeli * item.qty), 0);
             subtotalInput.value = `Rp ${subtotal.toLocaleString()}`;
 
             let diskonRpVal = parseFloat(diskonRp.value) || 0;
@@ -549,7 +576,7 @@
                 return;
             }
             // Hitung total
-            let subtotal = cart.reduce((sum, item) => sum + (item.harga * item.qty), 0);
+            let subtotal = cart.reduce((sum, item) => sum + (item.hargaBeli * item.qty), 0);
             let diskonRpVal = parseFloat(diskonRp.value) || 0;
             let diskonPersenVal = parseFloat(diskonPersen.value) || 0;
             let diskonDariPersen = subtotal * diskonPersenVal / 100;
@@ -568,7 +595,13 @@
                 tanggal: new Date().toISOString(),
                 supplierId: supplierSelect.value,
                 warehouseId: warehouseSelect.value,
-                items: cart.map(item => ({ ...item })),
+                items: cart.map(item => ({ 
+                    id: item.id,
+                    nama: item.nama,
+                    kode: item.kode,
+                    hargaBeli: item.hargaBeli,
+                    qty: item.qty 
+                })),
                 subtotal,
                 diskonPersen: diskonPersenVal,
                 diskonRp: diskonRpVal,
@@ -582,7 +615,7 @@
             };
             await purchaseStore.setItem(generateId(), purchaseData);
 
-            // Jika ada utang, update supplier debt? Nanti di fitur utang.
+            // Jika ada utang, nanti bisa update supplier debt
             alert('Transaksi berhasil disimpan' + (utang > 0 ? ` dengan utang Rp ${utang.toLocaleString()}` : ''));
 
             // Reset
@@ -617,7 +650,7 @@
             }
         });
 
-        // Reset DB
+        // Reset DB (untuk purchase)
         document.getElementById('resetDbBtn').addEventListener('click', async () => {
             if (!confirm('Hapus semua data purchase?')) return;
             const purchaseStore = localforage.createInstance({ name: 'purchase' });
