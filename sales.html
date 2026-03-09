@@ -568,7 +568,7 @@
             font-size: 1rem;
             text-align: right;
         }
-        #shortage-display {
+        #shortageDisplay {
             display: none;
             margin-bottom: 10px;
             padding: 10px;
@@ -613,7 +613,7 @@
         .status-light.connected {
             background-color: #00C851;
         }
-        #connect-printer-btn {
+        #connectPrinterBtn {
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -621,11 +621,11 @@
             color: white;
             border: 1px solid #006B54;
         }
-        #connect-printer-btn svg {
+        #connectPrinterBtn svg {
             width: 18px;
             height: 18px;
         }
-        #print-receipt-btn:disabled {
+        #printReceiptBtn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
@@ -797,8 +797,8 @@
                 <input type="text" id="searchCustomer" placeholder="Cari nama atau kode customer...">
             </div>
             <table class="modal-table">
-                <thead><tr><th>Kode</th><th>Nama</th><th>Kontak</th></tr></thead>
-                <tbody id="customerListBody"><tr><td colspan="3">Loading...</td></tr></tbody>
+                <thead><tr><th>Kode</th><th>Nama</th><th>Kontak</th><th>Piutang</th></tr></thead>
+                <tbody id="customerListBody"><tr><td colspan="4">Loading...</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -1059,6 +1059,11 @@
         async function addItem(store, data) { const id = generateId(); await store.setItem(id, data); return id; }
         async function removeItem(store, id) { await store.removeItem(id); }
 
+        // Format Rupiah
+        function formatRupiah(angka) {
+            return 'Rp ' + angka.toLocaleString('id-ID');
+        }
+
         // Elemen DOM
         const warehouseSelect = document.getElementById('warehouseSelect');
         const viewToggle = document.getElementById('viewToggle');
@@ -1139,6 +1144,11 @@
             try {
                 allProducts = await getAll(produkStore);
                 allCustomers = await getAll(customerStore);
+                // Pastikan setiap customer memiliki properti outstanding
+                allCustomers = allCustomers.map(c => ({
+                    ...c,
+                    outstanding: c.outstanding !== undefined ? c.outstanding : 0
+                }));
                 allGudang = await getAll(gudangStore);
                 allKonversi = await getAll(konversiStore);
                 allUnits = await getAll(unitStore);
@@ -1764,10 +1774,24 @@
 
         // MODAL CUSTOMER
         async function loadCustomers() {
-            try { allCustomers = await getAll(customerStore); renderCustomerList(allCustomers); } catch (error) { console.error(error); }
+            try { 
+                allCustomers = await getAll(customerStore);
+                allCustomers = allCustomers.map(c => ({
+                    ...c,
+                    outstanding: c.outstanding !== undefined ? c.outstanding : 0
+                }));
+                renderCustomerList(allCustomers); 
+            } catch (error) { console.error(error); }
         }
         function renderCustomerList(customers) {
-            customerListBody.innerHTML = customers.map(c => `<tr data-id="${c.id}"><td>${c.kode || '-'}</td><td>${c.nama}</td><td>${c.kontak || '-'}</td></tr>`).join('');
+            customerListBody.innerHTML = customers.map(c => 
+                `<tr data-id="${c.id}">
+                    <td>${c.kode || '-'}</td>
+                    <td>${c.nama}</td>
+                    <td>${c.kontak || '-'}</td>
+                    <td>${formatRupiah(c.outstanding)}</td>
+                </tr>`
+            ).join('');
         }
         btnPilihCustomer.addEventListener('click', () => { modalCustomer.classList.add('active'); loadCustomers(); });
         closeModalCustomer.addEventListener('click', () => modalCustomer.classList.remove('active'));
@@ -1793,11 +1817,11 @@
             const customer = allCustomers.find(c => c.id === id);
             if (customer) {
                 selectedCustomer = customer;
-                customerPiutang = 100000; // contoh
                 alert(`Customer dipilih: ${customer.nama}`);
                 modalCustomer.classList.remove('active');
                 customerBadge.textContent = '1';
-                if (customerPiutang > 0) {
+                // Aktifkan tombol piutang jika outstanding > 0
+                if (selectedCustomer.outstanding > 0) {
                     btnPiutang.classList.add('active');
                     btnPiutang.style.background = '#dc3545';
                 } else {
@@ -1882,13 +1906,33 @@
 
         // Tombol Piutang
         btnPiutang.addEventListener('click', () => {
-            if (!selectedCustomer) { alert('Pilih customer terlebih dahulu'); return; }
-            if (customerPiutang <= 0) { alert('Customer tidak memiliki piutang'); return; }
+            if (!selectedCustomer) {
+                alert('Pilih customer terlebih dahulu');
+                return;
+            }
+            if (selectedCustomer.outstanding <= 0) {
+                alert('Customer tidak memiliki piutang');
+                return;
+            }
             const existing = cartItems.find(item => item.produkId === 'piutang');
-            if (existing) { existing.qty += 1; existing.qtyDasar += 1; } else {
-                cartItems.push({ produkId: 'piutang', konversiId: null, nama: 'Piutang Customer', unit: '', qty: 1, qtyDasar: 1, hargaSatuan: customerPiutang, subtotal: customerPiutang, nilaiKonversi: 1 });
+            if (existing) {
+                alert('Piutang sudah ada di keranjang');
+                return;
+            } else {
+                cartItems.push({
+                    produkId: 'piutang',
+                    konversiId: null,
+                    nama: 'Piutang ' + selectedCustomer.nama,
+                    unit: '',
+                    qty: 1,
+                    qtyDasar: 1,
+                    hargaSatuan: selectedCustomer.outstanding,
+                    subtotal: selectedCustomer.outstanding,
+                    nilaiKonversi: 1
+                });
             }
             updateCartBadge();
+            renderCartModal();
             alert('Piutang ditambahkan ke cart');
         });
 
@@ -2031,19 +2075,28 @@
                     await updateItem(produkStore, produk.id, produk);
                 }
 
-                // Update piutang customer jika ada item piutang di cart
-                for (let item of cartItems) {
-                    if (item.produkId === 'piutang' && selectedCustomer) {
-                        selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) - item.subtotal;
-                        if (selectedCustomer.outstanding < 0) selectedCustomer.outstanding = 0;
-                        await updateItem(customerStore, selectedCustomer.id, selectedCustomer);
+                // Update piutang customer
+                if (selectedCustomer) {
+                    let customerUpdated = false;
+                    // 1. Kurangi outstanding dari item piutang di keranjang
+                    for (let item of cartItems) {
+                        if (item.produkId === 'piutang') {
+                            selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) - item.subtotal;
+                            if (selectedCustomer.outstanding < 0) selectedCustomer.outstanding = 0;
+                            customerUpdated = true;
+                        }
                     }
-                }
-
-                // Tambah piutang baru jika outstandingAdded > 0 dan ada customer
-                if (outstandingAdded > 0 && selectedCustomer) {
-                    selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) + outstandingAdded;
-                    await updateItem(customerStore, selectedCustomer.id, selectedCustomer);
+                    // 2. Tambah piutang baru jika ada kekurangan bayar
+                    if (outstandingAdded > 0) {
+                        selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) + outstandingAdded;
+                        customerUpdated = true;
+                    }
+                    if (customerUpdated) {
+                        await updateItem(customerStore, selectedCustomer.id, selectedCustomer);
+                        // Perbarui di allCustomers agar konsisten
+                        const idx = allCustomers.findIndex(c => c.id === selectedCustomer.id);
+                        if (idx !== -1) allCustomers[idx].outstanding = selectedCustomer.outstanding;
+                    }
                 }
 
                 // Simpan data struk
@@ -2218,11 +2271,6 @@
         });
 
         document.getElementById('syncBtn').addEventListener('click', () => { alert('Fungsi sinkronisasi akan segera tersedia'); });
-
-        // Format Rupiah
-        function formatRupiah(angka) {
-            return 'Rp ' + angka.toLocaleString('id-ID');
-        }
 
         // Inisialisasi
         loadInitialData();
