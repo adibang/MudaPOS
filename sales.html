@@ -52,7 +52,7 @@
             margin-bottom: 1.5rem;
             background: white;
             padding: 1rem;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             border: 1px solid #f0f0f0;
         }
         .toolbar-row {
@@ -70,7 +70,7 @@
             flex: 1 1 auto;
             padding: 0.5rem;
             border: 1px solid #ddd;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             font-size: 0.95rem;
             background-color: white;
             height: 38px;
@@ -81,14 +81,14 @@
             gap: 0.3rem;
             background: #f0f0f0;
             padding: 0.3rem;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             flex-shrink: 0;
         }
         .view-toggle button {
             background: transparent;
             border: none;
             padding: 0.4rem 0.6rem;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             cursor: pointer;
             color: #666;
             display: flex;
@@ -103,12 +103,12 @@
         }
         .search-box {
             flex: 1;
-            min-width: 150px; /* dikurangi agar muat */
+            min-width: 150px;
             display: flex;
             align-items: center;
             background: white;
             border: 1px solid #ddd;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             padding: 0 0.5rem;
             height: 38px;
         }
@@ -132,7 +132,7 @@
             position: relative;
             background: transparent;
             border: 1px solid #ddd;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             padding: 0.5rem;
             cursor: pointer;
             color: #006B54;
@@ -141,7 +141,7 @@
             justify-content: center;
             transition: all 0.2s;
             height: 38px;
-            width: 38px; /* lebar sama dengan tinggi agar bulat */
+            width: 38px;
         }
         .action-icons button:hover {
             background: #e6f0ec;
@@ -176,7 +176,7 @@
         }
         .product-card {
             background: white;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             padding: 1rem;
             border: 1px solid #f0f0f0;
             cursor: pointer;
@@ -195,7 +195,7 @@
             background: #e6f0ec;
             width: 60px;
             height: 60px;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -219,7 +219,7 @@
         }
         .product-row {
             background: white;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             padding: 0.8rem 1rem;
             border: 1px solid #f0f0f0;
             display: flex;
@@ -258,7 +258,7 @@
         .qty-control button {
             background: transparent;
             border: 1px solid #ddd;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             width: 28px;
             height: 28px;
             display: flex;
@@ -276,7 +276,7 @@
             width: 60px;
             text-align: center;
             border: 1px solid #ddd;
-            border-radius: 20px; /* diubah jadi 20px */
+            border-radius: 20px;
             padding: 0.3rem;
             font-size: 0.9rem;
         }
@@ -420,6 +420,20 @@
             }
             .search-box {
                 min-width: 120px;
+            }
+            /* Agar warehouse select dan view toggle tetap sejajar */
+            .warehouse-select {
+                min-width: 100px;
+            }
+            .view-toggle button {
+                padding: 0.3rem;
+            }
+            .view-toggle button span {
+                display: none; /* sembunyikan teks Grid/List */
+            }
+            .view-toggle button i {
+                width: 18px;
+                height: 18px;
             }
         }
     </style>
@@ -684,6 +698,19 @@
         let longPressTimer = null;
         const LONG_PRESS_DELAY = 2000;
 
+        // Fungsi untuk menyimpan & memuat pilihan gudang dari localStorage
+        function saveSelectedWarehouse(warehouseId) {
+            if (warehouseId) {
+                localStorage.setItem('selectedWarehouse', warehouseId);
+            } else {
+                localStorage.removeItem('selectedWarehouse');
+            }
+        }
+
+        function loadSelectedWarehouse() {
+            return localStorage.getItem('selectedWarehouse');
+        }
+
         // Load data awal
         async function loadInitialData() {
             try {
@@ -696,20 +723,37 @@
                 warehouseSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
                     allGudang.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
                 
+                // Set pilihan dari localStorage jika ada dan valid
+                const savedWarehouse = loadSelectedWarehouse();
+                if (savedWarehouse && allGudang.some(g => g.id === savedWarehouse)) {
+                    warehouseSelect.value = savedWarehouse;
+                }
+                
                 renderProducts();
             } catch (error) {
                 console.error('Gagal load data:', error);
             }
         }
 
-        // Render produk berdasarkan view dan pencarian
+        // Render produk berdasarkan view, pencarian, dan gudang terpilih
         function renderProducts() {
+            const selectedWarehouseId = warehouseSelect.value;
+
+            // Jika belum pilih gudang, tampilkan pesan
+            if (!selectedWarehouseId) {
+                productContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#999;">Silakan pilih gudang terlebih dahulu</div>';
+                return;
+            }
+
             const keyword = searchInput.value.toLowerCase();
-            let filtered = allProducts.filter(p => 
-                p.nama.toLowerCase().includes(keyword) ||
-                (p.kode && p.kode.toLowerCase().includes(keyword)) ||
-                (p.barcode && p.barcode.toLowerCase().includes(keyword))
-            );
+            let filtered = allProducts.filter(p => {
+                // Filter berdasarkan gudang
+                if (p.gudangId !== selectedWarehouseId) return false;
+                // Filter berdasarkan keyword
+                return p.nama.toLowerCase().includes(keyword) ||
+                       (p.kode && p.kode.toLowerCase().includes(keyword)) ||
+                       (p.barcode && p.barcode.toLowerCase().includes(keyword));
+            });
 
             if (currentView === 'grid') {
                 productContainer.className = 'product-grid';
@@ -784,7 +828,6 @@
 
                 // Long press detection
                 const startLongPress = (e) => {
-                    // Jika target adalah kontrol qty, jangan trigger long press
                     if (e.target.closest('.qty-control')) return;
                     
                     longPressTimer = setTimeout(() => {
@@ -808,13 +851,10 @@
 
                 // Klik biasa (selain pada kontrol) untuk menambah ke cart
                 el.addEventListener('click', (e) => {
-                    // Jika yang diklik adalah tombol atau input, jangan tambah ke cart
                     if (e.target.closest('.qty-control')) return;
                     
-                    // Batalkan long press jika sedang berjalan
                     cancelLongPress();
                     
-                    // Tambah ke cart dengan qty dari input
                     const qty = parseFloat(qtyInput.value) || 0;
                     if (qty > 0) {
                         tambahKeCart(productId, qty);
@@ -835,14 +875,12 @@
 
         // Fungsi untuk menampilkan modal satuan
         async function showSatuanModal(produkId) {
-            // Cari konversi untuk produk ini
             const konversiList = await findByIndex(konversiStore, 'produkId', produkId);
             if (konversiList.length === 0) {
                 alert('Produk tidak memiliki satuan tambahan');
                 return;
             }
 
-            // Buat daftar satuan
             satuanList.innerHTML = '';
             for (let konv of konversiList) {
                 const unit = allUnits.find(u => u.id === konv.unitId);
@@ -854,7 +892,6 @@
                 btn.addEventListener('click', () => {
                     alert(`Satuan dipilih: ${unitName} dengan nilai ${konv.nilai}`);
                     modalSatuan.classList.remove('active');
-                    // Di sini bisa diisi logika, misal mengisi qty dengan nilai konversi atau menambah ke cart dengan satuan tersebut
                 });
                 satuanList.appendChild(btn);
             }
@@ -873,6 +910,13 @@
                 currentView = btn.dataset.view;
                 renderProducts();
             });
+        });
+
+        // Event change pada warehouseSelect
+        warehouseSelect.addEventListener('change', (e) => {
+            const warehouseId = e.target.value;
+            saveSelectedWarehouse(warehouseId);
+            renderProducts();
         });
 
         // MODAL CUSTOMER
@@ -920,7 +964,6 @@
                 selectedCustomer = customer;
                 alert(`Customer dipilih: ${customer.nama}`);
                 modalCustomer.classList.remove('active');
-                // Update badge customer misalnya jadi 1
                 customerBadge.textContent = '1';
             }
         });
@@ -962,10 +1005,8 @@
             const id = row.dataset.id;
             const produk = allProducts.find(p => p.id === id);
             if (produk) {
-                // Tambah ke cart sebagai bundle (qty 1)
                 tambahKeCart(id, 1);
                 modalBundle.classList.remove('active');
-                // Update badge bundle
                 bundleBadge.textContent = '1';
             }
         });
@@ -976,7 +1017,6 @@
         // Tombol Cart
         btnCart.addEventListener('click', () => {
             alert('Menuju halaman Cart (belum dibuat)');
-            // Update badge cart misalnya
             cartBadge.textContent = '0';
         });
 
