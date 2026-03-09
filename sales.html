@@ -183,7 +183,7 @@
             transition: transform 0.2s, box-shadow 0.2s;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             text-align: center;
             gap: 0.5rem;
         }
@@ -207,6 +207,9 @@
             color: #006B54;
             font-size: 1rem;
             width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .product-price-stock {
             display: flex;
@@ -250,17 +253,21 @@
             color: #666;
             text-align: left;
         }
+        /* Perbaikan qty-control agar konsisten */
         .qty-control {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.3rem;
+            width: 100%;
+            margin-top: 0.5rem;
         }
         .qty-control button {
             background: transparent;
             border: 1px solid #ddd;
             border-radius: 20px;
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -268,17 +275,24 @@
             color: #006B54;
             font-weight: bold;
             transition: background 0.2s;
+            flex-shrink: 0;
         }
         .qty-control button:hover {
             background: #e6f0ec;
         }
         .qty-control input {
-            width: 60px;
+            width: 70px;
             text-align: center;
             border: 1px solid #ddd;
             border-radius: 20px;
-            padding: 0.3rem;
+            padding: 0.4rem;
             font-size: 0.9rem;
+            flex-shrink: 1;
+        }
+        /* Untuk tampilan list, qty-control ditempatkan di samping */
+        .product-row .qty-control {
+            width: auto;
+            margin-top: 0;
         }
         /* Modal */
         .modal {
@@ -380,6 +394,105 @@
             font-size: 0.8rem;
             font-weight: bold;
         }
+        /* Modal Cart dengan tema */
+        #modalCart .modal-content {
+            max-width: 800px;
+            padding: 0;
+            overflow: hidden;
+        }
+        #modalCart .modal-header {
+            background: #006B54;
+            color: white;
+            padding: 1rem 1.5rem;
+            margin: 0;
+            border-radius: 20px 20px 0 0;
+        }
+        #modalCart .modal-header h3 {
+            color: white;
+        }
+        #modalCart .close-modal {
+            color: white;
+        }
+        #modalCart .modal-body {
+            padding: 1.5rem;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        #modalCart table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        #modalCart th {
+            background: #f0f5f3;
+            color: #006B54;
+            font-weight: 600;
+            padding: 0.75rem 0.5rem;
+        }
+        #modalCart td {
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        #modalCart .cart-qty {
+            width: 70px;
+            padding: 0.3rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            text-align: center;
+        }
+        #modalCart .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #dc3545;
+            padding: 0.2rem;
+        }
+        #modalCart .cart-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: #f9f9f9;
+            border-top: 1px solid #e0e0e0;
+        }
+        #modalCart .cart-footer strong {
+            color: #006B54;
+            font-size: 1.1rem;
+        }
+        .btn-checkout {
+            background: #006B54;
+            color: white;
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-checkout:hover {
+            background: #004d3b;
+        }
+        /* Modal Pending dan Payment */
+        #modalPending .modal-content,
+        #modalPayment .modal-content {
+            padding: 1.5rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+            color: #444;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.95rem;
+        }
         /* Responsif untuk layar kecil */
         @media (max-width: 600px) {
             .warehouse-select {
@@ -415,7 +528,6 @@
             }
         }
         @media (max-width: 480px) {
-            /* Paksa baris pertama (warehouse select + toggle) tetap satu baris */
             .toolbar-row:first-child {
                 flex-wrap: nowrap;
             }
@@ -434,7 +546,7 @@
                 padding: 0.2rem 0.3rem;
             }
             .view-toggle button span {
-                display: none; /* sembunyikan teks Grid/List */
+                display: none;
             }
             .view-toggle button i {
                 width: 16px;
@@ -614,32 +726,34 @@
         </div>
     </div>
 
-    <!-- MODAL CART -->
+    <!-- MODAL CART (dengan tema) -->
     <div class="modal" id="modalCart">
-        <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Keranjang Belanja</h3>
                 <button class="close-modal" id="closeModalCart">&times;</button>
             </div>
-            <div style="overflow-x: auto; max-height: 60vh;">
-                <table class="modal-table" style="min-width: 600px;">
-                    <thead>
-                        <tr>
-                            <th>Produk</th>
-                            <th>Harga Satuan</th>
-                            <th>Qty</th>
-                            <th>Subtotal</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cartItemsBody">
-                        <tr><td colspan="5" style="text-align:center;">Keranjang kosong</td></tr>
-                    </tbody>
-                </table>
+            <div class="modal-body">
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produk</th>
+                                <th>Harga Satuan</th>
+                                <th>Qty</th>
+                                <th>Subtotal</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cartItemsBody">
+                            <tr><td colspan="5" style="text-align:center;">Keranjang kosong</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; padding-top:1rem; border-top:1px solid #eee;">
+            <div class="cart-footer">
                 <strong>Total: Rp <span id="cartTotal">0</span></strong>
-                <button class="btn" id="checkoutBtn">Lanjut ke Pembayaran</button>
+                <button class="btn-checkout" id="checkoutBtn">Lanjut ke Pembayaran</button>
             </div>
         </div>
     </div>
@@ -656,7 +770,7 @@
                     <label>Nama / Kode Pending</label>
                     <input type="text" id="namaPending" placeholder="Misal: PO-001" required>
                 </div>
-                <button type="submit" class="btn">Simpan</button>
+                <button type="submit" class="btn-primary">Simpan</button>
             </form>
         </div>
     </div>
@@ -686,7 +800,7 @@
                     <label>Kembalian</label>
                     <input type="text" id="kembalian" readonly value="0">
                 </div>
-                <button class="btn" id="prosesPembayaran">Proses Pembayaran</button>
+                <button class="btn-primary" id="prosesPembayaran">Proses Pembayaran</button>
             </div>
         </div>
     </div>
@@ -884,7 +998,7 @@
                     return `
                         <div class="product-card" data-id="${p.id}">
                             <div class="product-icon"><i data-feather="box" width="32"></i></div>
-                            <div class="product-name">${p.nama}</div>
+                            <div class="product-name" title="${p.nama}">${p.nama}</div>
                             <div class="product-price-stock">
                                 <span>Rp ${(p.hargaJual || 0).toLocaleString()}</span>
                                 <span>Stok: ${stok} ${unitName}</span>
@@ -906,7 +1020,7 @@
                     return `
                         <div class="product-row" data-id="${p.id}">
                             <div class="product-info">
-                                <div class="product-name">${p.nama}</div>
+                                <div class="product-name" title="${p.nama}">${p.nama}</div>
                                 <div class="product-code">${p.kode || p.barcode || ''}</div>
                                 <div class="product-price">Rp ${(p.hargaJual || 0).toLocaleString()} | Stok: ${stok} ${unitName}</div>
                             </div>
@@ -947,6 +1061,7 @@
 
                 // Long press detection
                 const startLongPress = (e) => {
+                    // Abaikan jika klik pada qty-control
                     if (e.target.closest('.qty-control')) return;
                     
                     longPressTimer = setTimeout(() => {
@@ -1075,7 +1190,7 @@
             }
 
             // Update harga semua item dengan produkId ini (terapkan qty break)
-            await updateHargaProduk(produkId);
+            updateHargaProduk(produkId);
 
             updateCartBadge();
             alert(`Produk ${produk.nama} ditambahkan ke cart`);
@@ -1161,7 +1276,7 @@
                         <td>${item.nama} ${item.unit ? '('+item.unit+')' : ''}</td>
                         <td>Rp ${item.hargaSatuan.toLocaleString()}</td>
                         <td>
-                            <input type="number" class="cart-qty" value="${item.qty}" min="0.01" step="0.01" style="width:70px; padding:0.3rem; border:1px solid #ddd; border-radius:6px;">
+                            <input type="number" class="cart-qty" value="${item.qty}" min="0.01" step="0.01" style="width:70px; padding:0.3rem; border:1px solid #ddd; border-radius:20px; text-align:center;">
                         </td>
                         <td>Rp ${subtotal.toLocaleString()}</td>
                         <td>
