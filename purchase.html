@@ -66,8 +66,8 @@
 
         .cart-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; margin-bottom:2rem; }
         .cart-section h3 { margin-bottom:1rem; color:#006B54; font-size:1.2rem; }
-        .table-responsive { overflow-x: auto; } /* Tambahan untuk scroll horizontal */
-        .cart-table { width:100%; border-collapse:collapse; min-width:800px; } /* Lebar minimum agar tidak terlalu sempit */
+        .table-responsive { overflow-x: auto; }
+        .cart-table { width:100%; border-collapse:collapse; min-width:800px; }
         .cart-table th, .cart-table td { padding:0.8rem 0.5rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
         .cart-table th { background:#f9f9f9; font-weight:600; color:#006B54; }
         .cart-table .qty-control { display:flex; align-items:center; gap:0.3rem; }
@@ -589,7 +589,7 @@
             let dibayarVal = parseFloat(dibayar.value) || 0;
             let utang = dibayarVal < total ? total - dibayarVal : 0;
 
-            // Simpan ke localforage (misal: purchaseOrder)
+            // Simpan ke localforage (purchaseOrder)
             const purchaseStore = localforage.createInstance({ name: 'purchase' });
             const purchaseData = {
                 tanggal: new Date().toISOString(),
@@ -615,7 +615,34 @@
             };
             await purchaseStore.setItem(generateId(), purchaseData);
 
-            // Jika ada utang, nanti bisa update supplier debt
+            // ===== PERBAIKAN: Update harga dasar dan stok produk =====
+            async function updateHargaDasar(items) {
+                for (let item of items) {
+                    const produk = await getById(produkStore, item.id);
+                    if (!produk) continue;
+
+                    const stokLama = produk.stokAwal || 0;
+                    const hargaDasarLama = produk.hargaDasar || 0;
+                    const qty = item.qty;
+                    const hargaBeli = item.hargaBeli;
+
+                    const totalNilaiLama = stokLama * hargaDasarLama;
+                    const totalNilaiBaru = qty * hargaBeli;
+                    const stokBaru = stokLama + qty;
+                    const hargaDasarBaru = stokBaru === 0 ? 0 : (totalNilaiLama + totalNilaiBaru) / stokBaru;
+
+                    produk.stokAwal = stokBaru;
+                    produk.hargaDasar = hargaDasarBaru;
+                    produk.synced = false; // tandai perlu disinkronkan ke cloud
+
+                    // Gunakan setItem langsung, karena tidak ada fungsi updateItem
+                    await produkStore.setItem(item.id, produk);
+                }
+            }
+
+            await updateHargaDasar(cart);
+            // ===== Akhir perbaikan =====
+
             alert('Transaksi berhasil disimpan' + (utang > 0 ? ` dengan utang Rp ${utang.toLocaleString()}` : ''));
 
             // Reset
