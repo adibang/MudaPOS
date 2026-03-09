@@ -9,7 +9,7 @@
     <!-- LocalForage -->
     <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <style>
-        /* ===== CSS SAMA DENGAN HALAMAN LAIN ===== */
+        /* ===== RESET & BASE ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -44,7 +44,7 @@
         .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
         .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
         
-        /* ===== Style khusus halaman sales dengan border-radius 20px ===== */
+        /* ===== TOOLBAR ===== */
         .sales-toolbar {
             display: flex;
             flex-direction: column;
@@ -61,7 +61,6 @@
             gap: 0.8rem;
             flex-wrap: wrap;
         }
-        /* Baris kedua: pencarian dan ikon tetap satu baris di HP */
         .toolbar-row:last-child {
             flex-wrap: nowrap;
         }
@@ -163,6 +162,23 @@
             font-weight: bold;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
+        /* Tombol aksi */
+        .toolbar-row:last-child button {
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        #btnPiutang { background:#ccc; color:#333; }
+        #btnPiutang.active { background:#dc3545; color:white; }
+        #btnPending { background:#006B54; color:white; }
+        #btnPayment { background:#006B54; color:white; }
+
+        /* ===== PRODUK ===== */
         .product-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -175,16 +191,15 @@
             gap: 0.5rem;
         }
         .product-card, .product-row {
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            border: 1px solid #f0f0f0;
+            border-radius: 20px;
             user-select: none;
-            -webkit-touch-callout: none;
         }
         .product-card {
-            background: white;
-            border-radius: 20px;
             padding: 1rem;
-            border: 1px solid #f0f0f0;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
             display: flex;
             flex-direction: column;
             align-items: stretch;
@@ -210,7 +225,6 @@
             font-weight: 600;
             color: #006B54;
             font-size: 1rem;
-            width: 100%;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -221,17 +235,12 @@
             gap: 0.5rem;
             font-size: 0.85rem;
             color: #666;
-            width: 100%;
             flex-wrap: wrap;
         }
         .product-row {
-            background: white;
-            border-radius: 20px;
             padding: 0.8rem 1rem;
-            border: 1px solid #f0f0f0;
             display: flex;
             align-items: center;
-            cursor: pointer;
             gap: 1rem;
         }
         .product-row:hover {
@@ -244,8 +253,8 @@
             gap: 0.2rem;
         }
         .product-row .product-name {
-            font-size: 1rem;
             text-align: left;
+            font-size: 1rem;
         }
         .product-row .product-code {
             font-size: 0.8rem;
@@ -257,7 +266,7 @@
             color: #666;
             text-align: left;
         }
-        /* Perbaikan qty-control agar konsisten */
+        /* Qty control */
         .qty-control {
             display: flex;
             align-items: center;
@@ -265,6 +274,10 @@
             gap: 0.3rem;
             width: 100%;
             margin-top: 0.5rem;
+        }
+        .product-row .qty-control {
+            width: auto;
+            margin-top: 0;
         }
         .qty-control button {
             background: transparent;
@@ -293,83 +306,8 @@
             font-size: 0.9rem;
             flex-shrink: 1;
         }
-        /* Tombol pilih unit di kartu produk */
-        .btn-select-unit {
-            background: #006B54;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 0.25rem 0.5rem;
-            font-size: 0.7rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.2rem;
-            margin-left: 0.5rem;
-            white-space: nowrap;
-        }
-        .btn-select-unit i {
-            width: 12px;
-            height: 12px;
-        }
-        /* Untuk tampilan list, tombol di samping */
-        .product-row .btn-select-unit {
-            margin-left: 1rem;
-        }
-        /* Modal Satuan baru dengan tampilan list */
-        #modalSatuan .modal-content {
-            max-width: 500px;
-        }
-        .satuan-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.8rem;
-            border-bottom: 1px solid #eee;
-            gap: 0.5rem;
-        }
-        .satuan-item:last-child {
-            border-bottom: none;
-        }
-        .satuan-info {
-            flex: 1;
-        }
-        .satuan-nama {
-            font-weight: 600;
-            color: #006B54;
-        }
-        .satuan-barcode {
-            font-size: 0.7rem;
-            color: #999;
-        }
-        .satuan-harga {
-            font-size: 0.8rem;
-            color: #666;
-        }
-        .satuan-qty {
-            font-size: 0.8rem;
-            color: #666;
-            margin-left: 0.5rem;
-        }
-        .btn-pilih-satuan {
-            background: #006B54;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 0.4rem 1rem;
-            font-size: 0.8rem;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .btn-pilih-satuan:hover {
-            background: #004d3b;
-        }
-        /* Untuk tampilan list, qty-control ditempatkan di samping */
-        .product-row .qty-control {
-            width: auto;
-            margin-top: 0;
-        }
-        /* Modal */
+
+        /* ===== MODAL ===== */
         .modal {
             display: none;
             position: fixed;
@@ -382,9 +320,7 @@
             align-items: center;
             justify-content: center;
         }
-        .modal.active {
-            display: flex;
-        }
+        .modal.active { display: flex; }
         .modal-content {
             background: white;
             border-radius: 20px;
@@ -401,9 +337,7 @@
             align-items: center;
             margin-bottom: 1rem;
         }
-        .modal-header h3 {
-            color: #006B54;
-        }
+        .modal-header h3 { color: #006B54; }
         .close-modal {
             background: none;
             border: none;
@@ -415,9 +349,10 @@
             margin-bottom: 1rem;
         }
         .modal-search input {
-            border-radius: 20px;
-            border: 1px solid #ddd;
+            width: 100%;
             padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
         }
         .modal-table {
             width: 100%;
@@ -432,12 +367,8 @@
             padding: 0.5rem;
             border-bottom: 1px solid #eee;
         }
-        .modal-table tr {
-            cursor: pointer;
-        }
-        .modal-table tr:hover {
-            background: #f5f5f5;
-        }
+        .modal-table tr { cursor: pointer; }
+        .modal-table tr:hover { background: #f5f5f5; }
         .btn-primary {
             background: #006B54;
             color: white;
@@ -469,7 +400,7 @@
             font-size: 0.8rem;
             font-weight: bold;
         }
-        /* Modal Cart dengan tema */
+        /* Modal cart tema */
         #modalCart .modal-content {
             max-width: 800px;
             padding: 0;
@@ -482,12 +413,8 @@
             margin: 0;
             border-radius: 20px 20px 0 0;
         }
-        #modalCart .modal-header h3 {
-            color: white;
-        }
-        #modalCart .close-modal {
-            color: white;
-        }
+        #modalCart .modal-header h3 { color: white; }
+        #modalCart .close-modal { color: white; }
         #modalCart .modal-body {
             padding: 1.5rem;
             max-height: 60vh;
@@ -543,96 +470,60 @@
             font-weight: 600;
             cursor: pointer;
         }
-        .btn-checkout:hover {
-            background: #004d3b;
+        /* Modal satuan detail */
+        .unit-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
         }
-        /* Modal Pending dan Payment */
-        #modalPending .modal-content,
-        #modalPayment .modal-content {
-            padding: 1.5rem;
+        .unit-info {
+            flex: 2;
         }
-        .form-group {
-            margin-bottom: 1rem;
+        .unit-name {
+            font-weight: 600;
+            color: #006B54;
         }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.3rem;
-            font-weight: 500;
-            color: #444;
+        .unit-barcode {
+            font-size: 0.75rem;
+            color: #999;
         }
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 0.6rem 0.8rem;
+        .unit-price {
+            font-size: 0.85rem;
+            color: #333;
+        }
+        .unit-action {
+            flex: 1;
+            text-align: right;
+        }
+        .unit-action input {
+            width: 60px;
+            padding: 0.3rem;
             border: 1px solid #ddd;
             border-radius: 20px;
-            font-size: 0.95rem;
+            text-align: center;
+            margin-right: 0.5rem;
         }
-        /* Responsif untuk layar kecil */
+        .unit-action button {
+            background: #006B54;
+            color: white;
+            border: none;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        /* Responsif */
         @media (max-width: 600px) {
-            .warehouse-select {
-                min-width: 130px;
-                font-size: 0.85rem;
-                height: 36px;
-            }
-            .view-toggle button {
-                padding: 0.3rem 0.4rem;
-                font-size: 0.8rem;
-            }
-            .view-toggle button i {
-                width: 16px;
-            }
-            .search-box {
-                height: 36px;
-            }
-            .search-box input {
-                font-size: 0.85rem;
-                padding: 0.4rem 0.5rem;
-            }
-            .action-icons button {
-                height: 36px;
-                width: 36px;
-                padding: 0.4rem;
-            }
-            .action-icons .badge {
-                width: 16px;
-                height: 16px;
-                font-size: 10px;
-                top: -4px;
-                right: -4px;
-            }
+            .warehouse-select { min-width: 130px; font-size:0.85rem; }
+            .view-toggle button { padding:0.3rem 0.4rem; }
+            .action-icons button { width:36px; height:36px; }
+            .qty-control input { width:50px; }
         }
         @media (max-width: 480px) {
-            .toolbar-row:first-child {
-                flex-wrap: nowrap;
-            }
-            .warehouse-select {
-                min-width: 70px;
-                font-size: 0.8rem;
-                padding: 0.2rem 0.4rem;
-                flex: 1;
-                width: auto;
-                height: 36px;
-            }
-            .view-toggle {
-                flex-shrink: 0;
-            }
-            .view-toggle button {
-                padding: 0.2rem 0.3rem;
-            }
-            .view-toggle button span {
-                display: none;
-            }
-            .view-toggle button i {
-                width: 16px;
-                height: 16px;
-            }
-            .toolbar-row:last-child {
-                gap: 0.4rem;
-            }
-            .search-box {
-                min-width: 120px;
-            }
+            .toolbar-row:first-child { flex-wrap:nowrap; }
+            .warehouse-select { min-width:70px; }
+            .view-toggle button span { display:none; }
         }
     </style>
 </head>
@@ -649,7 +540,6 @@
         <ul class="sidebar-menu">
             <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
             <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
-            <!-- Sales dengan submenu -->
             <li class="has-submenu" id="salesMenuItem">
                 <a href="#" class="menu-link" id="salesMenuToggle">
                     <i data-feather="shopping-cart"></i> Sales
@@ -701,7 +591,7 @@
             </div>
             <div class="toolbar-row">
                 <div class="search-box">
-                    <i data-feather="search" width="18"></i>
+                    <i data-feather="search"></i>
                     <input type="text" id="searchInput" placeholder="Cari produk...">
                 </div>
                 <div class="action-icons">
@@ -720,26 +610,18 @@
                 </div>
             </div>
             <!-- Baris ketiga: tombol aksi -->
-            <div class="toolbar-row" style="justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
-                <button class="btn" id="btnPiutang" style="background:#ccc; color:#333; border:none; padding:0.5rem 1rem; border-radius:20px; display:flex; align-items:center; gap:0.3rem;">
-                    <i data-feather="alert-triangle"></i> Piutang
-                </button>
-                <button class="btn" id="btnPending" style="background:#006B54; color:white; border:none; padding:0.5rem 1rem; border-radius:20px; display:flex; align-items:center; gap:0.3rem;">
-                    <i data-feather="clock"></i> Pending
-                </button>
-                <button class="btn" id="btnPayment" style="background:#006B54; color:white; border:none; padding:0.5rem 1rem; border-radius:20px; display:flex; align-items:center; gap:0.3rem;">
-                    <i data-feather="credit-card"></i> Payment
-                </button>
+            <div class="toolbar-row" style="justify-content: flex-end;">
+                <button id="btnPiutang"><i data-feather="alert-triangle"></i> Piutang</button>
+                <button id="btnPending"><i data-feather="clock"></i> Pending</button>
+                <button id="btnPayment"><i data-feather="credit-card"></i> Payment</button>
             </div>
         </div>
 
         <!-- Container Produk (Grid/List) -->
-        <div id="productContainer" class="product-grid">
-            <!-- Akan diisi JavaScript -->
-        </div>
+        <div id="productContainer" class="product-grid"></div>
     </main>
 
-    <!-- Floating Pending Transaksi -->
+    <!-- Floating Pending -->
     <div class="floating-pending" id="floatingPending">
         <i data-feather="clock"></i>
         <span>Pending</span>
@@ -754,15 +636,11 @@
                 <button class="close-modal" id="closeModalCustomer">&times;</button>
             </div>
             <div class="modal-search">
-                <input type="text" id="searchCustomer" placeholder="Cari nama atau kode customer..." style="width:100%; padding:0.5rem;">
+                <input type="text" id="searchCustomer" placeholder="Cari nama atau kode customer...">
             </div>
             <table class="modal-table">
-                <thead>
-                    <tr><th>Kode</th><th>Nama</th><th>Kontak</th></tr>
-                </thead>
-                <tbody id="customerListBody">
-                    <tr><td colspan="3">Loading...</td></tr>
-                </tbody>
+                <thead><tr><th>Kode</th><th>Nama</th><th>Kontak</th></tr></thead>
+                <tbody id="customerListBody"><tr><td colspan="3">Loading...</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -775,29 +653,23 @@
                 <button class="close-modal" id="closeModalBundle">&times;</button>
             </div>
             <div class="modal-search">
-                <input type="text" id="searchBundle" placeholder="Cari bundle..." style="width:100%; padding:0.5rem;">
+                <input type="text" id="searchBundle" placeholder="Cari bundle...">
             </div>
             <table class="modal-table">
-                <thead>
-                    <tr><th>Kode</th><th>Nama</th><th>Harga</th></tr>
-                </thead>
-                <tbody id="bundleListBody">
-                    <tr><td colspan="3">Loading...</td></tr>
-                </tbody>
+                <thead><tr><th>Kode</th><th>Nama</th><th>Harga</th></tr></thead>
+                <tbody id="bundleListBody"><tr><td colspan="3">Loading...</td></tr></tbody>
             </table>
         </div>
     </div>
 
-    <!-- MODAL PILIH SATUAN PRODUK (desain baru) -->
+    <!-- MODAL PILIH SATUAN PRODUK (detail) -->
     <div class="modal" id="modalSatuan">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Pilih Satuan</h3>
                 <button class="close-modal" id="closeModalSatuan">&times;</button>
             </div>
-            <div id="satuanListContainer">
-                <!-- Akan diisi dengan daftar satuan -->
-            </div>
+            <div id="satuanList" style="max-height: 60vh; overflow-y: auto;"></div>
         </div>
     </div>
 
@@ -812,17 +684,9 @@
                 <div style="overflow-x: auto;">
                     <table>
                         <thead>
-                            <tr>
-                                <th>Produk</th>
-                                <th>Harga Satuan</th>
-                                <th>Qty</th>
-                                <th>Subtotal</th>
-                                <th>Aksi</th>
-                            </tr>
+                            <tr><th>Produk</th><th>Harga Satuan</th><th>Qty</th><th>Subtotal</th><th>Aksi</th></tr>
                         </thead>
-                        <tbody id="cartItemsBody">
-                            <tr><td colspan="5" style="text-align:center;">Keranjang kosong</td></tr>
-                        </tbody>
+                        <tbody id="cartItemsBody"><tr><td colspan="5" style="text-align:center;">Keranjang kosong</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -880,7 +744,7 @@
         </div>
     </div>
 
-    <!-- Script biasa untuk sidebar (non-module) -->
+    <!-- Script sidebar (non-module) -->
     <script>
         feather.replace();
 
@@ -906,59 +770,42 @@
             });
         }
 
-        // Set active menu berdasarkan URL
-        const currentPage = window.location.pathname.split('/').pop();
-        if (currentPage === 'sales.html') {
-            document.getElementById('submenuSales').classList.add('active');
+        // Set active menu
+        if (window.location.pathname.includes('sales.html')) {
+            document.getElementById('submenuSales')?.classList.add('active');
         }
     </script>
 
-    <!-- Script module -->
+    <!-- Script module utama -->
     <script type="module">
         import { auth, provider } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
-        // Inisialisasi LocalForage
+        // ========== LOCALFORAGE INSTANCES ==========
         const produkStore = localforage.createInstance({ name: 'produk' });
         const customerStore = localforage.createInstance({ name: 'customer' });
         const gudangStore = localforage.createInstance({ name: 'gudang' });
         const konversiStore = localforage.createInstance({ name: 'konversiUnit' });
         const unitStore = localforage.createInstance({ name: 'unit' });
-        const qtyStore = localforage.createInstance({ name: 'qtyBreak' }); // tambahan
+        const qtyStore = localforage.createInstance({ name: 'qtyBreak' });
 
         let pendingCount = 0;
         let selectedCustomer = null;
         let cartItems = [];
-        let customerPiutang = 0; // untuk tombol piutang
+        let customerPiutang = 0;
 
-        // Variabel global untuk data
+        // Data global
         let allProducts = [];
         let allCustomers = [];
         let allGudang = [];
         let allKonversi = [];
         let allUnits = [];
-        let allQtyBreak = []; // tambahan
+        let allQtyBreak = [];
 
         // Fungsi bantu
-        function generateId() {
-            return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        }
-        async function getAll(store) {
-            let items = [];
-            await store.iterate((value, key) => {
-                items.push({ ...value, id: key });
-            });
-            return items;
-        }
-        async function findByIndex(store, field, value) {
-            let results = [];
-            await store.iterate((item, key) => {
-                if (item[field] === value) {
-                    results.push({ ...item, id: key });
-                }
-            });
-            return results;
-        }
+        function generateId() { return Date.now() + '-' + Math.random().toString(36).substr(2, 9); }
+        async function getAll(store) { let items = []; await store.iterate((value, key) => { items.push({ ...value, id: key }); }); return items; }
+        async function findByIndex(store, field, value) { let results = []; await store.iterate((item, key) => { if (item[field] === value) results.push({ ...item, id: key }); }); return results; }
 
         // Elemen DOM
         const warehouseSelect = document.getElementById('warehouseSelect');
@@ -978,13 +825,12 @@
         const customerListBody = document.getElementById('customerListBody');
         const searchBundle = document.getElementById('searchBundle');
         const bundleListBody = document.getElementById('bundleListBody');
-        const satuanListContainer = document.getElementById('satuanListContainer');
+        const satuanList = document.getElementById('satuanList');
         const pendingCountSpan = document.getElementById('pendingCount');
         const floatingPending = document.getElementById('floatingPending');
         const customerBadge = document.getElementById('customerBadge');
         const bundleBadge = document.getElementById('bundleBadge');
         const cartBadge = document.getElementById('cartBadge');
-        // Modal baru
         const modalCart = document.getElementById('modalCart');
         const modalPending = document.getElementById('modalPending');
         const modalPayment = document.getElementById('modalPayment');
@@ -1005,20 +851,14 @@
         // State
         let currentView = 'grid';
 
-        // Fungsi untuk menyimpan & memuat pilihan gudang dari localStorage
+        // ========== FUNGSI GUDANG ==========
         function saveSelectedWarehouse(warehouseId) {
-            if (warehouseId) {
-                localStorage.setItem('selectedWarehouse', warehouseId);
-            } else {
-                localStorage.removeItem('selectedWarehouse');
-            }
+            if (warehouseId) localStorage.setItem('selectedWarehouse', warehouseId);
+            else localStorage.removeItem('selectedWarehouse');
         }
+        function loadSelectedWarehouse() { return localStorage.getItem('selectedWarehouse'); }
 
-        function loadSelectedWarehouse() {
-            return localStorage.getItem('selectedWarehouse');
-        }
-
-        // Load data awal
+        // ========== LOAD DATA AWAL ==========
         async function loadInitialData() {
             try {
                 allProducts = await getAll(produkStore);
@@ -1026,27 +866,21 @@
                 allGudang = await getAll(gudangStore);
                 allKonversi = await getAll(konversiStore);
                 allUnits = await getAll(unitStore);
-                allQtyBreak = await getAll(qtyStore); // tambahan
+                allQtyBreak = await getAll(qtyStore);
                 
                 warehouseSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
                     allGudang.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
                 
-                // Set pilihan dari localStorage jika ada dan valid
-                const savedWarehouse = loadSelectedWarehouse();
-                if (savedWarehouse && allGudang.some(g => g.id === savedWarehouse)) {
-                    warehouseSelect.value = savedWarehouse;
-                }
+                const saved = loadSelectedWarehouse();
+                if (saved && allGudang.some(g => g.id === saved)) warehouseSelect.value = saved;
                 
                 renderProducts();
-            } catch (error) {
-                console.error('Gagal load data:', error);
-            }
+            } catch (error) { console.error('Gagal load data:', error); }
         }
 
-        // Render produk berdasarkan view, pencarian, dan gudang terpilih
+        // ========== RENDER PRODUK ==========
         function renderProducts() {
             const selectedWarehouseId = warehouseSelect.value;
-
             if (!selectedWarehouseId) {
                 productContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#999;">Silakan pilih gudang terlebih dahulu</div>';
                 return;
@@ -1066,22 +900,19 @@
                     const stok = p.stokAwal || 0;
                     const unit = allUnits.find(u => u.id === p.unitId);
                     const unitName = unit ? unit.nama : '';
-                    return `
-                        <div class="product-card" data-id="${p.id}">
-                            <div class="product-icon"><i data-feather="box" width="32"></i></div>
-                            <div class="product-name" title="${p.nama}">${p.nama}</div>
-                            <div class="product-price-stock">
-                                <span>Rp ${(p.hargaJual || 0).toLocaleString()}</span>
-                                <span>Stok: ${stok} ${unitName}</span>
-                            </div>
-                            <div class="qty-control">
-                                <button class="qty-minus">-</button>
-                                <input type="number" class="qty-input" step="0.01" min="0" placeholder="0" value="">
-                                <button class="qty-plus">+</button>
-                                <button class="btn-select-unit" title="Pilih satuan lain"><i data-feather="chevron-down"></i> Unit</button>
-                            </div>
+                    return `<div class="product-card" data-id="${p.id}">
+                        <div class="product-icon"><i data-feather="box" width="32"></i></div>
+                        <div class="product-name" title="${p.nama}">${p.nama}</div>
+                        <div class="product-price-stock">
+                            <span>Rp ${(p.hargaJual || 0).toLocaleString()}</span>
+                            <span>Stok: ${stok} ${unitName}</span>
                         </div>
-                    `;
+                        <div class="qty-control">
+                            <button class="qty-minus">-</button>
+                            <input type="number" class="qty-input" step="0.01" min="0" placeholder="0" value="">
+                            <button class="qty-plus">+</button>
+                        </div>
+                    </div>`;
                 }).join('');
             } else {
                 productContainer.className = 'product-list';
@@ -1089,152 +920,59 @@
                     const stok = p.stokAwal || 0;
                     const unit = allUnits.find(u => u.id === p.unitId);
                     const unitName = unit ? unit.nama : '';
-                    return `
-                        <div class="product-row" data-id="${p.id}">
-                            <div class="product-info">
-                                <div class="product-name" title="${p.nama}">${p.nama}</div>
-                                <div class="product-code">${p.kode || p.barcode || ''}</div>
-                                <div class="product-price">Rp ${(p.hargaJual || 0).toLocaleString()} | Stok: ${stok} ${unitName}</div>
-                            </div>
-                            <div class="qty-control">
-                                <button class="qty-minus">-</button>
-                                <input type="number" class="qty-input" step="0.01" min="0" placeholder="0" value="">
-                                <button class="qty-plus">+</button>
-                                <button class="btn-select-unit" title="Pilih satuan lain"><i data-feather="chevron-down"></i> Unit</button>
-                            </div>
+                    return `<div class="product-row" data-id="${p.id}">
+                        <div class="product-info">
+                            <div class="product-name" title="${p.nama}">${p.nama}</div>
+                            <div class="product-code">${p.kode || p.barcode || ''}</div>
+                            <div class="product-price">Rp ${(p.hargaJual || 0).toLocaleString()} | Stok: ${stok} ${unitName}</div>
                         </div>
-                    `;
+                        <div class="qty-control">
+                            <button class="qty-minus">-</button>
+                            <input type="number" class="qty-input" step="0.01" min="0" placeholder="0" value="">
+                            <button class="qty-plus">+</button>
+                        </div>
+                    </div>`;
                 }).join('');
             }
             feather.replace();
 
-            // Pasang event listener untuk setiap produk
-            document.querySelectorAll('.product-card, .product-row').forEach(el => {
-                const productId = el.dataset.id;
-                const qtyInput = el.querySelector('.qty-input');
-                const minusBtn = el.querySelector('.qty-minus');
-                const plusBtn = el.querySelector('.qty-plus');
-                const unitBtn = el.querySelector('.btn-select-unit');
-
-                if (minusBtn) {
-                    minusBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        let val = parseFloat(qtyInput.value) || 0;
-                        val = Math.max(0, val - 1);
-                        qtyInput.value = val.toFixed(2);
-                    });
-                }
-                if (plusBtn) {
-                    plusBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        let val = parseFloat(qtyInput.value) || 0;
-                        val = val + 1;
-                        qtyInput.value = val.toFixed(2);
-                    });
-                }
-                if (unitBtn) {
-                    unitBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        showSatuanModal(productId);
-                    });
-                }
-
-                // Klik biasa (selain pada kontrol) untuk menambah ke cart dengan satuan dasar
-                el.addEventListener('click', (e) => {
-                    if (e.target.closest('.qty-control')) return;
-                    const qty = parseFloat(qtyInput.value) || 0;
-                    if (qty > 0) {
-                        tambahKeCart(productId, qty, null); // satuan dasar
-                    } else {
-                        alert('Qty harus lebih dari 0');
-                    }
+            // Event tombol +/- (tetap perlu karena dinamis)
+            document.querySelectorAll('.qty-minus').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const input = btn.parentElement.querySelector('.qty-input');
+                    let val = parseFloat(input.value) || 0;
+                    val = Math.max(0, val - 1);
+                    input.value = val.toFixed(2);
+                });
+            });
+            document.querySelectorAll('.qty-plus').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const input = btn.parentElement.querySelector('.qty-input');
+                    let val = parseFloat(input.value) || 0;
+                    val = val + 1;
+                    input.value = val.toFixed(2);
                 });
             });
         }
 
-        // Fungsi untuk menampilkan modal satuan (desain baru)
-        async function showSatuanModal(produkId) {
-            // Filter konversi yang aktif
-            const konversiList = allKonversi.filter(k => k.produkId === produkId && k.aktif !== false);
-            if (konversiList.length === 0) {
-                alert('Produk tidak memiliki satuan tambahan');
-                return;
-            }
-
-            const produk = allProducts.find(p => p.id === produkId);
-            if (!produk) return;
-
-            // Ambil qty dari input di card
-            const qtyInput = document.querySelector(`[data-id="${produkId}"] .qty-input`);
-            let qty = 0;
-            if (qtyInput) {
-                qty = parseFloat(qtyInput.value) || 0;
-            }
-            if (qty <= 0) {
-                const defaultQty = prompt('Masukkan jumlah (default 1):', '1');
-                if (defaultQty === null) return;
-                qty = parseFloat(defaultQty) || 1;
-            }
-
-            // Bangun daftar satuan
-            satuanListContainer.innerHTML = '';
-            for (let konv of konversiList) {
-                const unit = allUnits.find(u => u.id === konv.unitId);
-                const unitName = unit ? unit.nama : '?';
-                const barcode = konv.barcode || '-';
-                // Harga satuan = produk.hargaJual * konv.nilai (atau bisa dari konv.hargaJual jika ada)
-                const hargaSatuan = konv.hargaJual ? konv.hargaJual : (produk.hargaJual * konv.nilai);
-                
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'satuan-item';
-                itemDiv.innerHTML = `
-                    <div class="satuan-info">
-                        <div class="satuan-nama">${unitName}</div>
-                        <div class="satuan-barcode">${barcode}</div>
-                        <div class="satuan-harga">Rp ${hargaSatuan.toLocaleString()}</div>
-                    </div>
-                    <div class="satuan-qty">Qty: ${qty}</div>
-                    <button class="btn-pilih-satuan" data-konversi-id="${konv.id}">Pilih</button>
-                `;
-                satuanListContainer.appendChild(itemDiv);
-            }
-
-            // Pasang event listener pada tombol pilih
-            satuanListContainer.querySelectorAll('.btn-pilih-satuan').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const konversiId = btn.dataset.konversiId;
-                    tambahKeCart(produkId, qty, konversiId);
-                    modalSatuan.classList.remove('active');
-                });
-            });
-
-            modalSatuan.classList.add('active');
-        }
-
-        // Fungsi untuk menambah ke cart (dengan dukungan konversi dan qty break)
+        // ========== FUNGSI CART DAN QTY BREAK ==========
         async function tambahKeCart(produkId, qty, konversiId = null) {
             const produk = allProducts.find(p => p.id === produkId);
             if (!produk) return;
 
-            // Cari konversi jika ada
             let konversi = null;
             let nilaiKonversi = 1;
             if (konversiId) {
                 konversi = allKonversi.find(k => k.id === konversiId && k.produkId === produkId);
-                if (!konversi) {
-                    alert('Konversi tidak ditemukan');
-                    return;
-                }
+                if (!konversi) { alert('Konversi tidak ditemukan'); return; }
                 nilaiKonversi = konversi.nilai;
             }
 
             const qtyDasar = qty * nilaiKonversi;
-            if (qtyDasar <= 0) {
-                alert('Qty harus lebih dari 0');
-                return;
-            }
+            if (qtyDasar <= 0) { alert('Qty harus lebih dari 0'); return; }
 
-            // Cek stok (total qty dasar produk ini di cart + qty baru)
             const existingItems = cartItems.filter(item => item.produkId === produkId);
             const totalQtyDasarLama = existingItems.reduce((sum, item) => sum + item.qtyDasar, 0);
             if (produk.stokAwal < totalQtyDasarLama + qtyDasar) {
@@ -1242,14 +980,11 @@
                 return;
             }
 
-            // Cari item yang sudah ada dengan produkId dan konversiId yang sama
             const existingIndex = cartItems.findIndex(item => item.produkId === produkId && item.konversiId === konversiId);
             if (existingIndex >= 0) {
-                // Update qty
                 cartItems[existingIndex].qty += qty;
                 cartItems[existingIndex].qtyDasar += qtyDasar;
             } else {
-                // Item baru
                 const unit = konversi ? allUnits.find(u => u.id === konversi.unitId) : allUnits.find(u => u.id === produk.unitId);
                 cartItems.push({
                     produkId: produk.id,
@@ -1258,34 +993,26 @@
                     unit: unit ? unit.nama : '',
                     qty: qty,
                     qtyDasar: qtyDasar,
-                    hargaSatuan: 0, // akan diupdate
+                    hargaSatuan: 0,
                     subtotal: 0,
                     nilaiKonversi: nilaiKonversi,
                 });
             }
-
-            // Update harga semua item dengan produkId ini (terapkan qty break)
             updateHargaProduk(produkId);
-
             updateCartBadge();
             alert(`Produk ${produk.nama} ditambahkan ke cart`);
         }
 
-        // Fungsi untuk menghitung ulang harga semua item berdasarkan qty break
         function updateHargaProduk(produkId) {
             const produk = allProducts.find(p => p.id === produkId);
             if (!produk) return;
 
-            // Kumpulkan semua item dengan produkId ini
             const items = cartItems.filter(item => item.produkId === produkId);
             if (items.length === 0) return;
 
-            // Hitung total qty dasar
             const totalQtyDasar = items.reduce((sum, item) => sum + item.qtyDasar, 0);
-
-            // Cari qty break yang sesuai (level dengan minQty <= totalQtyDasar, ambil yang terbesar)
             const qtyBreaks = allQtyBreak.filter(q => q.produkId === produkId).sort((a, b) => a.minQty - b.minQty);
-            let hargaDasar = produk.hargaJual; // default
+            let hargaDasar = produk.hargaJual;
             for (let i = qtyBreaks.length - 1; i >= 0; i--) {
                 if (totalQtyDasar >= qtyBreaks[i].minQty) {
                     hargaDasar = qtyBreaks[i].harga;
@@ -1293,15 +1020,12 @@
                 }
             }
 
-            // Update setiap item
             for (let item of items) {
-                // Harga satuan = harga dasar * nilai konversi
-                item.hargaSatuan = hargaDasar * (item.nilaiKonversi || 1);
+                item.hargaSatuan = hargaDasar * item.nilaiKonversi;
                 item.subtotal = item.hargaSatuan * item.qty;
             }
         }
 
-        // Fungsi untuk mengupdate qty di cart (dipanggil saat edit qty di modal)
         function updateQtyCart(index, newQty) {
             const item = cartItems[index];
             if (!item) return false;
@@ -1309,7 +1033,6 @@
             if (!produk) return false;
 
             const newQtyDasar = newQty * item.nilaiKonversi;
-            // Hitung total qty dasar produk ini setelah perubahan
             const otherItemsQtyDasar = cartItems
                 .filter((it, i) => i !== index && it.produkId === item.produkId)
                 .reduce((sum, it) => sum + it.qtyDasar, 0);
@@ -1319,22 +1042,17 @@
                 return false;
             }
 
-            // Update item
             item.qty = newQty;
             item.qtyDasar = newQtyDasar;
-
-            // Update harga semua item dengan produkId yang sama
             updateHargaProduk(item.produkId);
             return true;
         }
 
-        // Update badge cart
         function updateCartBadge() {
             const totalQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
             cartBadge.textContent = totalQty;
         }
 
-        // Render modal cart
         function renderCartModal() {
             if (!cartItemsBody) return;
             if (cartItems.length === 0) {
@@ -1346,24 +1064,17 @@
             cartItemsBody.innerHTML = cartItems.map((item, index) => {
                 const subtotal = item.hargaSatuan * item.qty;
                 total += subtotal;
-                return `
-                    <tr data-index="${index}">
-                        <td>${item.nama} ${item.unit ? '('+item.unit+')' : ''}</td>
-                        <td>Rp ${item.hargaSatuan.toLocaleString()}</td>
-                        <td>
-                            <input type="number" class="cart-qty" value="${item.qty}" min="0.01" step="0.01" style="width:70px; padding:0.3rem; border:1px solid #ddd; border-radius:20px; text-align:center;">
-                        </td>
-                        <td>Rp ${subtotal.toLocaleString()}</td>
-                        <td>
-                            <button class="btn-icon delete remove-cart-item"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>
-                `;
+                return `<tr data-index="${index}">
+                    <td>${item.nama} ${item.unit ? '('+item.unit+')' : ''}</td>
+                    <td>Rp ${item.hargaSatuan.toLocaleString()}</td>
+                    <td><input type="number" class="cart-qty" value="${item.qty}" min="0.01" step="0.01"></td>
+                    <td>Rp ${subtotal.toLocaleString()}</td>
+                    <td><button class="btn-icon delete remove-cart-item"><i data-feather="trash-2"></i></button></td>
+                </tr>`;
             }).join('');
             cartTotal.textContent = total.toLocaleString();
             feather.replace();
 
-            // Event listener untuk input qty
             document.querySelectorAll('.cart-qty').forEach(input => {
                 input.addEventListener('change', function(e) {
                     const row = this.closest('tr');
@@ -1374,8 +1085,7 @@
                         this.value = cartItems[index].qty;
                         return;
                     }
-                    const success = updateQtyCart(parseInt(index), newQty);
-                    if (success) {
+                    if (updateQtyCart(parseInt(index), newQty)) {
                         renderCartModal();
                         updateCartBadge();
                     } else {
@@ -1384,26 +1094,144 @@
                 });
             });
 
-            // Event listener untuk hapus item
             document.querySelectorAll('.remove-cart-item').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     const row = this.closest('tr');
                     const index = row.dataset.index;
                     const item = cartItems[index];
                     cartItems.splice(index, 1);
-                    if (item) {
-                        updateHargaProduk(item.produkId);
-                    }
+                    if (item) updateHargaProduk(item.produkId);
                     renderCartModal();
                     updateCartBadge();
                 });
             });
         }
 
-        // Event listener untuk pencarian
-        searchInput.addEventListener('input', renderProducts);
+        // ========== MODAL SATUAN ==========
+        async function showSatuanModal(produkId) {
+            const konversiList = allKonversi.filter(k => k.produkId === produkId && k.aktif !== false);
+            if (konversiList.length === 0) {
+                alert('Produk tidak memiliki satuan tambahan');
+                return;
+            }
 
-        // Toggle view
+            const produk = allProducts.find(p => p.id === produkId);
+            if (!produk) return;
+
+            // Ambil qty dari input yang sesuai
+            const qtyInput = document.querySelector(`[data-id="${produkId}"] .qty-input`);
+            let qty = parseFloat(qtyInput?.value) || 0;
+            if (qty <= 0) {
+                const defaultQty = prompt('Masukkan jumlah (default 1):', '1');
+                if (defaultQty === null) return;
+                qty = parseFloat(defaultQty) || 1;
+            }
+
+            satuanList.innerHTML = '';
+            for (let konv of konversiList) {
+                const unit = allUnits.find(u => u.id === konv.unitId);
+                const unitName = unit ? unit.nama : '?';
+                const barcode = konv.barcode || '-';
+                // Harga satuan: jika konv punya hargaJual, gunakan itu, else produk.hargaJual * nilai
+                let hargaSatuan = konv.hargaJual || (produk.hargaJual * konv.nilai);
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'unit-item';
+                itemDiv.innerHTML = `
+                    <div class="unit-info">
+                        <div class="unit-name">${unitName}</div>
+                        <div class="unit-barcode">${barcode}</div>
+                        <div class="unit-price">Harga: Rp ${hargaSatuan.toLocaleString()}</div>
+                    </div>
+                    <div class="unit-action">
+                        <input type="number" class="unit-qty" value="${qty}" min="0.01" step="0.01" style="width:60px;">
+                        <button class="btn-pilih-unit" data-konvid="${konv.id}">Pilih</button>
+                    </div>
+                `;
+                satuanList.appendChild(itemDiv);
+            }
+
+            // Event listener untuk tombol pilih
+            document.querySelectorAll('.btn-pilih-unit').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const unitItem = e.target.closest('.unit-item');
+                    const unitQtyInput = unitItem.querySelector('.unit-qty');
+                    const unitQty = parseFloat(unitQtyInput.value) || 0;
+                    if (unitQty <= 0) { alert('Qty harus lebih dari 0'); return; }
+                    const konvId = e.target.dataset.konvid;
+                    tambahKeCart(produkId, unitQty, konvId);
+                    modalSatuan.classList.remove('active');
+                });
+            });
+
+            modalSatuan.classList.add('active');
+        }
+
+        // ========== LONG PRESS (EVENT DELEGATION) ==========
+        let longPressTimer = null;
+        let longPressProductId = null;
+        let longPressTriggered = false;
+        const LONG_PRESS_DELAY = 500;
+
+        productContainer.addEventListener('mousedown', handleLongPressStart);
+        productContainer.addEventListener('touchstart', handleLongPressStart);
+        productContainer.addEventListener('mouseup', handleLongPressEnd);
+        productContainer.addEventListener('touchend', handleLongPressEnd);
+        productContainer.addEventListener('mouseleave', handleLongPressEnd);
+        productContainer.addEventListener('touchcancel', handleLongPressEnd);
+
+        productContainer.addEventListener('click', function(e) {
+            if (longPressTriggered) {
+                e.preventDefault();
+                e.stopPropagation();
+                longPressTriggered = false;
+                return;
+            }
+            if (e.target.closest('.qty-control')) return;
+
+            const productEl = e.target.closest('.product-card, .product-row');
+            if (!productEl) return;
+            const produkId = productEl.dataset.id;
+            if (!produkId) return;
+
+            const qtyInput = productEl.querySelector('.qty-input');
+            const qty = parseFloat(qtyInput?.value) || 0;
+            if (qty > 0) {
+                tambahKeCart(produkId, qty, null);
+            } else {
+                alert('Qty harus lebih dari 0');
+            }
+        });
+
+        function handleLongPressStart(e) {
+            if (e.button !== 0 && e.type !== 'touchstart') return;
+            if (e.target.closest('.qty-control')) return;
+
+            const productEl = e.target.closest('.product-card, .product-row');
+            if (!productEl) return;
+            const produkId = productEl.dataset.id;
+            if (!produkId) return;
+
+            if (longPressTimer) clearTimeout(longPressTimer);
+            longPressProductId = produkId;
+            longPressTriggered = false;
+
+            longPressTimer = setTimeout(() => {
+                longPressTriggered = true;
+                showSatuanModal(produkId);
+                longPressTimer = null;
+            }, LONG_PRESS_DELAY);
+        }
+
+        function handleLongPressEnd(e) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }
+
+        // ========== EVENT LISTENER LAINNYA ==========
+        searchInput.addEventListener('input', renderProducts);
         viewToggle.querySelectorAll('button').forEach(btn => {
             btn.addEventListener('click', () => {
                 viewToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
@@ -1412,36 +1240,19 @@
                 renderProducts();
             });
         });
-
-        // Event change pada warehouseSelect
         warehouseSelect.addEventListener('change', (e) => {
-            const warehouseId = e.target.value;
-            saveSelectedWarehouse(warehouseId);
+            saveSelectedWarehouse(e.target.value);
             renderProducts();
         });
 
-        // MODAL CUSTOMER
+        // MODAL CUSTOMER (ringkas)
         async function loadCustomers() {
-            try {
-                allCustomers = await getAll(customerStore);
-                renderCustomerList(allCustomers);
-            } catch (error) {
-                console.error(error);
-            }
+            try { allCustomers = await getAll(customerStore); renderCustomerList(allCustomers); } catch (error) { console.error(error); }
         }
         function renderCustomerList(customers) {
-            customerListBody.innerHTML = customers.map(c => `
-                <tr data-id="${c.id}">
-                    <td>${c.kode || '-'}</td>
-                    <td>${c.nama}</td>
-                    <td>${c.kontak || '-'}</td>
-                </tr>
-            `).join('');
+            customerListBody.innerHTML = customers.map(c => `<tr data-id="${c.id}"><td>${c.kode || '-'}</td><td>${c.nama}</td><td>${c.kontak || '-'}</td></tr>`).join('');
         }
-        btnPilihCustomer.addEventListener('click', () => {
-            modalCustomer.classList.add('active');
-            loadCustomers();
-        });
+        btnPilihCustomer.addEventListener('click', () => { modalCustomer.classList.add('active'); loadCustomers(); });
         closeModalCustomer.addEventListener('click', () => modalCustomer.classList.remove('active'));
         window.addEventListener('click', (e) => {
             if (e.target === modalCustomer) modalCustomer.classList.remove('active');
@@ -1453,10 +1264,7 @@
         });
         searchCustomer.addEventListener('input', () => {
             const keyword = searchCustomer.value.toLowerCase();
-            const filtered = allCustomers.filter(c => 
-                c.nama.toLowerCase().includes(keyword) ||
-                (c.kode && c.kode.toLowerCase().includes(keyword))
-            );
+            const filtered = allCustomers.filter(c => c.nama.toLowerCase().includes(keyword) || (c.kode && c.kode.toLowerCase().includes(keyword)));
             renderCustomerList(filtered);
         });
         customerListBody.addEventListener('click', (e) => {
@@ -1466,51 +1274,28 @@
             const customer = allCustomers.find(c => c.id === id);
             if (customer) {
                 selectedCustomer = customer;
-                // Asumsikan customer punya field piutang, contoh 100000
-                customerPiutang = 100000; // nanti diganti dengan data real
+                customerPiutang = 100000; // contoh
                 alert(`Customer dipilih: ${customer.nama}`);
                 modalCustomer.classList.remove('active');
                 customerBadge.textContent = '1';
-                // Update tampilan tombol piutang
                 if (customerPiutang > 0) {
+                    btnPiutang.classList.add('active');
                     btnPiutang.style.background = '#dc3545';
-                    btnPiutang.style.color = 'white';
                 } else {
+                    btnPiutang.classList.remove('active');
                     btnPiutang.style.background = '#ccc';
-                    btnPiutang.style.color = '#333';
                 }
             }
         });
 
-        // MODAL BUNDLE (sementara pakai produk)
-        async function loadBundles() {
-            try {
-                const produk = await getAll(produkStore);
-                renderBundleList(produk);
-            } catch (error) {
-                console.error(error);
-            }
-        }
-        function renderBundleList(items) {
-            bundleListBody.innerHTML = items.map(p => `
-                <tr data-id="${p.id}">
-                    <td>${p.kode || '-'}</td>
-                    <td>${p.nama}</td>
-                    <td>Rp ${(p.hargaJual || 0).toLocaleString()}</td>
-                </tr>
-            `).join('');
-        }
-        btnBundle.addEventListener('click', () => {
-            modalBundle.classList.add('active');
-            loadBundles();
-        });
+        // MODAL BUNDLE (sementara)
+        async function loadBundles() { try { const produk = await getAll(produkStore); renderBundleList(produk); } catch (error) { console.error(error); } }
+        function renderBundleList(items) { bundleListBody.innerHTML = items.map(p => `<tr data-id="${p.id}"><td>${p.kode || '-'}</td><td>${p.nama}</td><td>Rp ${(p.hargaJual || 0).toLocaleString()}</td></tr>`).join(''); }
+        btnBundle.addEventListener('click', () => { modalBundle.classList.add('active'); loadBundles(); });
         closeModalBundle.addEventListener('click', () => modalBundle.classList.remove('active'));
         searchBundle.addEventListener('input', () => {
             const keyword = searchBundle.value.toLowerCase();
-            const filtered = allProducts.filter(p => 
-                p.nama.toLowerCase().includes(keyword) ||
-                (p.kode && p.kode.toLowerCase().includes(keyword))
-            );
+            const filtered = allProducts.filter(p => p.nama.toLowerCase().includes(keyword) || (p.kode && p.kode.toLowerCase().includes(keyword)));
             renderBundleList(filtered);
         });
         bundleListBody.addEventListener('click', (e) => {
@@ -1518,78 +1303,40 @@
             if (!row) return;
             const id = row.dataset.id;
             const produk = allProducts.find(p => p.id === id);
-            if (produk) {
-                tambahKeCart(id, 1, null); // bundle sebagai produk biasa
-                modalBundle.classList.remove('active');
-                bundleBadge.textContent = '1';
-            }
+            if (produk) { tambahKeCart(id, 1, null); modalBundle.classList.remove('active'); bundleBadge.textContent = '1'; }
         });
 
-        // Modal satuan ditutup
         closeModalSatuan.addEventListener('click', () => modalSatuan.classList.remove('active'));
 
-        // Tombol Cart
-        btnCart.addEventListener('click', () => {
-            renderCartModal();
-            modalCart.classList.add('active');
-        });
+        btnCart.addEventListener('click', () => { renderCartModal(); modalCart.classList.add('active'); });
         closeModalCart.addEventListener('click', () => modalCart.classList.remove('active'));
 
-        // Tombol Piutang
         btnPiutang.addEventListener('click', () => {
-            if (!selectedCustomer) {
-                alert('Pilih customer terlebih dahulu');
-                return;
-            }
-            if (customerPiutang <= 0) {
-                alert('Customer tidak memiliki piutang');
-                return;
-            }
-            // Tambahkan piutang sebagai item ke cart (produkId khusus)
+            if (!selectedCustomer) { alert('Pilih customer terlebih dahulu'); return; }
+            if (customerPiutang <= 0) { alert('Customer tidak memiliki piutang'); return; }
             const existing = cartItems.find(item => item.produkId === 'piutang');
-            if (existing) {
-                existing.qty += 1;
-                existing.qtyDasar += 1; // piutang dianggap qty dasar 1
-            } else {
-                cartItems.push({
-                    produkId: 'piutang',
-                    konversiId: null,
-                    nama: 'Piutang Customer',
-                    unit: '',
-                    qty: 1,
-                    qtyDasar: 1,
-                    hargaSatuan: customerPiutang,
-                    subtotal: customerPiutang,
-                    nilaiKonversi: 1
-                });
+            if (existing) { existing.qty += 1; existing.qtyDasar += 1; } else {
+                cartItems.push({ produkId: 'piutang', konversiId: null, nama: 'Piutang Customer', unit: '', qty: 1, qtyDasar: 1, hargaSatuan: customerPiutang, subtotal: customerPiutang, nilaiKonversi: 1 });
             }
             updateCartBadge();
             alert('Piutang ditambahkan ke cart');
         });
 
-        // Tombol Pending
-        btnPending.addEventListener('click', () => {
-            modalPending.classList.add('active');
-        });
+        btnPending.addEventListener('click', () => { modalPending.classList.add('active'); });
         closeModalPending.addEventListener('click', () => modalPending.classList.remove('active'));
         formPending.addEventListener('submit', (e) => {
             e.preventDefault();
             const namaPending = document.getElementById('namaPending').value.trim();
             if (!namaPending) return;
-            // Simpan data pending (misal ke localForage) - sementara hanya update count
             pendingCount++;
-            updatePendingCount();
+            pendingCountSpan.textContent = pendingCount;
             alert(`Transaksi pending "${namaPending}" disimpan`);
             modalPending.classList.remove('active');
             formPending.reset();
         });
 
-        // Tombol Payment
         btnPayment.addEventListener('click', () => {
-            if (cartItems.length === 0) {
-                alert('Keranjang masih kosong');
-                return;
-            }
+            if (cartItems.length === 0) { alert('Keranjang masih kosong'); return; }
             const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
             paymentTotal.textContent = total.toLocaleString();
             jumlahBayar.value = '';
@@ -1606,11 +1353,7 @@
         prosesPembayaran.addEventListener('click', () => {
             const total = parseFloat(paymentTotal.textContent.replace(/\./g, '')) || 0;
             const bayar = parseFloat(jumlahBayar.value) || 0;
-            if (bayar < total) {
-                alert('Jumlah bayar kurang');
-                return;
-            }
-            // Proses pembayaran: kurangi stok, simpan transaksi, kosongkan cart
+            if (bayar < total) { alert('Jumlah bayar kurang'); return; }
             alert('Pembayaran berhasil!');
             cartItems = [];
             updateCartBadge();
@@ -1618,54 +1361,28 @@
             modalCart.classList.remove('active');
         });
 
-        // Floating pending
-        function updatePendingCount() {
-            pendingCountSpan.textContent = pendingCount;
-        }
-        floatingPending.addEventListener('click', () => {
-            alert('Menuju halaman Pending Transaksi (belum dibuat)');
-        });
+        floatingPending.addEventListener('click', () => { alert('Menuju halaman Pending Transaksi (belum dibuat)'); });
 
-        // ========== AUTH ==========
+        // AUTH
         const loginBtn = document.getElementById('loginBtn');
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
-            } else {
-                loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
-            }
+            loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
             feather.replace();
         });
         loginBtn.addEventListener('click', async () => {
             const user = auth.currentUser;
-            if (user) {
-                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
-            } else {
-                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
-            }
+            if (user) { try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); } }
+            else { try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); } }
         });
 
-        // ========== RESET DB ==========
         document.getElementById('resetDbBtn').addEventListener('click', () => {
             if (confirm('Reset database lokal? Semua data produk, customer, gudang akan hilang.')) {
-                Promise.all([
-                    produkStore.clear(),
-                    customerStore.clear(),
-                    gudangStore.clear(),
-                    konversiStore.clear(),
-                    unitStore.clear(),
-                    qtyStore.clear()
-                ]).then(() => {
-                    alert('Database direset. Muat ulang halaman.');
-                    location.reload();
-                }).catch(console.error);
+                Promise.all([ produkStore.clear(), customerStore.clear(), gudangStore.clear(), konversiStore.clear(), unitStore.clear(), qtyStore.clear() ])
+                .then(() => { alert('Database direset. Muat ulang halaman.'); location.reload(); }).catch(console.error);
             }
         });
 
-        // ========== SYNC (placeholder) ==========
-        document.getElementById('syncBtn').addEventListener('click', () => {
-            alert('Fungsi sinkronisasi akan segera tersedia');
-        });
+        document.getElementById('syncBtn').addEventListener('click', () => { alert('Fungsi sinkronisasi akan segera tersedia'); });
 
         // Inisialisasi
         loadInitialData();
