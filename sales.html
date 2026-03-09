@@ -632,6 +632,21 @@
         /* Modal konfirmasi piutang */
         #confirmPiutangModal .modal-content { max-width: 400px; }
 
+        /* Modal daftar pending */
+        #modalPendingList .modal-content { max-width: 600px; }
+        .pending-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .pending-item:hover { background: #f9f9f9; }
+        .pending-info { flex: 1; }
+        .pending-info strong { color: #006B54; }
+        .pending-info small { display: block; color: #666; font-size: 0.8rem; }
+        .pending-actions button { margin-left: 5px; }
+
         /* Perbaikan form pending */
         #modalPending .form-group {
             margin-bottom: 1rem;
@@ -754,8 +769,8 @@
             </div>
             <!-- Baris ketiga: tombol aksi -->
             <div class="toolbar-row" style="justify-content: flex-end;">
-                <button id="btnPiutang"><i data-feather="alert-triangle"></i></button>
-                <button id="btnPending"><i data-feather="clock"></i></button>
+                <button id="btnPiutang"><i data-feather="alert-triangle"></i> Piutang</button>
+                <button id="btnPending"><i data-feather="clock"></i> Pending</button>
                 <button id="btnPayment"><i data-feather="credit-card"></i> Payment</button>
             </div>
         </div>
@@ -835,12 +850,15 @@
             </div>
             <div class="cart-footer">
                 <strong>Total: Rp <span id="cartTotal">0</span></strong>
-                <button class="btn-checkout" id="checkoutBtn">Lanjut ke Pembayaran</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" id="saveDraftBtn">Simpan Draft</button>
+                    <button class="btn-checkout" id="checkoutBtn">Lanjut ke Pembayaran</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL PENDING (diperbaiki) -->
+    <!-- MODAL INPUT KODE PENDING -->
     <div class="modal" id="modalPending">
         <div class="modal-content">
             <div class="modal-header">
@@ -851,12 +869,26 @@
                 <div class="form-group">
                     <label for="namaPending">Nama / Kode Pending</label>
                     <input type="text" id="namaPending" class="form-input" placeholder="Misal: PO-001" required>
+                    <div id="pendingCodeError" style="font-size:0.85rem; color:#dc3545; margin-top:5px;"></div>
                 </div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button type="button" class="btn-secondary" onclick="document.getElementById('closeModalPending').click()">Batal</button>
                     <button type="submit" class="btn-primary">Simpan</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL DAFTAR PENDING -->
+    <div class="modal" id="modalPendingList">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Daftar Transaksi Pending</h3>
+                <button class="close-modal" id="closeModalPendingList">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="pendingListContainer" style="max-height: 60vh; overflow-y: auto;"></div>
+            </div>
         </div>
     </div>
 
@@ -986,8 +1018,9 @@
         const konversiStore = localforage.createInstance({ name: 'konversiUnit' });
         const unitStore = localforage.createInstance({ name: 'unit' });
         const qtyStore = localforage.createInstance({ name: 'qtyBreak' });
+        const pendingStore = localforage.createInstance({ name: 'pending' }); // store untuk draft
 
-        let pendingCount = 0;
+        let pendingCount = 0; // akan diisi dari DB
         let selectedCustomer = null;
         let cartItems = [];
         let customerPiutang = 0;
@@ -1000,13 +1033,16 @@
         let allUnits = [];
         let allQtyBreak = [];
 
+        // Daftar pending
+        let pendingList = [];
+
         // Variabel pembayaran
         let printerPort = null;
         let pendingPayments = [];
         let pendingTotalPaid = 0;
         let lastTransactionData = null;
 
-        // Konfigurasi barcode (default seperti di index.html)
+        // Konfigurasi barcode
         let barcodeConfig = {
             flexLength: 2,
             flexValue: '11',
@@ -1020,6 +1056,8 @@
         async function findByIndex(store, field, value) { let results = []; await store.iterate((item, key) => { if (item[field] === value) results.push({ ...item, id: key }); }); return results; }
         async function getById(store, id) { return await store.getItem(id); }
         async function updateItem(store, id, data) { await store.setItem(id, data); }
+        async function addItem(store, data) { const id = generateId(); await store.setItem(id, data); return id; }
+        async function removeItem(store, id) { await store.removeItem(id); }
 
         // Elemen DOM
         const warehouseSelect = document.getElementById('warehouseSelect');
@@ -1057,6 +1095,13 @@
         const cartItemsBody = document.getElementById('cartItemsBody');
         const cartTotal = document.getElementById('cartTotal');
         const formPending = document.getElementById('formPending');
+        const namaPending = document.getElementById('namaPending');
+        const pendingCodeError = document.getElementById('pendingCodeError');
+        const saveDraftBtn = document.getElementById('saveDraftBtn');
+        const modalPendingList = document.getElementById('modalPendingList');
+        const closeModalPendingList = document.getElementById('closeModalPendingList');
+        const pendingListContainer = document.getElementById('pendingListContainer');
+
         // Elemen payment
         const paymentTotal = document.getElementById('paymentTotal');
         const paymentGrandTotal = document.getElementById('paymentGrandTotal');
@@ -1104,9 +1149,187 @@
                 const saved = loadSelectedWarehouse();
                 if (saved && allGudang.some(g => g.id === saved)) warehouseSelect.value = saved;
                 
+                await loadPendingFromDB(); // muat draft
                 renderProducts();
             } catch (error) { console.error('Gagal load data:', error); }
         }
+
+        // ========== FUNGSI PENDING ==========
+        async function loadPendingFromDB() {
+            try {
+                pendingList = await getAll(pendingStore);
+                pendingList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // terbaru dulu
+                updatePendingBadge();
+            } catch (error) {
+                console.error('Gagal muat pending:', error);
+                pendingList = [];
+            }
+        }
+
+        function updatePendingBadge() {
+            const count = pendingList.length;
+            pendingCount = count;
+            pendingCountSpan.textContent = count;
+        }
+
+        async function savePendingTransaction(pendingCode) {
+            if (cartItems.length === 0) {
+                alert('Keranjang kosong, tidak ada yang disimpan');
+                return false;
+            }
+
+            // Cek duplikat kode
+            if (pendingList.some(p => p.pendingCode && p.pendingCode.toLowerCase() === pendingCode.toLowerCase())) {
+                pendingCodeError.textContent = 'Kode sudah digunakan.';
+                return false;
+            }
+
+            const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+            const transactionData = {
+                pendingCode: pendingCode,
+                cart: cartItems.map(item => ({
+                    produkId: item.produkId,
+                    konversiId: item.konversiId,
+                    nama: item.nama,
+                    unit: item.unit,
+                    qty: item.qty,
+                    qtyDasar: item.qtyDasar,
+                    hargaSatuan: item.hargaSatuan,
+                    subtotal: item.subtotal,
+                    nilaiKonversi: item.nilaiKonversi
+                })),
+                customerId: selectedCustomer ? selectedCustomer.id : null,
+                customerName: selectedCustomer ? selectedCustomer.nama : null,
+                total: total,
+                createdAt: new Date().toISOString()
+            };
+
+            try {
+                const id = await addItem(pendingStore, transactionData);
+                transactionData.id = id;
+                pendingList.unshift(transactionData); // tambah ke awal
+                updatePendingBadge();
+                return true;
+            } catch (error) {
+                console.error('Gagal simpan pending:', error);
+                alert('Gagal menyimpan draft: ' + error.message);
+                return false;
+            }
+        }
+
+        async function deletePendingTransaction(id) {
+            try {
+                await removeItem(pendingStore, id);
+                pendingList = pendingList.filter(p => p.id !== id);
+                updatePendingBadge();
+                renderPendingList(); // perbarui tampilan jika modal terbuka
+            } catch (error) {
+                console.error('Gagal hapus pending:', error);
+                alert('Gagal menghapus draft: ' + error.message);
+            }
+        }
+
+        async function loadPendingTransaction(id) {
+            const trans = pendingList.find(p => p.id === id);
+            if (!trans) return;
+
+            // Kosongkan cart saat ini?
+            if (cartItems.length > 0 && !confirm('Keranjang saat ini tidak kosong. Muat draft akan mengganti isi keranjang. Lanjutkan?')) {
+                return;
+            }
+
+            // Muat cart dari draft
+            const newCart = [];
+            for (let item of trans.cart) {
+                // Cari produk masih ada?
+                const produk = allProducts.find(p => p.id === item.produkId);
+                if (!produk) {
+                    alert(`Produk ${item.nama} tidak ditemukan, dilewati.`);
+                    continue;
+                }
+                newCart.push({
+                    produkId: item.produkId,
+                    konversiId: item.konversiId,
+                    nama: item.nama,
+                    unit: item.unit,
+                    qty: item.qty,
+                    qtyDasar: item.qtyDasar,
+                    hargaSatuan: item.hargaSatuan,
+                    subtotal: item.subtotal,
+                    nilaiKonversi: item.nilaiKonversi
+                });
+            }
+            cartItems = newCart;
+
+            // Set customer jika ada
+            if (trans.customerId) {
+                const cust = allCustomers.find(c => c.id === trans.customerId);
+                if (cust) {
+                    selectedCustomer = cust;
+                    customerBadge.textContent = '1';
+                    if (cust.outstanding > 0) {
+                        btnPiutang.classList.add('active');
+                        btnPiutang.style.background = '#dc3545';
+                    } else {
+                        btnPiutang.classList.remove('active');
+                        btnPiutang.style.background = '#ccc';
+                    }
+                } else {
+                    selectedCustomer = null;
+                    customerBadge.textContent = '0';
+                }
+            } else {
+                selectedCustomer = null;
+                customerBadge.textContent = '0';
+            }
+
+            // Hapus draft dari database
+            await deletePendingTransaction(id);
+
+            // Tutup modal daftar pending
+            modalPendingList.classList.remove('active');
+
+            // Perbarui tampilan
+            updateCartBadge();
+            renderCartModal(); // untuk badge dan isi cart
+            alert('Draft berhasil dimuat');
+        }
+
+        function renderPendingList() {
+            if (!pendingListContainer) return;
+            if (pendingList.length === 0) {
+                pendingListContainer.innerHTML = '<p style="text-align:center; padding:20px; color:#666;">Belum ada transaksi pending.</p>';
+                return;
+            }
+            let html = '';
+            pendingList.forEach(trans => {
+                html += `
+                    <div class="pending-item">
+                        <div class="pending-info">
+                            <strong>${trans.pendingCode || 'Tanpa Kode'}</strong>
+                            <small>Tanggal: ${new Date(trans.createdAt).toLocaleString('id-ID')}</small>
+                            <small>Total: ${formatRupiah(trans.total)}</small>
+                            <small>Customer: ${trans.customerName || '-'}</small>
+                        </div>
+                        <div class="pending-actions">
+                            <button class="btn-primary" style="padding:0.3rem 0.8rem;" onclick="window.loadPendingTransaction('${trans.id}')">Muat</button>
+                            <button class="btn-secondary" style="padding:0.3rem 0.8rem; background:#dc3545; color:white;" onclick="window.deletePendingPrompt('${trans.id}')">Hapus</button>
+                        </div>
+                    </div>
+                `;
+            });
+            pendingListContainer.innerHTML = html;
+        }
+
+        // Expose fungsi ke global untuk dipanggil dari HTML (onclick)
+        window.loadPendingTransaction = async (id) => {
+            await loadPendingTransaction(id);
+        };
+        window.deletePendingPrompt = async (id) => {
+            if (confirm('Hapus draft ini?')) {
+                await deletePendingTransaction(id);
+            }
+        };
 
         // ========== RENDER PRODUK ==========
         function renderProducts() {
@@ -1194,7 +1417,6 @@
 
             const barcodeLower = barcode.toLowerCase();
 
-            // Cari produk berdasarkan kode atau barcode (case insensitive)
             let produk = allProducts.find(p => 
                 (p.kode && p.kode.toLowerCase() === barcodeLower) || 
                 (p.barcode && p.barcode.toLowerCase() === barcodeLower)
@@ -1203,11 +1425,10 @@
             if (produk) {
                 tambahKeCart(produk.id, 1, null);
                 barcodeInput.value = '';
-                renderProducts(); // reset filter
+                renderProducts();
                 return;
             }
 
-            // Cari di konversi satuan
             for (let p of allProducts) {
                 if (p.konversi && Array.isArray(p.konversi)) {
                     const konv = p.konversi.find(k => k.barcode && k.barcode.toLowerCase() === barcodeLower);
@@ -1220,7 +1441,6 @@
                 }
             }
 
-            // Jika barcode 13 digit (format timbangan)
             if (barcode.length === 13) {
                 const flex = barcode.substr(0, barcodeConfig.flexLength);
                 if (flex !== barcodeConfig.flexValue) {
@@ -1256,7 +1476,7 @@
             renderProducts();
         }
 
-        // ========== FUNGSI CART DAN QTY BREAK (sama seperti sebelumnya) ==========
+        // ========== FUNGSI CART DAN QTY BREAK ==========
         async function tambahKeCart(produkId, qty, konversiId = null) {
             const produk = allProducts.find(p => p.id === produkId);
             if (!produk) return;
@@ -1548,7 +1768,7 @@
             renderProducts();
         });
 
-        // MODAL CUSTOMER (ringkas)
+        // MODAL CUSTOMER
         async function loadCustomers() {
             try { allCustomers = await getAll(customerStore); renderCustomerList(allCustomers); } catch (error) { console.error(error); }
         }
@@ -1565,6 +1785,7 @@
             if (e.target === modalPending) modalPending.classList.remove('active');
             if (e.target === modalPayment) modalPayment.classList.remove('active');
             if (e.target === confirmPiutangModal) confirmPiutangModal.classList.remove('active');
+            if (e.target === modalPendingList) modalPendingList.classList.remove('active');
         });
         searchCustomer.addEventListener('input', () => {
             const keyword = searchCustomer.value.toLowerCase();
@@ -1615,6 +1836,48 @@
         btnCart.addEventListener('click', () => { renderCartModal(); modalCart.classList.add('active'); });
         closeModalCart.addEventListener('click', () => modalCart.classList.remove('active'));
 
+        // Tombol Simpan Draft di modal cart
+        saveDraftBtn.addEventListener('click', () => {
+            if (cartItems.length === 0) {
+                alert('Keranjang kosong, tidak ada yang disimpan');
+                return;
+            }
+            modalCart.classList.remove('active');
+            // Kosongkan input dan error
+            namaPending.value = '';
+            pendingCodeError.textContent = '';
+            modalPending.classList.add('active');
+        });
+
+        // Form simpan pending
+        formPending.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const kode = namaPending.value.trim();
+            if (!kode) {
+                pendingCodeError.textContent = 'Kode harus diisi';
+                return;
+            }
+            const success = await savePendingTransaction(kode);
+            if (success) {
+                alert('Draft berhasil disimpan');
+                modalPending.classList.remove('active');
+                formPending.reset();
+                pendingCodeError.textContent = '';
+            }
+        });
+
+        // Tombol Pending di toolbar dan floating pending buka daftar
+        btnPending.addEventListener('click', openPendingListModal);
+        floatingPending.addEventListener('click', openPendingListModal);
+
+        function openPendingListModal() {
+            renderPendingList();
+            modalPendingList.classList.add('active');
+        }
+
+        closeModalPendingList.addEventListener('click', () => modalPendingList.classList.remove('active'));
+
+        // Tombol Piutang
         btnPiutang.addEventListener('click', () => {
             if (!selectedCustomer) { alert('Pilih customer terlebih dahulu'); return; }
             if (customerPiutang <= 0) { alert('Customer tidak memiliki piutang'); return; }
@@ -1625,21 +1888,6 @@
             updateCartBadge();
             alert('Piutang ditambahkan ke cart');
         });
-
-        btnPending.addEventListener('click', () => { modalPending.classList.add('active'); });
-        closeModalPending.addEventListener('click', () => modalPending.classList.remove('active'));
-        formPending.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const namaPending = document.getElementById('namaPending').value.trim();
-            if (!namaPending) return;
-            pendingCount++;
-            pendingCountSpan.textContent = pendingCount;
-            alert(`Transaksi pending "${namaPending}" disimpan`);
-            modalPending.classList.remove('active');
-            formPending.reset();
-        });
-
-        floatingPending.addEventListener('click', () => { alert('Menuju halaman Pending Transaksi (belum dibuat)'); });
 
         // ========== FUNGSI PEMBAYARAN ==========
         function resetPaymentPage() {
@@ -1925,7 +2173,6 @@
             if (cartItems.length > 0) {
                 const confirmMsg = "Transaksi belum diproses. Proses pembayaran sekarang?";
                 if (confirm(confirmMsg)) {
-                    // panggil proses pembayaran
                     await prosesPembayaranBtn.click();
                 }
                 return;
@@ -1953,8 +2200,16 @@
         });
 
         document.getElementById('resetDbBtn').addEventListener('click', () => {
-            if (confirm('Reset database lokal? Semua data produk, customer, gudang akan hilang.')) {
-                Promise.all([ produkStore.clear(), customerStore.clear(), gudangStore.clear(), konversiStore.clear(), unitStore.clear(), qtyStore.clear() ])
+            if (confirm('Reset database lokal? Semua data produk, customer, gudang, dan pending akan hilang.')) {
+                Promise.all([ 
+                    produkStore.clear(), 
+                    customerStore.clear(), 
+                    gudangStore.clear(), 
+                    konversiStore.clear(), 
+                    unitStore.clear(), 
+                    qtyStore.clear(),
+                    pendingStore.clear()
+                ])
                 .then(() => { alert('Database direset. Muat ulang halaman.'); location.reload(); }).catch(console.error);
             }
         });
