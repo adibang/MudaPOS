@@ -174,6 +174,10 @@
             flex-direction: column;
             gap: 0.5rem;
         }
+        .product-card, .product-row {
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
         .product-card {
             background: white;
             border-radius: 20px;
@@ -932,7 +936,7 @@
 
         // Variabel untuk long press
         let longPressTimer = null;
-        const LONG_PRESS_DELAY = 2000;
+        const LONG_PRESS_DELAY = 1000; // 1 detik agar lebih responsif
 
         // Fungsi untuk menyimpan & memuat pilihan gudang dari localStorage
         function saveSelectedWarehouse(warehouseId) {
@@ -1082,6 +1086,7 @@
                 el.addEventListener('touchstart', startLongPress);
                 el.addEventListener('touchend', cancelLongPress);
                 el.addEventListener('touchcancel', cancelLongPress);
+                el.addEventListener('touchmove', cancelLongPress); // tambahan untuk mencegah long press saat scroll
 
                 // Klik biasa (selain pada kontrol) untuk menambah ke cart dengan satuan dasar
                 el.addEventListener('click', (e) => {
