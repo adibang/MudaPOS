@@ -1018,9 +1018,9 @@
         const konversiStore = localforage.createInstance({ name: 'konversiUnit' });
         const unitStore = localforage.createInstance({ name: 'unit' });
         const qtyStore = localforage.createInstance({ name: 'qtyBreak' });
-        const pendingStore = localforage.createInstance({ name: 'pending' }); // store untuk draft
+        const pendingStore = localforage.createInstance({ name: 'pending' });
 
-        let pendingCount = 0; // akan diisi dari DB
+        let pendingCount = 0;
         let selectedCustomer = null;
         let cartItems = [];
         let customerPiutang = 0;
@@ -1101,6 +1101,7 @@
         const modalPendingList = document.getElementById('modalPendingList');
         const closeModalPendingList = document.getElementById('closeModalPendingList');
         const pendingListContainer = document.getElementById('pendingListContainer');
+        const checkoutBtn = document.getElementById('checkoutBtn');
 
         // Elemen payment
         const paymentTotal = document.getElementById('paymentTotal');
@@ -1149,7 +1150,7 @@
                 const saved = loadSelectedWarehouse();
                 if (saved && allGudang.some(g => g.id === saved)) warehouseSelect.value = saved;
                 
-                await loadPendingFromDB(); // muat draft
+                await loadPendingFromDB();
                 renderProducts();
             } catch (error) { console.error('Gagal load data:', error); }
         }
@@ -1158,7 +1159,7 @@
         async function loadPendingFromDB() {
             try {
                 pendingList = await getAll(pendingStore);
-                pendingList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // terbaru dulu
+                pendingList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                 updatePendingBadge();
             } catch (error) {
                 console.error('Gagal muat pending:', error);
@@ -1178,7 +1179,6 @@
                 return false;
             }
 
-            // Cek duplikat kode
             if (pendingList.some(p => p.pendingCode && p.pendingCode.toLowerCase() === pendingCode.toLowerCase())) {
                 pendingCodeError.textContent = 'Kode sudah digunakan.';
                 return false;
@@ -1207,7 +1207,7 @@
             try {
                 const id = await addItem(pendingStore, transactionData);
                 transactionData.id = id;
-                pendingList.unshift(transactionData); // tambah ke awal
+                pendingList.unshift(transactionData);
                 updatePendingBadge();
                 return true;
             } catch (error) {
@@ -1222,7 +1222,7 @@
                 await removeItem(pendingStore, id);
                 pendingList = pendingList.filter(p => p.id !== id);
                 updatePendingBadge();
-                renderPendingList(); // perbarui tampilan jika modal terbuka
+                renderPendingList();
             } catch (error) {
                 console.error('Gagal hapus pending:', error);
                 alert('Gagal menghapus draft: ' + error.message);
@@ -1233,15 +1233,12 @@
             const trans = pendingList.find(p => p.id === id);
             if (!trans) return;
 
-            // Kosongkan cart saat ini?
             if (cartItems.length > 0 && !confirm('Keranjang saat ini tidak kosong. Muat draft akan mengganti isi keranjang. Lanjutkan?')) {
                 return;
             }
 
-            // Muat cart dari draft
             const newCart = [];
             for (let item of trans.cart) {
-                // Cari produk masih ada?
                 const produk = allProducts.find(p => p.id === item.produkId);
                 if (!produk) {
                     alert(`Produk ${item.nama} tidak ditemukan, dilewati.`);
@@ -1261,7 +1258,6 @@
             }
             cartItems = newCart;
 
-            // Set customer jika ada
             if (trans.customerId) {
                 const cust = allCustomers.find(c => c.id === trans.customerId);
                 if (cust) {
@@ -1283,15 +1279,10 @@
                 customerBadge.textContent = '0';
             }
 
-            // Hapus draft dari database
             await deletePendingTransaction(id);
-
-            // Tutup modal daftar pending
             modalPendingList.classList.remove('active');
-
-            // Perbarui tampilan
             updateCartBadge();
-            renderCartModal(); // untuk badge dan isi cart
+            renderCartModal();
             alert('Draft berhasil dimuat');
         }
 
@@ -1321,17 +1312,14 @@
             pendingListContainer.innerHTML = html;
         }
 
-        // Expose fungsi ke global untuk dipanggil dari HTML (onclick)
-        window.loadPendingTransaction = async (id) => {
-            await loadPendingTransaction(id);
-        };
+        window.loadPendingTransaction = async (id) => { await loadPendingTransaction(id); };
         window.deletePendingPrompt = async (id) => {
             if (confirm('Hapus draft ini?')) {
                 await deletePendingTransaction(id);
             }
         };
 
-        // ========== RENDER PRODUK ==========
+        // ========== RENDER PRODUK (dengan pencarian case‑insensitive dan mencakup barcode satuan) ==========
         function renderProducts() {
             const selectedWarehouseId = warehouseSelect.value;
             if (!selectedWarehouseId) {
@@ -1339,12 +1327,19 @@
                 return;
             }
 
-            const keyword = barcodeInput.value.toLowerCase();
+            const keyword = barcodeInput.value.toLowerCase().trim();
             let filtered = allProducts.filter(p => {
                 if (p.gudangId !== selectedWarehouseId) return false;
-                return p.nama.toLowerCase().includes(keyword) ||
-                       (p.kode && p.kode.toLowerCase().includes(keyword)) ||
-                       (p.barcode && p.barcode.toLowerCase().includes(keyword));
+                
+                // Cek nama, kode, barcode produk
+                const matchProduk = p.nama.toLowerCase().includes(keyword) ||
+                                   (p.kode && p.kode.toLowerCase().includes(keyword)) ||
+                                   (p.barcode && p.barcode.toLowerCase().includes(keyword));
+                if (matchProduk) return true;
+                
+                // Cek konversi satuan (barcode dari unit konversi)
+                const konversiProduk = allKonversi.filter(k => k.produkId === p.id);
+                return konversiProduk.some(k => k.barcode && k.barcode.toLowerCase().includes(keyword));
             });
 
             if (currentView === 'grid') {
@@ -1389,7 +1384,6 @@
             }
             feather.replace();
 
-            // Event tombol +/-
             document.querySelectorAll('.qty-minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1843,10 +1837,19 @@
                 return;
             }
             modalCart.classList.remove('active');
-            // Kosongkan input dan error
             namaPending.value = '';
             pendingCodeError.textContent = '';
             modalPending.classList.add('active');
+        });
+
+        // Tombol "Lanjut ke Pembayaran" di modal cart
+        checkoutBtn.addEventListener('click', () => {
+            if (cartItems.length === 0) {
+                alert('Keranjang kosong');
+                return;
+            }
+            modalCart.classList.remove('active');
+            openPaymentPage();
         });
 
         // Form simpan pending
