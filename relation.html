@@ -333,6 +333,11 @@
             await store.removeItem(id);
         }
 
+        // Format Rupiah
+        function formatRupiah(angka) {
+            return 'Rp ' + angka.toLocaleString('id-ID');
+        }
+
         // Elemen DOM
         const sections = {
             tambahCustomer: document.getElementById('tambahCustomerSection'),
@@ -377,6 +382,7 @@
                 token: document.getElementById('tokenCustomer').value.trim(),
                 email: document.getElementById('emailCustomer').value.trim(),
                 alamat: document.getElementById('alamatCustomer').value.trim(),
+                outstanding: 0, // ← tambahkan field piutang dengan default 0
                 synced: false,
                 idCloud: null
             };
@@ -396,7 +402,12 @@
 
         async function loadDaftarCustomer() {
             try {
-                const list = await getAll(customerStore);
+                let list = await getAll(customerStore);
+                // Pastikan setiap customer memiliki properti outstanding
+                list = list.map(c => ({
+                    ...c,
+                    outstanding: c.outstanding !== undefined ? c.outstanding : 0
+                }));
                 const tbody = document.getElementById('daftarCustomerBody');
                 if (list.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Belum ada data</td></tr>';
@@ -413,7 +424,7 @@
                         <td>${c.token || '-'}</td>
                         <td>${c.email || '-'}</td>
                         <td>${c.alamat || '-'}</td>
-                        <td>0</td> <!-- Piutang placeholder -->
+                        <td>${formatRupiah(c.outstanding)}</td> <!-- Tampilkan piutang -->
                         <td>
                             <button class="btn-icon edit" onclick="editCustomer('${c.id}')"><i data-feather="edit-2"></i></button>
                             <button class="btn-icon delete" onclick="hapusCustomer('${c.id}')"><i data-feather="trash-2"></i></button>
@@ -427,7 +438,7 @@
         }
 
         window.editCustomer = async (id) => {
-            // Implementasi edit sederhana, bisa dikembangkan seperti produk
+            // Implementasi edit sederhana, bisa dikembangkan lebih lanjut
             alert('Fungsi edit akan segera hadir');
         };
 
@@ -488,7 +499,7 @@
                         <td>${s.noRekening || '-'}</td>
                         <td>${s.bank || '-'}</td>
                         <td>${s.alamat || '-'}</td>
-                        <td>0</td> <!-- Utang placeholder -->
+                        <td>0</td> <!-- Utang placeholder, bisa ditambahkan nanti -->
                         <td>
                             <button class="btn-icon edit" onclick="editSupplier('${s.id}')"><i data-feather="edit-2"></i></button>
                             <button class="btn-icon delete" onclick="hapusSupplier('${s.id}')"><i data-feather="trash-2"></i></button>
