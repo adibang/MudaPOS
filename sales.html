@@ -1023,7 +1023,6 @@
         let pendingCount = 0;
         let selectedCustomer = null;
         let cartItems = [];
-        let customerPiutang = 0;
 
         // Data global
         let allProducts = [];
@@ -1490,15 +1489,20 @@
 
             let konversi = null;
             let nilaiKonversi = 1;
+            let hargaSatuan = produk.hargaJual; // default harga produk
+
             if (konversiId) {
                 konversi = allKonversi.find(k => k.id === konversiId && k.produkId === produkId);
                 if (!konversi) { alert('Konversi tidak ditemukan'); return; }
                 nilaiKonversi = konversi.nilai;
+                // Gunakan harga jual dari konversi jika ada, jika tidak gunakan harga produk * nilai konversi
+                hargaSatuan = konversi.hargaJual || (produk.hargaJual * nilaiKonversi);
             }
 
             const qtyDasar = qty * nilaiKonversi;
             if (qtyDasar <= 0) { alert('Qty harus lebih dari 0'); return; }
 
+            // Cek stok
             const existingItems = cartItems.filter(item => item.produkId === produkId);
             const totalQtyDasarLama = existingItems.reduce((sum, item) => sum + item.qtyDasar, 0);
             if (produk.stokAwal < totalQtyDasarLama + qtyDasar) {
@@ -1510,6 +1514,8 @@
             if (existingIndex >= 0) {
                 cartItems[existingIndex].qty += qty;
                 cartItems[existingIndex].qtyDasar += qtyDasar;
+                // Update harga satuan (jika ada perubahan karena qty break)
+                updateHargaProduk(produkId);
             } else {
                 const unit = konversi ? allUnits.find(u => u.id === konversi.unitId) : allUnits.find(u => u.id === produk.unitId);
                 cartItems.push({
@@ -1519,8 +1525,8 @@
                     unit: unit ? unit.nama : '',
                     qty: qty,
                     qtyDasar: qtyDasar,
-                    hargaSatuan: 0,
-                    subtotal: 0,
+                    hargaSatuan: hargaSatuan,
+                    subtotal: hargaSatuan * qty,
                     nilaiKonversi: nilaiKonversi,
                 });
             }
@@ -1547,7 +1553,17 @@
             }
 
             for (let item of items) {
-                item.hargaSatuan = hargaDasar * item.nilaiKonversi;
+                // Jika item menggunakan konversi, harga dasarnya adalah hargaDasar * nilaiKonversi
+                if (item.konversiId) {
+                    const konv = allKonversi.find(k => k.id === item.konversiId);
+                    if (konv) {
+                        item.hargaSatuan = konv.hargaJual || (hargaDasar * item.nilaiKonversi);
+                    } else {
+                        item.hargaSatuan = hargaDasar * item.nilaiKonversi;
+                    }
+                } else {
+                    item.hargaSatuan = hargaDasar * item.nilaiKonversi;
+                }
                 item.subtotal = item.hargaSatuan * item.qty;
             }
         }
