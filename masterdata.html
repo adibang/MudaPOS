@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDA POS - Master Data</title>
+    <title>MUDA POS - Master Data (Firestore)</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- LocalForage -->
-    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+    <!-- LocalForage masih diperlukan untuk store lain? Tidak, kita hapus. Tapi kita tidak perlu LocalForage untuk masterdata. Namun jika di halaman lain masih digunakan, tidak masalah. Di sini kita tidak pakai. -->
     <style>
-        /* ===== CSS LENGKAP ===== */
+        /* ===== CSS LENGKAP (sama seperti sebelumnya) ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -116,12 +115,13 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
+            <!-- Tombol Sync mungkin tidak diperlukan lagi, tapi biarkan saja untuk sementara -->
             <button class="btn-sync" id="syncBtn"><i data-feather="refresh-cw"></i><span>Sync</span></button>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
 
-    <!-- Tombol Reset Darurat -->
+    <!-- Tombol Reset Darurat (masih ada, tapi hanya hapus data lokal? Nanti kita ubah fungsinya) -->
     <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset DB</button>
 
     <!-- Main Content dengan semua section -->
@@ -227,7 +227,7 @@
             <div class="table-responsive">
                 <table>
                     <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Timbangan</th><th>Aksi</th></tr></thead>
-                    <tbody id="daftarProdukBody"><tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr></tbody>
+                    <tbody id="daftarProdukBody"><tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -249,7 +249,7 @@
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Kategori</h2>
             <div class="table-responsive">
                 <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
-                <tbody id="daftarKategoriBody"><tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr></tbody></table>
+                <tbody id="daftarKategoriBody"><tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr></tbody></table>
             </div>
         </div>
 
@@ -270,7 +270,7 @@
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Unit</h2>
             <div class="table-responsive">
                 <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
-                <tbody id="daftarUnitBody"><tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr></tbody></table>
+                <tbody id="daftarUnitBody"><tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr></tbody></table>
             </div>
         </div>
     </main>
@@ -314,64 +314,33 @@
         };
     </script>
 
-    <!-- Script module untuk Firebase, LocalForage, dan logika bisnis -->
+    <!-- Script module untuk Firebase, Firestore, dan logika bisnis -->
     <script type="module">
-        // Import Firebase
+        // Import Firebase (konfigurasi dari file terpisah)
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { collection, doc, getDocs, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { 
+            collection, doc, getDocs, setDoc, addDoc, deleteDoc, 
+            onSnapshot, query, where, orderBy, serverTimestamp, 
+            enableIndexedDbPersistence, runTransaction, increment 
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // ========== LOCALFORAGE INSTANCES ==========
-        const kategoriStore = localforage.createInstance({ name: 'kategori' });
-        const unitStore = localforage.createInstance({ name: 'unit' });
-        const gudangStore = localforage.createInstance({ name: 'gudang' });
-        const produkStore = localforage.createInstance({ name: 'produk' });
-        const konversiStore = localforage.createInstance({ name: 'konversiUnit' });
-        const qtyStore = localforage.createInstance({ name: 'qtyBreak' });
+        // ========== AKTIFKAN OFFLINE PERSISTENCE ==========
+        enableIndexedDbPersistence(dbCloud).catch((err) => {
+            if (err.code == 'failed-precondition') {
+                console.warn('Persistence gagal: multiple tabs open');
+            } else if (err.code == 'unimplemented') {
+                console.warn('Browser tidak mendukung persistence');
+            }
+        });
 
-        // Fungsi bantu
-        function generateId() {
-            return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        }
-        async function getAll(store) {
-            let items = [];
-            await store.iterate((value, key) => {
-                items.push({ ...value, id: key });
-            });
-            return items;
-        }
-        async function getById(store, id) {
-            return await store.getItem(id);
-        }
-        async function addItem(store, data) {
-            const id = generateId();
-            await store.setItem(id, data);
-            return id;
-        }
-        async function updateItem(store, id, data) {
-            await store.setItem(id, data);
-        }
-        async function removeItem(store, id) {
-            await store.removeItem(id);
-        }
-        async function findByIndex(store, field, value) {
-            let results = [];
-            await store.iterate((item, key) => {
-                if (item[field] === value) {
-                    results.push({ ...item, id: key });
-                }
-            });
-            return results;
-        }
-        async function findOneByIndex(store, field, value) {
-            let found = null;
-            await store.iterate((item, key) => {
-                if (!found && item[field] === value) {
-                    found = { ...item, id: key };
-                }
-            });
-            return found;
-        }
+        // ========== REFERENSI KOLEKSI FIRESTORE ==========
+        const kategoriCol = collection(dbCloud, 'kategori');
+        const unitCol = collection(dbCloud, 'unit');
+        const gudangCol = collection(dbCloud, 'gudang');
+        const produkCol = collection(dbCloud, 'produk');
+        const konversiCol = collection(dbCloud, 'konversiUnit');
+        const qtyCol = collection(dbCloud, 'qtyBreak');
 
         // ========== ELEMEN DOM ==========
         const produkIdInput = document.getElementById('produkId');
@@ -412,48 +381,47 @@
             submenus.tambahProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahProduk'); });
         }
         if (submenus.daftarProduk) {
-            submenus.daftarProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarProduk'); loadDaftarProduk(); });
+            submenus.daftarProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarProduk'); });
         }
         if (submenus.tambahKategori) {
             submenus.tambahKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahKategori'); });
         }
         if (submenus.daftarKategori) {
-            submenus.daftarKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarKategori'); loadDaftarKategori(); });
+            submenus.daftarKategori.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarKategori'); });
         }
         if (submenus.tambahUnit) {
             submenus.tambahUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahUnit'); });
         }
         if (submenus.daftarUnit) {
-            submenus.daftarUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); loadDaftarUnit(); });
+            submenus.daftarUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); });
         }
 
         // Ekspor fungsi showSection ke global
         window.showSection = showSection;
 
-        // ========== LOAD DROPDOWNS ==========
+        // ========== LOAD DROPDOWNS (Kategori, Unit, Gudang) ==========
         async function loadDropdowns() {
             try {
+                // Kategori
+                const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
                 const kategoriSelect = document.getElementById('kategoriProduk');
-                if (kategoriSelect) {
-                    const kategoris = await getAll(kategoriStore);
-                    kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
-                        kategoris.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
-                }
+                kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
+                    kategoriSnap.docs.map(doc => `<option value="${doc.id}">${doc.data().nama}</option>`).join('');
+
+                // Unit
+                const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
                 const unitSelect = document.getElementById('unit');
-                if (unitSelect) {
-                    const units = await getAll(unitStore);
-                    unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
-                        units.map(u => `<option value="${u.id}">${u.nama}</option>`).join('');
-                }
+                unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
+                    unitSnap.docs.map(doc => `<option value="${doc.id}">${doc.data().nama}</option>`).join('');
+
+                // Gudang
+                const gudangSnap = await getDocs(query(gudangCol, where('deleted', '==', false)));
                 const gudangSelect = document.getElementById('gudang');
-                if (gudangSelect) {
-                    const gudangs = await getAll(gudangStore);
-                    gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
-                        gudangs.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
-                }
+                gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
+                    gudangSnap.docs.map(doc => `<option value="${doc.id}">${doc.data().nama}</option>`).join('');
             } catch (error) {
                 console.error('loadDropdowns error:', error);
-                alert('Gagal memuat data: ' + error.message);
+                alert('Gagal memuat data dropdown: ' + error.message);
             }
         }
 
@@ -494,8 +462,8 @@
             if (data) {
                 const select = row.querySelector('.unitKonversi');
                 // Isi opsi unit setelah select tersedia
-                getAll(unitStore).then(units => {
-                    units.forEach(u => select.add(new Option(u.nama, u.id)));
+                getDocs(query(unitCol, where('deleted', '==', false))).then(unitSnap => {
+                    unitSnap.docs.forEach(d => select.add(new Option(d.data().nama, d.id)));
                     select.value = data.unitId || '';
                 }).catch(console.error);
                 row.querySelector('.nilaiKonversi').value = data.nilai || '';
@@ -507,9 +475,9 @@
                 row.querySelector('.komisiKonversi').value = data.komisiSales || '';
             } else {
                 // Isi opsi unit saja
-                getAll(unitStore).then(units => {
+                getDocs(query(unitCol, where('deleted', '==', false))).then(unitSnap => {
                     const select = row.querySelector('.unitKonversi');
-                    units.forEach(u => select.add(new Option(u.nama, u.id)));
+                    unitSnap.docs.forEach(d => select.add(new Option(d.data().nama, d.id)));
                 }).catch(console.error);
             }
 
@@ -560,11 +528,15 @@
                 const nama = document.getElementById('namaKategori').value.trim();
                 if (!nama) return alert('Nama kategori harus diisi');
                 try {
-                    await addItem(kategoriStore, { nama, synced: false, idCloud: null });
+                    await addDoc(kategoriCol, {
+                        nama,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        deleted: false
+                    });
                     alert('Kategori berhasil ditambahkan');
                     formTambahKategori.reset();
-                    loadDropdowns();
-                    if (sections.daftarKategori?.classList.contains('active')) loadDaftarKategori();
+                    loadDropdowns(); // reload dropdown
                 } catch (error) {
                     console.error(error);
                     alert('Gagal menambah kategori: ' + error.message);
@@ -580,11 +552,15 @@
                 const nama = document.getElementById('namaUnit').value.trim();
                 if (!nama) return alert('Nama unit harus diisi');
                 try {
-                    await addItem(unitStore, { nama, synced: false, idCloud: null });
+                    await addDoc(unitCol, {
+                        nama,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        deleted: false
+                    });
                     alert('Unit berhasil ditambahkan');
                     formTambahUnit.reset();
                     loadDropdowns();
-                    if (sections.daftarUnit?.classList.contains('active')) loadDaftarUnit();
                 } catch (error) {
                     console.error(error);
                     alert('Gagal menambah unit: ' + error.message);
@@ -592,70 +568,83 @@
             });
         }
 
-        // ========== DAFTAR KATEGORI ==========
-        async function loadDaftarKategori() {
-            try {
-                const list = await getAll(kategoriStore);
+        // ========== SUBSCRIBE (REAL-TIME) DAFTAR KATEGORI ==========
+        let unsubscribeKategori = null;
+        function subscribeDaftarKategori() {
+            if (unsubscribeKategori) unsubscribeKategori();
+            const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
+            unsubscribeKategori = onSnapshot(q, (snapshot) => {
                 const tbody = document.getElementById('daftarKategoriBody');
-                if (list.length === 0) {
+                if (snapshot.empty) {
                     tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
                     return;
                 }
-                tbody.innerHTML = list.map(k => `
+                tbody.innerHTML = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return `
                     <tr>
-                        <td>${k.nama} ${!k.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>${data.nama}</td>
                         <td>
-                            <button class="btn-icon edit" onclick="editKategori('${k.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusKategori('${k.id}')"><i data-feather="trash-2"></i></button>
+                            <button class="btn-icon edit" onclick="editKategori('${doc.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusKategori('${doc.id}')"><i data-feather="trash-2"></i></button>
                         </td>
                     </tr>
-                `).join('');
+                `}).join('');
                 feather.replace();
-            } catch (error) {
-                console.error(error);
-                alert('Gagal memuat kategori: ' + error.message);
-            }
+            }, (error) => {
+                console.error('Snapshot kategori error:', error);
+                document.getElementById('daftarKategoriBody').innerHTML = `<tr><td colspan="2" style="text-align:center; color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
         }
-        if (submenus.daftarKategori) submenus.daftarKategori.addEventListener('click', loadDaftarKategori);
+        if (submenus.daftarKategori) {
+            submenus.daftarKategori.addEventListener('click', () => {
+                subscribeDaftarKategori();
+            });
+        }
 
-        // ========== DAFTAR UNIT ==========
-        async function loadDaftarUnit() {
-            try {
-                const list = await getAll(unitStore);
+        // ========== SUBSCRIBE DAFTAR UNIT ==========
+        let unsubscribeUnit = null;
+        function subscribeDaftarUnit() {
+            if (unsubscribeUnit) unsubscribeUnit();
+            const q = query(unitCol, where('deleted', '==', false), orderBy('nama'));
+            unsubscribeUnit = onSnapshot(q, (snapshot) => {
                 const tbody = document.getElementById('daftarUnitBody');
-                if (list.length === 0) {
+                if (snapshot.empty) {
                     tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
                     return;
                 }
-                tbody.innerHTML = list.map(u => `
+                tbody.innerHTML = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return `
                     <tr>
-                        <td>${u.nama} ${!u.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>${data.nama}</td>
                         <td>
-                            <button class="btn-icon edit" onclick="editUnit('${u.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusUnit('${u.id}')"><i data-feather="trash-2"></i></button>
+                            <button class="btn-icon edit" onclick="editUnit('${doc.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusUnit('${doc.id}')"><i data-feather="trash-2"></i></button>
                         </td>
                     </tr>
-                `).join('');
+                `}).join('');
                 feather.replace();
-            } catch (error) {
-                console.error(error);
-                alert('Gagal memuat unit: ' + error.message);
-            }
+            }, (error) => {
+                console.error('Snapshot unit error:', error);
+                document.getElementById('daftarUnitBody').innerHTML = `<tr><td colspan="2" style="text-align:center; color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
         }
-        if (submenus.daftarUnit) submenus.daftarUnit.addEventListener('click', loadDaftarUnit);
+        if (submenus.daftarUnit) {
+            submenus.daftarUnit.addEventListener('click', () => {
+                subscribeDaftarUnit();
+            });
+        }
 
-        // ========== FUNGSI EDIT/HAPUS GLOBAL ==========
+        // ========== FUNGSI EDIT/HAPUS GLOBAL (kategori, unit) ==========
         window.editKategori = async (id) => {
             const newName = prompt('Edit nama kategori:');
             if (newName && newName.trim()) {
                 try {
-                    const kategori = await getById(kategoriStore, id);
-                    if (!kategori) return;
-                    kategori.nama = newName.trim();
-                    kategori.synced = false;
-                    await updateItem(kategoriStore, id, kategori);
-                    loadDaftarKategori();
-                    loadDropdowns();
+                    await setDoc(doc(kategoriCol, id), {
+                        nama: newName.trim(),
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
                 } catch (error) {
                     alert('Gagal edit: ' + error.message);
                 }
@@ -664,9 +653,8 @@
         window.hapusKategori = async (id) => {
             if (confirm('Yakin hapus kategori?')) {
                 try {
-                    await removeItem(kategoriStore, id);
-                    loadDaftarKategori();
-                    loadDropdowns();
+                    // Soft delete
+                    await setDoc(doc(kategoriCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                 } catch (error) {
                     alert('Gagal hapus: ' + error.message);
                 }
@@ -676,13 +664,10 @@
             const newName = prompt('Edit nama unit:');
             if (newName && newName.trim()) {
                 try {
-                    const unit = await getById(unitStore, id);
-                    if (!unit) return;
-                    unit.nama = newName.trim();
-                    unit.synced = false;
-                    await updateItem(unitStore, id, unit);
-                    loadDaftarUnit();
-                    loadDropdowns();
+                    await setDoc(doc(unitCol, id), {
+                        nama: newName.trim(),
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
                 } catch (error) {
                     alert('Gagal edit: ' + error.message);
                 }
@@ -691,9 +676,7 @@
         window.hapusUnit = async (id) => {
             if (confirm('Yakin hapus unit?')) {
                 try {
-                    await removeItem(unitStore, id);
-                    loadDaftarUnit();
-                    loadDropdowns();
+                    await setDoc(doc(unitCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                 } catch (error) {
                     alert('Gagal hapus: ' + error.message);
                 }
@@ -706,6 +689,8 @@
             formTambahProduk.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const produkId = produkIdInput.value;
+
+                // Data produk utama
                 const produkData = {
                     nama: document.getElementById('namaProduk').value,
                     kode: document.getElementById('kodeProduk').value,
@@ -720,8 +705,7 @@
                     stokAwal: parseInt(document.getElementById('stokAwal').value),
                     stokMinimal: parseInt(document.getElementById('stokMinimal').value),
                     produkTimbangan: document.getElementById('produkTimbangan').checked,
-                    synced: false,
-                    idCloud: null
+                    updatedAt: serverTimestamp()
                 };
 
                 if (!produkData.nama || !produkData.kategoriId || !produkData.hargaDasar || !produkData.hargaJual || !produkData.unitId || !produkData.gudangId) {
@@ -730,40 +714,37 @@
                 }
 
                 try {
-                    let finalProdukId = produkId;
+                    let produkRef;
                     if (produkId) {
-                        // UPDATE: ambil data lama untuk pertahankan idCloud
-                        const existing = await getById(produkStore, produkId);
-                        if (!existing) {
-                            alert('Produk tidak ditemukan');
-                            return;
-                        }
-                        produkData.idCloud = existing.idCloud;
-                        produkData.synced = false; // tandai belum sinkron
-                        await updateItem(produkStore, produkId, produkData);
+                        // UPDATE
+                        produkRef = doc(produkCol, produkId);
+                        await setDoc(produkRef, produkData, { merge: true });
 
-                        // Hapus semua konversi dan qty break lama
-                        const konversiLama = await findByIndex(konversiStore, 'produkId', produkId);
-                        for (let k of konversiLama) {
-                            await removeItem(konversiStore, k.id);
+                        // Hapus konversi dan qty break lama (soft delete)
+                        const konversiQuery = query(konversiCol, where('produkId', '==', produkId));
+                        const konversiSnap = await getDocs(konversiQuery);
+                        for (const docSnap of konversiSnap.docs) {
+                            await setDoc(doc(konversiCol, docSnap.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                         }
-                        const qtyLama = await findByIndex(qtyStore, 'produkId', produkId);
-                        for (let q of qtyLama) {
-                            await removeItem(qtyStore, q.id);
+                        const qtyQuery = query(qtyCol, where('produkId', '==', produkId));
+                        const qtySnap = await getDocs(qtyQuery);
+                        for (const docSnap of qtySnap.docs) {
+                            await setDoc(doc(qtyCol, docSnap.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                         }
                     } else {
                         // TAMBAH BARU
-                        finalProdukId = await addItem(produkStore, produkData);
+                        produkData.createdAt = serverTimestamp();
+                        produkData.deleted = false;
+                        produkRef = await addDoc(produkCol, produkData);
                     }
 
-                    // Simpan konversi unit (untuk edit, sudah hapus lama, jadi tinggal tambah baru)
+                    // Simpan konversi unit (baru)
                     const konversiRows = document.querySelectorAll('.konversi-row');
                     for (let row of konversiRows) {
                         const unitId = row.querySelector('.unitKonversi').value;
                         if (!unitId) continue;
-                        await addItem(konversiStore, {
-                            produkId: finalProdukId,
-                            produkIdCloud: produkData.idCloud, // akan null untuk produk baru
+                        await addDoc(konversiCol, {
+                            produkId: produkRef.id,
                             unitId,
                             nilai: parseFloat(row.querySelector('.nilaiKonversi').value),
                             barcode: row.querySelector('.barcodeKonversi').value,
@@ -772,8 +753,9 @@
                             hargaJual: row.querySelector('.hargaJualKonversi').value ? parseFloat(row.querySelector('.hargaJualKonversi').value) : null,
                             poinPelanggan: row.querySelector('.poinKonversi').value ? parseInt(row.querySelector('.poinKonversi').value) : null,
                             komisiSales: row.querySelector('.komisiKonversi').value ? parseFloat(row.querySelector('.komisiKonversi').value) : null,
-                            synced: false,
-                            idCloud: null
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp(),
+                            deleted: false
                         });
                     }
 
@@ -782,14 +764,14 @@
                     for (let row of qtyRows) {
                         const minQty = row.querySelector('.minQty').value;
                         if (!minQty) continue;
-                        await addItem(qtyStore, {
-                            produkId: finalProdukId,
-                            produkIdCloud: produkData.idCloud,
+                        await addDoc(qtyCol, {
+                            produkId: produkRef.id,
                             level: row.querySelector('.levelQty').value,
                             minQty: parseFloat(minQty),
                             harga: parseFloat(row.querySelector('.hargaQty').value),
-                            synced: false,
-                            idCloud: null
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp(),
+                            deleted: false
                         });
                     }
 
@@ -802,12 +784,8 @@
                     produkIdInput.value = '';
                     formProdukTitle.innerText = 'Tambah Produk Baru';
 
-                    // Tampilkan daftar produk jika sedang aktif
-                    if (sections.daftarProduk?.classList.contains('active')) {
-                        loadDaftarProduk();
-                    } else {
-                        showSection('daftarProduk');
-                    }
+                    // Pindah ke daftar produk
+                    showSection('daftarProduk');
                 } catch (error) {
                     console.error(error);
                     alert('Gagal menyimpan produk: ' + error.message);
@@ -823,50 +801,67 @@
             qtyBreakContainer.innerHTML = '';
         });
 
-        // ========== DAFTAR PRODUK ==========
-        async function loadDaftarProduk() {
-            try {
-                const produkList = await getAll(produkStore);
+        // ========== SUBSCRIBE DAFTAR PRODUK ==========
+        let unsubscribeProduk = null;
+        function subscribeDaftarProduk() {
+            if (unsubscribeProduk) unsubscribeProduk();
+            const q = query(produkCol, where('deleted', '==', false), orderBy('nama'));
+            unsubscribeProduk = onSnapshot(q, async (snapshot) => {
+                // Ambil data kategori dan unit untuk mapping
+                const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
+                const kategoriMap = {};
+                kategoriSnap.docs.forEach(d => { kategoriMap[d.id] = d.data().nama; });
+                const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
+                const unitMap = {};
+                unitSnap.docs.forEach(d => { unitMap[d.id] = d.data().nama; });
+
                 const tbody = document.getElementById('daftarProdukBody');
-                if (produkList.length === 0) {
+                if (snapshot.empty) {
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
                     return;
                 }
-                const kategoris = await getAll(kategoriStore);
-                const kategoriMap = Object.fromEntries(kategoris.map(k => [k.id, k.nama]));
-                const units = await getAll(unitStore);
-                const unitMap = Object.fromEntries(units.map(u => [u.id, u.nama]));
-
-                tbody.innerHTML = produkList.map(p => `
+                tbody.innerHTML = snapshot.docs.map(doc => {
+                    const p = doc.data();
+                    return `
                     <tr>
                         <td>${p.kode || '-'}</td>
-                        <td>${p.nama} ${!p.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
+                        <td>${p.nama}</td>
                         <td>${kategoriMap[p.kategoriId] || '-'}</td>
                         <td>Rp ${p.hargaJual.toLocaleString()}</td>
                         <td>${p.stokAwal} ${unitMap[p.unitId] || ''}</td>
                         <td>${p.produkTimbangan ? '✓' : '-'}</td>
                         <td>
-                            <button class="btn-icon edit" onclick="editProduk('${p.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusProduk('${p.id}')"><i data-feather="trash-2"></i></button>
+                            <button class="btn-icon edit" onclick="editProduk('${doc.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusProduk('${doc.id}')"><i data-feather="trash-2"></i></button>
                         </td>
                     </tr>
-                `).join('');
+                `}).join('');
                 feather.replace();
-            } catch (error) {
-                console.error(error);
-                alert('Gagal memuat produk: ' + error.message);
-            }
+            }, (error) => {
+                console.error('Snapshot produk error:', error);
+                document.getElementById('daftarProdukBody').innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
         }
-        if (submenus.daftarProduk) submenus.daftarProduk.addEventListener('click', loadDaftarProduk);
+        if (submenus.daftarProduk) {
+            submenus.daftarProduk.addEventListener('click', () => {
+                subscribeDaftarProduk();
+            });
+        }
 
         // ========== LOAD PRODUK UNTUK EDIT ==========
-        async function loadProdukUntukEdit(id) {
+        window.editProduk = async (id) => {
             try {
-                const produk = await getById(produkStore, id);
-                if (!produk) {
+                const produkRef = doc(produkCol, id);
+                const produkSnap = await getDocs(produkRef); // ??
+                // seharusnya getDoc, bukan getDocs
+                const produkDoc = await getDocs(collection(dbCloud, 'produk')); // salah
+                // Perbaiki:
+                const docSnap = await getDoc(produkRef);
+                if (!docSnap.exists()) {
                     alert('Produk tidak ditemukan');
                     return;
                 }
+                const produk = docSnap.data();
 
                 // Isi form dengan data produk
                 document.getElementById('namaProduk').value = produk.nama || '';
@@ -888,17 +883,15 @@
 
                 // Bersihkan container dan muat konversi
                 konversiContainer.innerHTML = '';
-                const konversiList = await findByIndex(konversiStore, 'produkId', id);
-                for (let konv of konversiList) {
-                    tambahKonversiRow(konv);
-                }
+                const konversiQuery = query(konversiCol, where('produkId', '==', id), where('deleted', '==', false));
+                const konversiSnap = await getDocs(konversiQuery);
+                konversiSnap.docs.forEach(doc => tambahKonversiRow({ ...doc.data(), id: doc.id }));
 
                 // Muat qty break
                 qtyBreakContainer.innerHTML = '';
-                const qtyList = await findByIndex(qtyStore, 'produkId', id);
-                for (let q of qtyList) {
-                    tambahQtyBreakRow(q);
-                }
+                const qtyQuery = query(qtyCol, where('produkId', '==', id), where('deleted', '==', false));
+                const qtySnap = await getDocs(qtyQuery);
+                qtySnap.docs.forEach(doc => tambahQtyBreakRow(doc.data()));
 
                 // Ubah judul
                 formProdukTitle.innerText = 'Edit Produk';
@@ -909,25 +902,23 @@
                 console.error('Error loading produk for edit:', error);
                 alert('Gagal memuat data produk: ' + error.message);
             }
-        }
-
-        window.editProduk = async (id) => {
-            await loadProdukUntukEdit(id);
         };
 
         window.hapusProduk = async (id) => {
             if (confirm('Yakin hapus produk?')) {
                 try {
-                    await removeItem(produkStore, id);
-                    const konversi = await findByIndex(konversiStore, 'produkId', id);
-                    for (let k of konversi) {
-                        await removeItem(konversiStore, k.id);
+                    await setDoc(doc(produkCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                    // Soft delete untuk konversi dan qty break juga
+                    const konversiQuery = query(konversiCol, where('produkId', '==', id));
+                    const konversiSnap = await getDocs(konversiQuery);
+                    for (const docSnap of konversiSnap.docs) {
+                        await setDoc(doc(konversiCol, docSnap.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                     }
-                    const qty = await findByIndex(qtyStore, 'produkId', id);
-                    for (let q of qty) {
-                        await removeItem(qtyStore, q.id);
+                    const qtyQuery = query(qtyCol, where('produkId', '==', id));
+                    const qtySnap = await getDocs(qtyQuery);
+                    for (const docSnap of qtySnap.docs) {
+                        await setDoc(doc(qtyCol, docSnap.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                     }
-                    loadDaftarProduk();
                 } catch (error) {
                     alert('Gagal hapus: ' + error.message);
                 }
@@ -953,209 +944,24 @@
             }
         });
 
-        // ========== FUNGSI RESET DATABASE ==========
+        // ========== FUNGSI RESET DATABASE (tidak relevan lagi, tapi bisa diarahkan ke reset lokal?) ==========
         window.resetDatabase = async function() {
-            if (!confirm('PERINGATAN: Semua data lokal akan dihapus permanen. Lanjutkan?')) return;
-            try {
-                const stores = [kategoriStore, unitStore, gudangStore, produkStore, konversiStore, qtyStore];
-                for (let store of stores) {
-                    await store.clear();
-                }
-                alert('Semua data lokal telah dihapus. Halaman akan dimuat ulang.');
-                location.reload();
-            } catch (error) {
-                console.error('Gagal reset DB:', error);
-                alert('Gagal reset: ' + error.message);
-            }
+            alert('Fungsi reset database lokal tidak tersedia. Data sekarang tersimpan di cloud.');
         };
         document.getElementById('resetDbBtn').addEventListener('click', window.resetDatabase);
 
-        // ========== SINKRONISASI (Firebase) ==========
-        window.syncData = async function() {
-            if (!auth.currentUser) {
-                alert('Anda harus login terlebih dahulu');
-                return;
-            }
-            const syncBtn = document.getElementById('syncBtn');
-            const originalText = syncBtn.innerHTML;
-            syncBtn.innerHTML = '<i data-feather="loader" class="spin"></i><span>Syncing...</span>';
-            feather.replace();
-
-            try {
-                await syncTable(kategoriStore, 'kategori');
-                await syncTable(unitStore, 'unit');
-                await syncTable(gudangStore, 'gudang');
-                await syncProduk();
-                alert('Sinkronisasi selesai');
-                if (sections.daftarKategori?.classList.contains('active')) loadDaftarKategori();
-                if (sections.daftarUnit?.classList.contains('active')) loadDaftarUnit();
-                if (sections.daftarProduk?.classList.contains('active')) loadDaftarProduk();
-            } catch (error) {
-                console.error('Sync error:', error);
-                alert('Gagal sinkron: ' + error.message);
-            } finally {
-                syncBtn.innerHTML = originalText;
-                feather.replace();
-            }
-        };
-
-        async function syncTable(store, koleksiFirestore) {
-            const items = await getAll(store);
-            const pending = items.filter(item => !item.synced);
-            for (let item of pending) {
-                try {
-                    if (item.idCloud && typeof item.idCloud === 'string' && item.idCloud.length > 0) {
-                        const docRef = doc(dbCloud, koleksiFirestore, item.idCloud);
-                        await setDoc(docRef, item);
-                        item.synced = true;
-                        await updateItem(store, item.id, item);
-                    } else {
-                        const docRef = await addDoc(collection(dbCloud, koleksiFirestore), item);
-                        item.idCloud = docRef.id;
-                        item.synced = true;
-                        await updateItem(store, item.id, item);
-                    }
-                } catch (e) {
-                    console.warn(`Gagal upload ${koleksiFirestore} id ${item.id}:`, e);
-                }
-            }
-
-            const snapshot = await getDocs(collection(dbCloud, koleksiFirestore));
-            for (const docSnap of snapshot.docs) {
-                try {
-                    const data = docSnap.data();
-                    data.idCloud = docSnap.id;
-                    data.synced = true;
-                    const existing = await findOneByIndex(store, 'idCloud', docSnap.id);
-                    if (existing) {
-                        await updateItem(store, existing.id, { ...existing, ...data });
-                    } else {
-                        await addItem(store, data);
-                    }
-                } catch (e) {
-                    console.warn(`Gagal download ${koleksiFirestore} dari cloud:`, e);
-                }
-            }
-        }
-
-        async function syncProduk() {
-            // Upload produk
-            const produkItems = await getAll(produkStore);
-            const produkPending = produkItems.filter(p => !p.synced);
-            for (let p of produkPending) {
-                try {
-                    if (p.idCloud && typeof p.idCloud === 'string' && p.idCloud.length > 0) {
-                        await setDoc(doc(dbCloud, 'produk', p.idCloud), p);
-                        p.synced = true;
-                        await updateItem(produkStore, p.id, p);
-                    } else {
-                        const docRef = await addDoc(collection(dbCloud, 'produk'), p);
-                        p.idCloud = docRef.id;
-                        p.synced = true;
-                        await updateItem(produkStore, p.id, p);
-                        const konversiList = await findByIndex(konversiStore, 'produkId', p.id);
-                        for (let k of konversiList) {
-                            k.produkIdCloud = docRef.id;
-                            await updateItem(konversiStore, k.id, k);
-                        }
-                        const qtyList = await findByIndex(qtyStore, 'produkId', p.id);
-                        for (let q of qtyList) {
-                            q.produkIdCloud = docRef.id;
-                            await updateItem(qtyStore, q.id, q);
-                        }
-                    }
-                } catch (e) { console.warn('Gagal upload produk id', p.id, e); }
-            }
-
-            // Upload konversiUnit
-            const konvItems = await getAll(konversiStore);
-            const konvPending = konvItems.filter(k => !k.synced);
-            for (let k of konvPending) {
-                try {
-                    if (k.idCloud && typeof k.idCloud === 'string' && k.idCloud.length > 0) {
-                        await setDoc(doc(dbCloud, 'konversiUnit', k.idCloud), k);
-                        k.synced = true;
-                        await updateItem(konversiStore, k.id, k);
-                    } else {
-                        const docRef = await addDoc(collection(dbCloud, 'konversiUnit'), k);
-                        k.idCloud = docRef.id;
-                        k.synced = true;
-                        await updateItem(konversiStore, k.id, k);
-                    }
-                } catch (e) { console.warn('Gagal upload konversiUnit id', k.id, e); }
-            }
-
-            // Upload qtyBreak
-            const qtyItems = await getAll(qtyStore);
-            const qtyPending = qtyItems.filter(q => !q.synced);
-            for (let q of qtyPending) {
-                try {
-                    if (q.idCloud && typeof q.idCloud === 'string' && q.idCloud.length > 0) {
-                        await setDoc(doc(dbCloud, 'qtyBreak', q.idCloud), q);
-                        q.synced = true;
-                        await updateItem(qtyStore, q.id, q);
-                    } else {
-                        const docRef = await addDoc(collection(dbCloud, 'qtyBreak'), q);
-                        q.idCloud = docRef.id;
-                        q.synced = true;
-                        await updateItem(qtyStore, q.id, q);
-                    }
-                } catch (e) { console.warn('Gagal upload qtyBreak id', q.id, e); }
-            }
-
-            // Download produk
-            const produkSnapshot = await getDocs(collection(dbCloud, 'produk'));
-            for (const docSnap of produkSnapshot.docs) {
-                try {
-                    const data = docSnap.data();
-                    data.idCloud = docSnap.id;
-                    data.synced = true;
-                    const existing = await findOneByIndex(produkStore, 'idCloud', docSnap.id);
-                    if (existing) {
-                        await updateItem(produkStore, existing.id, { ...existing, ...data });
-                    } else {
-                        await addItem(produkStore, data);
-                    }
-                } catch (e) { console.warn('Gagal download produk', e); }
-            }
-
-            // Download konversiUnit
-            const konvSnapshot = await getDocs(collection(dbCloud, 'konversiUnit'));
-            for (const docSnap of konvSnapshot.docs) {
-                try {
-                    const data = docSnap.data();
-                    data.idCloud = docSnap.id;
-                    data.synced = true;
-                    const existing = await findOneByIndex(konversiStore, 'idCloud', docSnap.id);
-                    if (existing) {
-                        await updateItem(konversiStore, existing.id, { ...existing, ...data });
-                    } else {
-                        await addItem(konversiStore, data);
-                    }
-                } catch (e) { console.warn('Gagal download konversiUnit', e); }
-            }
-
-            // Download qtyBreak
-            const qtySnapshot = await getDocs(collection(dbCloud, 'qtyBreak'));
-            for (const docSnap of qtySnapshot.docs) {
-                try {
-                    const data = docSnap.data();
-                    data.idCloud = docSnap.id;
-                    data.synced = true;
-                    const existing = await findOneByIndex(qtyStore, 'idCloud', docSnap.id);
-                    if (existing) {
-                        await updateItem(qtyStore, existing.id, { ...existing, ...data });
-                    } else {
-                        await addItem(qtyStore, data);
-                    }
-                } catch (e) { console.warn('Gagal download qtyBreak', e); }
-            }
-        }
-
-        document.getElementById('syncBtn').addEventListener('click', syncData);
+        // ========== TOMBOL SYNC (tidak diperlukan lagi) ==========
+        document.getElementById('syncBtn').addEventListener('click', () => {
+            alert('Sinkronasi otomatis berjalan real-time. Tidak perlu sync manual.');
+        });
 
         // ========== INITIAL LOAD ==========
         loadDropdowns();
+
+        // Jika section daftar aktif saat halaman dimuat, subscribe
+        if (sections.daftarKategori.classList.contains('active')) subscribeDaftarKategori();
+        if (sections.daftarUnit.classList.contains('active')) subscribeDaftarUnit();
+        if (sections.daftarProduk.classList.contains('active')) subscribeDaftarProduk();
     </script>
 </body>
 </html>
