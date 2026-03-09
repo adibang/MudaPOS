@@ -632,6 +632,30 @@
         /* Modal konfirmasi piutang */
         #confirmPiutangModal .modal-content { max-width: 400px; }
 
+        /* Perbaikan form pending */
+        #modalPending .form-group {
+            margin-bottom: 1rem;
+        }
+        #modalPending .form-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+            color: #333;
+        }
+        #modalPending .form-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        #modalPending .form-input:focus {
+            border-color: #006B54;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0,107,84,0.1);
+        }
+
         /* Responsif */
         @media (max-width: 600px) {
             .warehouse-select { min-width: 130px; font-size:0.85rem; }
@@ -711,7 +735,7 @@
             <div class="toolbar-row">
                 <div class="search-box">
                     <i data-feather="search"></i>
-                    <input type="text" id="searchInput" placeholder="Cari produk...">
+                    <input type="text" id="barcodeInput" placeholder="Cari produk atau scan barcode...">
                 </div>
                 <div class="action-icons">
                     <button id="btnPilihCustomer" title="Pilih Customer">
@@ -816,7 +840,7 @@
         </div>
     </div>
 
-    <!-- MODAL PENDING -->
+    <!-- MODAL PENDING (diperbaiki) -->
     <div class="modal" id="modalPending">
         <div class="modal-content">
             <div class="modal-header">
@@ -825,10 +849,13 @@
             </div>
             <form id="formPending">
                 <div class="form-group">
-                    <label>Nama / Kode Pending</label>
-                    <input type="text" id="namaPending" placeholder="Misal: PO-001" required>
+                    <label for="namaPending">Nama / Kode Pending</label>
+                    <input type="text" id="namaPending" class="form-input" placeholder="Misal: PO-001" required>
                 </div>
-                <button type="submit" class="btn-primary">Simpan</button>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('closeModalPending').click()">Batal</button>
+                    <button type="submit" class="btn-primary">Simpan</button>
+                </div>
             </form>
         </div>
     </div>
@@ -979,6 +1006,14 @@
         let pendingTotalPaid = 0;
         let lastTransactionData = null;
 
+        // Konfigurasi barcode (default seperti di index.html)
+        let barcodeConfig = {
+            flexLength: 2,
+            flexValue: '11',
+            productLength: 6,
+            weightLength: 5
+        };
+
         // Fungsi bantu
         function generateId() { return Date.now() + '-' + Math.random().toString(36).substr(2, 9); }
         async function getAll(store) { let items = []; await store.iterate((value, key) => { items.push({ ...value, id: key }); }); return items; }
@@ -986,10 +1021,10 @@
         async function getById(store, id) { return await store.getItem(id); }
         async function updateItem(store, id, data) { await store.setItem(id, data); }
 
-        // Elemen DOM (sama seperti sebelumnya)
+        // Elemen DOM
         const warehouseSelect = document.getElementById('warehouseSelect');
         const viewToggle = document.getElementById('viewToggle');
-        const searchInput = document.getElementById('searchInput');
+        const barcodeInput = document.getElementById('barcodeInput');
         const productContainer = document.getElementById('productContainer');
         const btnPilihCustomer = document.getElementById('btnPilihCustomer');
         const btnBundle = document.getElementById('btnBundle');
@@ -1081,7 +1116,7 @@
                 return;
             }
 
-            const keyword = searchInput.value.toLowerCase();
+            const keyword = barcodeInput.value.toLowerCase();
             let filtered = allProducts.filter(p => {
                 if (p.gudangId !== selectedWarehouseId) return false;
                 return p.nama.toLowerCase().includes(keyword) ||
@@ -1150,6 +1185,75 @@
                     input.value = val.toFixed(2);
                 });
             });
+        }
+
+        // ========== FUNGSI BARCODE ==========
+        function processBarcode() {
+            const barcode = barcodeInput.value.trim();
+            if (!barcode) return;
+
+            const barcodeLower = barcode.toLowerCase();
+
+            // Cari produk berdasarkan kode atau barcode (case insensitive)
+            let produk = allProducts.find(p => 
+                (p.kode && p.kode.toLowerCase() === barcodeLower) || 
+                (p.barcode && p.barcode.toLowerCase() === barcodeLower)
+            );
+
+            if (produk) {
+                tambahKeCart(produk.id, 1, null);
+                barcodeInput.value = '';
+                renderProducts(); // reset filter
+                return;
+            }
+
+            // Cari di konversi satuan
+            for (let p of allProducts) {
+                if (p.konversi && Array.isArray(p.konversi)) {
+                    const konv = p.konversi.find(k => k.barcode && k.barcode.toLowerCase() === barcodeLower);
+                    if (konv) {
+                        tambahKeCart(p.id, 1, konv.id);
+                        barcodeInput.value = '';
+                        renderProducts();
+                        return;
+                    }
+                }
+            }
+
+            // Jika barcode 13 digit (format timbangan)
+            if (barcode.length === 13) {
+                const flex = barcode.substr(0, barcodeConfig.flexLength);
+                if (flex !== barcodeConfig.flexValue) {
+                    alert('Barcode tidak dikenal (flex tidak cocok)');
+                    barcodeInput.value = '';
+                    renderProducts();
+                    return;
+                }
+
+                const productCode = barcode.substr(barcodeConfig.flexLength, barcodeConfig.productLength);
+                const weightStr = barcode.substr(barcodeConfig.flexLength + barcodeConfig.productLength, barcodeConfig.weightLength);
+                const weightGram = parseInt(weightStr, 10);
+
+                if (!isNaN(weightGram) && weightGram > 0) {
+                    produk = allProducts.find(p => p.kode === productCode && p.produkTimbangan === true);
+                    if (produk) {
+                        const qtyKg = weightGram / 1000;
+                        tambahKeCart(produk.id, qtyKg, null);
+                        barcodeInput.value = '';
+                        renderProducts();
+                        return;
+                    } else {
+                        alert(`Produk dengan kode ${productCode} tidak ditemukan atau bukan produk timbangan`);
+                        barcodeInput.value = '';
+                        renderProducts();
+                        return;
+                    }
+                }
+            }
+
+            alert('Produk tidak ditemukan');
+            barcodeInput.value = '';
+            renderProducts();
         }
 
         // ========== FUNGSI CART DAN QTY BREAK (sama seperti sebelumnya) ==========
@@ -1423,7 +1527,14 @@
         }
 
         // ========== EVENT LISTENER LAINNYA ==========
-        searchInput.addEventListener('input', renderProducts);
+        barcodeInput.addEventListener('input', renderProducts);
+        barcodeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                processBarcode();
+            }
+        });
+
         viewToggle.querySelectorAll('button').forEach(btn => {
             btn.addEventListener('click', () => {
                 viewToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
@@ -1572,7 +1683,7 @@
         }
         closeModalPayment.addEventListener('click', closePaymentPage);
 
-        function updatePaymentSummary() {
+        window.updatePaymentSummary = function() {
             const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
             const cash = parseFloat(paymentCash.value) || 0;
             const card = parseFloat(paymentCard.value) || 0;
@@ -1593,9 +1704,7 @@
                 shortageDisplay.style.display = 'block';
                 shortageAmount.textContent = formatRupiah(total - paidTotal);
             }
-        }
-
-        window.updatePaymentSummary = updatePaymentSummary;
+        };
 
         prosesPembayaranBtn.addEventListener('click', async () => {
             if (cartItems.length === 0) {
@@ -1660,10 +1769,9 @@
             try {
                 // Kurangi stok
                 for (let item of cartItems) {
-                    if (item.produkId === 'piutang') continue; // piutang tidak kurangi stok
+                    if (item.produkId === 'piutang') continue;
                     const produk = allProducts.find(p => p.id === item.produkId);
                     if (!produk) continue;
-                    // stokAwal adalah stok saat ini
                     if (produk.stokAwal < item.qtyDasar) {
                         alert(`Stok ${produk.nama} tidak mencukupi. Stok: ${produk.stokAwal}, dibutuhkan: ${item.qtyDasar}`);
                         return;
@@ -1674,25 +1782,20 @@
 
                 // Update piutang customer jika ada item piutang di cart
                 for (let item of cartItems) {
-                    if (item.produkId === 'piutang') {
-                        if (selectedCustomer) {
-                            selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) - item.subtotal;
-                            if (selectedCustomer.outstanding < 0) selectedCustomer.outstanding = 0;
-                            await updateItem(customerStore, selectedCustomer.id, selectedCustomer);
-                        }
+                    if (item.produkId === 'piutang' && selectedCustomer) {
+                        selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) - item.subtotal;
+                        if (selectedCustomer.outstanding < 0) selectedCustomer.outstanding = 0;
+                        await updateItem(customerStore, selectedCustomer.id, selectedCustomer);
                     }
                 }
 
-                // Tambah piutang baru jika outstandingAdded > 0
+                // Tambah piutang baru jika outstandingAdded > 0 dan ada customer
                 if (outstandingAdded > 0 && selectedCustomer) {
                     selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) + outstandingAdded;
                     await updateItem(customerStore, selectedCustomer.id, selectedCustomer);
                 }
 
-                // Simpan transaksi ke sales (opsional, bisa ditambahkan store sales)
-                // Untuk sementara hanya notifikasi
-
-                // Data struk
+                // Simpan data struk
                 lastTransactionData = {
                     items: cartItems.map(item => ({
                         name: item.nama,
@@ -1727,7 +1830,6 @@
         }
 
         function handlePostPayment() {
-            // Tawarkan cetak struk
             if (confirm('Transaksi berhasil. Cetak struk sekarang?')) {
                 if (printerPort && lastTransactionData) {
                     doPrint(lastTransactionData);
@@ -1823,7 +1925,7 @@
             if (cartItems.length > 0) {
                 const confirmMsg = "Transaksi belum diproses. Proses pembayaran sekarang?";
                 if (confirm(confirmMsg)) {
-                    // langsung proses pembayaran dan auto print
+                    // panggil proses pembayaran
                     await prosesPembayaranBtn.click();
                 }
                 return;
