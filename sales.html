@@ -532,6 +532,18 @@
                     </button>
                 </div>
             </div>
+            <!-- Baris ketiga: tombol piutang, pending, payment -->
+            <div class="toolbar-row" style="justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <button class="btn" id="btnPiutang" style="background:#ccc; color:#333; border:none; padding:0.5rem 1rem; border-radius:20px; display:flex; align-items:center; gap:0.3rem;">
+                    <i data-feather="alert-triangle"></i> Piutang
+                </button>
+                <button class="btn" id="btnPending" style="background:#006B54; color:white; border:none; padding:0.5rem 1rem; border-radius:20px; display:flex; align-items:center; gap:0.3rem;">
+                    <i data-feather="clock"></i> Pending
+                </button>
+                <button class="btn" id="btnPayment" style="background:#006B54; color:white; border:none; padding:0.5rem 1rem; border-radius:20px; display:flex; align-items:center; gap:0.3rem;">
+                    <i data-feather="credit-card"></i> Payment
+                </button>
+            </div>
         </div>
 
         <!-- Container Produk (Grid/List) -->
@@ -602,6 +614,83 @@
         </div>
     </div>
 
+    <!-- MODAL CART -->
+    <div class="modal" id="modalCart">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>Keranjang Belanja</h3>
+                <button class="close-modal" id="closeModalCart">&times;</button>
+            </div>
+            <div style="overflow-x: auto; max-height: 60vh;">
+                <table class="modal-table" style="min-width: 600px;">
+                    <thead>
+                        <tr>
+                            <th>Produk</th>
+                            <th>Harga Satuan</th>
+                            <th>Qty</th>
+                            <th>Subtotal</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cartItemsBody">
+                        <tr><td colspan="5" style="text-align:center;">Keranjang kosong</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; padding-top:1rem; border-top:1px solid #eee;">
+                <strong>Total: Rp <span id="cartTotal">0</span></strong>
+                <button class="btn" id="checkoutBtn">Lanjut ke Pembayaran</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PENDING -->
+    <div class="modal" id="modalPending">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Simpan Pending Transaksi</h3>
+                <button class="close-modal" id="closeModalPending">&times;</button>
+            </div>
+            <form id="formPending">
+                <div class="form-group">
+                    <label>Nama / Kode Pending</label>
+                    <input type="text" id="namaPending" placeholder="Misal: PO-001" required>
+                </div>
+                <button type="submit" class="btn">Simpan</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PEMBAYARAN -->
+    <div class="modal" id="modalPayment">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Pembayaran</h3>
+                <button class="close-modal" id="closeModalPayment">&times;</button>
+            </div>
+            <div id="paymentDetail">
+                <p><strong>Total Belanja:</strong> Rp <span id="paymentTotal">0</span></p>
+                <div class="form-group">
+                    <label>Metode Pembayaran</label>
+                    <select id="metodePembayaran">
+                        <option value="tunai">Tunai</option>
+                        <option value="transfer">Transfer</option>
+                        <option value="kartu">Kartu Kredit/Debit</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah Dibayar</label>
+                    <input type="number" id="jumlahBayar" placeholder="0" step="1000">
+                </div>
+                <div class="form-group">
+                    <label>Kembalian</label>
+                    <input type="text" id="kembalian" readonly value="0">
+                </div>
+                <button class="btn" id="prosesPembayaran">Proses Pembayaran</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script biasa untuk sidebar (non-module) -->
     <script>
         feather.replace();
@@ -650,6 +739,7 @@
         let pendingCount = 0;
         let selectedCustomer = null;
         let cartItems = [];
+        let customerPiutang = 0; // untuk demo
 
         // Fungsi bantu
         function generateId() {
@@ -696,6 +786,25 @@
         const customerBadge = document.getElementById('customerBadge');
         const bundleBadge = document.getElementById('bundleBadge');
         const cartBadge = document.getElementById('cartBadge');
+        const btnPiutang = document.getElementById('btnPiutang');
+        const btnPending = document.getElementById('btnPending');
+        const btnPayment = document.getElementById('btnPayment');
+        const modalCart = document.getElementById('modalCart');
+        const modalPending = document.getElementById('modalPending');
+        const modalPayment = document.getElementById('modalPayment');
+        const closeModalCart = document.getElementById('closeModalCart');
+        const closeModalPending = document.getElementById('closeModalPending');
+        const closeModalPayment = document.getElementById('closeModalPayment');
+        const cartItemsBody = document.getElementById('cartItemsBody');
+        const cartTotal = document.getElementById('cartTotal');
+        const checkoutBtn = document.getElementById('checkoutBtn');
+        const formPending = document.getElementById('formPending');
+        const namaPending = document.getElementById('namaPending');
+        const paymentTotal = document.getElementById('paymentTotal');
+        const jumlahBayar = document.getElementById('jumlahBayar');
+        const kembalian = document.getElementById('kembalian');
+        const prosesPembayaran = document.getElementById('prosesPembayaran');
+        const metodePembayaran = document.getElementById('metodePembayaran');
 
         // State
         let currentView = 'grid';
@@ -876,12 +985,92 @@
             });
         }
 
-        // Fungsi untuk menambah ke cart (sementara hanya alert)
+        // Fungsi untuk menambah ke cart
         function tambahKeCart(produkId, qty) {
             const produk = allProducts.find(p => p.id === produkId);
             if (!produk) return;
-            alert(`Produk ${produk.nama} ditambahkan ke cart dengan qty ${qty}`);
-            // Di sini nanti update cartItems dan simpan ke localForage
+            // Validasi stok
+            if (produk.stokAwal < qty) {
+                alert(`Stok tidak mencukupi. Stok tersedia: ${produk.stokAwal}`);
+                return;
+            }
+            const existing = cartItems.find(item => item.produkId === produkId);
+            if (existing) {
+                existing.qty += qty;
+            } else {
+                cartItems.push({
+                    produkId: produk.id,
+                    nama: produk.nama,
+                    hargaJual: produk.hargaJual,
+                    qty: qty
+                });
+            }
+            updateCartBadge();
+            alert(`Produk ${produk.nama} ditambahkan ke cart`);
+        }
+
+        // Update badge cart
+        function updateCartBadge() {
+            const totalQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
+            cartBadge.textContent = totalQty;
+        }
+
+        // Render modal cart
+        function renderCartModal() {
+            if (!cartItemsBody) return;
+            if (cartItems.length === 0) {
+                cartItemsBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Keranjang kosong</td></tr>';
+                cartTotal.textContent = '0';
+                return;
+            }
+            let total = 0;
+            cartItemsBody.innerHTML = cartItems.map((item, index) => {
+                const subtotal = item.hargaJual * item.qty;
+                total += subtotal;
+                return `
+                    <tr data-index="${index}">
+                        <td>${item.nama}</td>
+                        <td>Rp ${item.hargaJual.toLocaleString()}</td>
+                        <td>
+                            <input type="number" class="cart-qty" value="${item.qty}" min="0.01" step="0.01" style="width:70px; padding:0.3rem; border:1px solid #ddd; border-radius:6px;">
+                        </td>
+                        <td>Rp ${subtotal.toLocaleString()}</td>
+                        <td>
+                            <button class="btn-icon delete remove-cart-item"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            cartTotal.textContent = total.toLocaleString();
+            feather.replace();
+
+            // Event listener untuk input qty
+            document.querySelectorAll('.cart-qty').forEach(input => {
+                input.addEventListener('change', function(e) {
+                    const row = this.closest('tr');
+                    const index = row.dataset.index;
+                    const newQty = parseFloat(this.value);
+                    if (isNaN(newQty) || newQty <= 0) {
+                        alert('Qty harus lebih dari 0');
+                        this.value = cartItems[index].qty;
+                        return;
+                    }
+                    cartItems[index].qty = newQty;
+                    renderCartModal();
+                    updateCartBadge();
+                });
+            });
+
+            // Event listener untuk hapus item
+            document.querySelectorAll('.remove-cart-item').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    const row = this.closest('tr');
+                    const index = row.dataset.index;
+                    cartItems.splice(index, 1);
+                    renderCartModal();
+                    updateCartBadge();
+                });
+            });
         }
 
         // Fungsi untuk menampilkan modal satuan
@@ -957,6 +1146,9 @@
             if (e.target === modalCustomer) modalCustomer.classList.remove('active');
             if (e.target === modalBundle) modalBundle.classList.remove('active');
             if (e.target === modalSatuan) modalSatuan.classList.remove('active');
+            if (e.target === modalCart) modalCart.classList.remove('active');
+            if (e.target === modalPending) modalPending.classList.remove('active');
+            if (e.target === modalPayment) modalPayment.classList.remove('active');
         });
         searchCustomer.addEventListener('input', () => {
             const keyword = searchCustomer.value.toLowerCase();
@@ -973,9 +1165,19 @@
             const customer = allCustomers.find(c => c.id === id);
             if (customer) {
                 selectedCustomer = customer;
+                // Demo piutang: asumsikan ada field piutang, untuk sementara set 100000
+                customerPiutang = 100000; // nanti bisa diganti dengan data real
                 alert(`Customer dipilih: ${customer.nama}`);
                 modalCustomer.classList.remove('active');
                 customerBadge.textContent = '1';
+                // Update tampilan tombol piutang
+                if (customerPiutang > 0) {
+                    btnPiutang.style.background = '#dc3545';
+                    btnPiutang.style.color = 'white';
+                } else {
+                    btnPiutang.style.background = '#ccc';
+                    btnPiutang.style.color = '#333';
+                }
             }
         });
 
@@ -1027,8 +1229,111 @@
 
         // Tombol Cart
         btnCart.addEventListener('click', () => {
-            alert('Menuju halaman Cart (belum dibuat)');
-            cartBadge.textContent = '0';
+            renderCartModal();
+            modalCart.classList.add('active');
+        });
+
+        // Tutup modal cart
+        closeModalCart.addEventListener('click', () => {
+            modalCart.classList.remove('active');
+        });
+
+        // Tombol Piutang
+        btnPiutang.addEventListener('click', () => {
+            if (!selectedCustomer) {
+                alert('Pilih customer terlebih dahulu');
+                return;
+            }
+            if (customerPiutang <= 0) {
+                alert('Customer tidak memiliki piutang');
+                return;
+            }
+            // Tambahkan piutang sebagai item ke cart
+            const existing = cartItems.find(item => item.produkId === 'piutang');
+            if (existing) {
+                existing.qty += 1; // atau tambah nilai? Kita buat item khusus
+            } else {
+                cartItems.push({
+                    produkId: 'piutang',
+                    nama: 'Piutang Customer',
+                    hargaJual: customerPiutang,
+                    qty: 1
+                });
+            }
+            updateCartBadge();
+            alert('Piutang ditambahkan ke cart');
+        });
+
+        // Tombol Pending
+        btnPending.addEventListener('click', () => {
+            modalPending.classList.add('active');
+        });
+
+        closeModalPending.addEventListener('click', () => {
+            modalPending.classList.remove('active');
+        });
+
+        formPending.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nama = namaPending.value.trim();
+            if (!nama) return;
+            // Simpan data pending (misal ke localForage)
+            // Untuk sementara, kita hanya update pendingCount dan alert
+            pendingCount++;
+            pendingCountSpan.textContent = pendingCount;
+            alert(`Transaksi pending "${nama}" disimpan`);
+            modalPending.classList.remove('active');
+            formPending.reset();
+        });
+
+        // Tombol Payment
+        btnPayment.addEventListener('click', () => {
+            if (cartItems.length === 0) {
+                alert('Keranjang masih kosong');
+                return;
+            }
+            const total = cartItems.reduce((sum, item) => sum + (item.hargaJual * item.qty), 0);
+            paymentTotal.textContent = total.toLocaleString();
+            jumlahBayar.value = '';
+            kembalian.value = '0';
+            modalPayment.classList.add('active');
+        });
+
+        closeModalPayment.addEventListener('click', () => {
+            modalPayment.classList.remove('active');
+        });
+
+        jumlahBayar.addEventListener('input', () => {
+            const total = parseFloat(paymentTotal.textContent.replace(/\./g, '')) || 0;
+            const bayar = parseFloat(jumlahBayar.value) || 0;
+            const kembali = bayar - total;
+            kembalian.value = kembali >= 0 ? kembali.toLocaleString() : '0 (kurang)';
+        });
+
+        prosesPembayaran.addEventListener('click', () => {
+            const total = parseFloat(paymentTotal.textContent.replace(/\./g, '')) || 0;
+            const bayar = parseFloat(jumlahBayar.value) || 0;
+            if (bayar < total) {
+                alert('Jumlah bayar kurang');
+                return;
+            }
+            // Proses pembayaran: kurangi stok, simpan transaksi, kosongkan cart
+            // Untuk sementara, kita hanya alert
+            alert('Pembayaran berhasil!');
+            cartItems = [];
+            updateCartBadge();
+            modalPayment.classList.remove('active');
+            modalCart.classList.remove('active');
+        });
+
+        // Checkout dari modal cart
+        checkoutBtn.addEventListener('click', () => {
+            if (cartItems.length === 0) {
+                alert('Keranjang kosong');
+                return;
+            }
+            modalCart.classList.remove('active');
+            btnPayment.click(); // buka modal payment
         });
 
         // Floating pending
