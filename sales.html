@@ -1337,19 +1337,19 @@
                 return;
             }
 
-            const keyword = barcodeInput.value.toLowerCase().trim();
+            const keyword = barcodeInput.value.trim().toLowerCase();
             let filtered = allProducts.filter(p => {
                 if (p.gudangId !== selectedWarehouseId) return false;
                 
                 // Cek nama, kode, barcode produk
-                const matchProduk = p.nama.toLowerCase().includes(keyword) ||
+                const matchProduk = (p.nama && p.nama.toLowerCase().includes(keyword)) ||
                                    (p.kode && p.kode.toLowerCase().includes(keyword)) ||
                                    (p.barcode && p.barcode.toLowerCase().includes(keyword));
                 if (matchProduk) return true;
                 
                 // Cek konversi satuan (barcode dari unit konversi)
                 const konversiProduk = allKonversi.filter(k => k.produkId === p.id);
-                return konversiProduk.some(k => k.barcode && k.barcode.toLowerCase().includes(keyword));
+                return konversiProduk.some(k => k.barcode && k.barcode.trim().toLowerCase().includes(keyword));
             });
 
             if (currentView === 'grid') {
@@ -1421,9 +1421,10 @@
 
             const barcodeLower = barcode.toLowerCase();
 
+            // Cari berdasarkan kode atau barcode produk
             let produk = allProducts.find(p => 
-                (p.kode && p.kode.toLowerCase() === barcodeLower) || 
-                (p.barcode && p.barcode.toLowerCase() === barcodeLower)
+                (p.kode && p.kode.trim().toLowerCase() === barcodeLower) || 
+                (p.barcode && p.barcode.trim().toLowerCase() === barcodeLower)
             );
 
             if (produk) {
@@ -1433,11 +1434,12 @@
                 return;
             }
 
-            for (let p of allProducts) {
-                if (p.konversi && Array.isArray(p.konversi)) {
-                    const konv = p.konversi.find(k => k.barcode && k.barcode.toLowerCase() === barcodeLower);
-                    if (konv) {
-                        tambahKeCart(p.id, 1, konv.id);
+            // Cari berdasarkan barcode konversi satuan
+            for (let konv of allKonversi) {
+                if (konv.barcode && konv.barcode.trim().toLowerCase() === barcodeLower) {
+                    const produk = allProducts.find(p => p.id === konv.produkId);
+                    if (produk) {
+                        tambahKeCart(produk.id, 1, konv.id);
                         barcodeInput.value = '';
                         renderProducts();
                         return;
@@ -1445,6 +1447,7 @@
                 }
             }
 
+            // Jika barcode 13 digit (format timbangan)
             if (barcode.length === 13) {
                 const flex = barcode.substr(0, barcodeConfig.flexLength);
                 if (flex !== barcodeConfig.flexValue) {
