@@ -377,6 +377,14 @@
             border-radius: 20px;
             cursor: pointer;
         }
+        .btn-secondary {
+            background: #ccc;
+            color: #333;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+        }
         .floating-pending {
             position: fixed;
             bottom: 20px;
@@ -513,6 +521,117 @@
             border-radius: 20px;
             cursor: pointer;
         }
+
+        /* Payment modal styles */
+        #modalPayment .modal-content { max-width: 600px; }
+        .payment-summary {
+            background: #f9f9f9;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .payment-summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+        .payment-summary-row.total {
+            font-weight: 600;
+            font-size: 1.2rem;
+            border-top: 1px solid #ddd;
+            padding-top: 8px;
+        }
+        .payment-methods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .payment-method-item {
+            background: #f9f9f9;
+            border-radius: 15px;
+            padding: 12px;
+            text-align: center;
+        }
+        .payment-method-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #006B54;
+        }
+        .payment-method-item input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #006B54;
+            border-radius: 15px;
+            font-size: 1rem;
+            text-align: right;
+        }
+        #shortage-display {
+            display: none;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #fff3f3;
+            border-radius: 10px;
+            border: 1px solid #ff6b6b;
+            color: #ff0000;
+            font-weight: 600;
+        }
+        .change-amount {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #006B54;
+        }
+        .payment-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .printer-section {
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+        }
+        .printer-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-light {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #ff4444;
+            transition: background-color 0.3s;
+        }
+        .status-light.connected {
+            background-color: #00C851;
+        }
+        #connect-printer-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #006B54;
+            color: white;
+            border: 1px solid #006B54;
+        }
+        #connect-printer-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+        #print-receipt-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* Modal konfirmasi piutang */
+        #confirmPiutangModal .modal-content { max-width: 400px; }
+
         /* Responsif */
         @media (max-width: 600px) {
             .warehouse-select { min-width: 130px; font-size:0.85rem; }
@@ -714,32 +833,84 @@
         </div>
     </div>
 
-    <!-- MODAL PEMBAYARAN -->
+    <!-- MODAL PEMBAYARAN (MULTI-PAYMENT) -->
     <div class="modal" id="modalPayment">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:600px;">
             <div class="modal-header">
                 <h3>Pembayaran</h3>
                 <button class="close-modal" id="closeModalPayment">&times;</button>
             </div>
-            <div id="paymentDetail">
-                <p><strong>Total Belanja:</strong> Rp <span id="paymentTotal">0</span></p>
-                <div class="form-group">
-                    <label>Metode Pembayaran</label>
-                    <select id="metodePembayaran">
-                        <option value="tunai">Tunai</option>
-                        <option value="transfer">Transfer</option>
-                        <option value="kartu">Kartu Kredit/Debit</option>
-                    </select>
+            <div class="modal-body">
+                <div class="payment-summary">
+                    <div class="payment-summary-row">
+                        <span>Total Belanja</span>
+                        <span id="paymentTotal">Rp 0</span>
+                    </div>
+                    <div class="payment-summary-row total">
+                        <span>Total Dibayar</span>
+                        <span id="paymentGrandTotal">Rp 0</span>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Jumlah Dibayar</label>
-                    <input type="number" id="jumlahBayar" placeholder="0" step="1000">
+                <div class="payment-methods-grid">
+                    <div class="payment-method-item">
+                        <label>Tunai</label>
+                        <input type="number" id="paymentCash" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                    </div>
+                    <div class="payment-method-item">
+                        <label>Kartu</label>
+                        <input type="number" id="paymentCard" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                    </div>
+                    <div class="payment-method-item">
+                        <label>Transfer</label>
+                        <input type="number" id="paymentTransfer" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                    </div>
+                    <div class="payment-method-item">
+                        <label>E-Wallet</label>
+                        <input type="number" id="paymentEwallet" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Kembalian</label>
-                    <input type="text" id="kembalian" readonly value="0">
+                <div id="shortageDisplay" style="display:none; color:red; margin-bottom:10px; padding:10px; background:#fff3f3; border-radius:10px;">
+                    Kurang bayar: Rp <span id="shortageAmount">0</span>
                 </div>
-                <button class="btn-primary" id="prosesPembayaran">Proses Pembayaran</button>
+                <div class="change-amount" id="changeAmount">Kembalian: Rp 0</div>
+                <div class="payment-actions">
+                    <button class="btn-secondary" onclick="document.getElementById('closeModalPayment').click()">Batal</button>
+                    <button class="btn-primary" id="prosesPembayaranBtn">Proses Pembayaran</button>
+                </div>
+                <div class="printer-section">
+                    <button id="connectPrinterBtn" class="btn-secondary" style="background:#006B54; color:white;">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                            <path d="M6 9V3h12v6"/>
+                            <rect x="6" y="15" width="12" height="6" rx="2"/>
+                        </svg>
+                        <span id="connectBtnText">Connect</span>
+                    </button>
+                    <div class="printer-status-indicator">
+                        <span class="status-light" id="printerStatusLight"></span>
+                        <span id="printerStatusText"></span>
+                    </div>
+                    <button id="printReceiptBtn" class="btn-primary" disabled>Print Struk</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL KONFIRMASI PIUTANG -->
+    <div class="modal" id="confirmPiutangModal">
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h3>Konfirmasi Piutang</h3>
+                <button class="close-modal" id="closeConfirmPiutang">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Jumlah bayar kurang sebesar <span id="shortageConfirm">Rp 0</span>.</p>
+                <p>Apakah ingin melanjutkan transaksi dengan mencatat sisa sebagai piutang?</p>
+                <p style="font-size:0.9rem; color:#666;">Pastikan pelanggan telah dipilih.</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <button class="btn-secondary" onclick="closeConfirmPiutangModal()">Batal</button>
+                    <button class="btn-primary" id="confirmPiutangBtn">Ya, Lanjutkan</button>
+                </div>
             </div>
         </div>
     </div>
@@ -802,12 +973,20 @@
         let allUnits = [];
         let allQtyBreak = [];
 
+        // Variabel pembayaran
+        let printerPort = null;
+        let pendingPayments = [];
+        let pendingTotalPaid = 0;
+        let lastTransactionData = null;
+
         // Fungsi bantu
         function generateId() { return Date.now() + '-' + Math.random().toString(36).substr(2, 9); }
         async function getAll(store) { let items = []; await store.iterate((value, key) => { items.push({ ...value, id: key }); }); return items; }
         async function findByIndex(store, field, value) { let results = []; await store.iterate((item, key) => { if (item[field] === value) results.push({ ...item, id: key }); }); return results; }
+        async function getById(store, id) { return await store.getItem(id); }
+        async function updateItem(store, id, data) { await store.setItem(id, data); }
 
-        // Elemen DOM
+        // Elemen DOM (sama seperti sebelumnya)
         const warehouseSelect = document.getElementById('warehouseSelect');
         const viewToggle = document.getElementById('viewToggle');
         const searchInput = document.getElementById('searchInput');
@@ -843,10 +1022,26 @@
         const cartItemsBody = document.getElementById('cartItemsBody');
         const cartTotal = document.getElementById('cartTotal');
         const formPending = document.getElementById('formPending');
+        // Elemen payment
         const paymentTotal = document.getElementById('paymentTotal');
-        const jumlahBayar = document.getElementById('jumlahBayar');
-        const kembalian = document.getElementById('kembalian');
-        const prosesPembayaran = document.getElementById('prosesPembayaran');
+        const paymentGrandTotal = document.getElementById('paymentGrandTotal');
+        const paymentCash = document.getElementById('paymentCash');
+        const paymentCard = document.getElementById('paymentCard');
+        const paymentTransfer = document.getElementById('paymentTransfer');
+        const paymentEwallet = document.getElementById('paymentEwallet');
+        const shortageDisplay = document.getElementById('shortageDisplay');
+        const shortageAmount = document.getElementById('shortageAmount');
+        const changeAmount = document.getElementById('changeAmount');
+        const prosesPembayaranBtn = document.getElementById('prosesPembayaranBtn');
+        const connectPrinterBtn = document.getElementById('connectPrinterBtn');
+        const connectBtnText = document.getElementById('connectBtnText');
+        const printerStatusLight = document.getElementById('printerStatusLight');
+        const printerStatusText = document.getElementById('printerStatusText');
+        const printReceiptBtn = document.getElementById('printReceiptBtn');
+        const closeConfirmPiutang = document.getElementById('closeConfirmPiutang');
+        const confirmPiutangBtn = document.getElementById('confirmPiutangBtn');
+        const shortageConfirm = document.getElementById('shortageConfirm');
+        const confirmPiutangModal = document.getElementById('confirmPiutangModal');
 
         // State
         let currentView = 'grid';
@@ -936,7 +1131,7 @@
             }
             feather.replace();
 
-            // Event tombol +/- (tetap perlu karena dinamis)
+            // Event tombol +/-
             document.querySelectorAll('.qty-minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -957,7 +1152,7 @@
             });
         }
 
-        // ========== FUNGSI CART DAN QTY BREAK ==========
+        // ========== FUNGSI CART DAN QTY BREAK (sama seperti sebelumnya) ==========
         async function tambahKeCart(produkId, qty, konversiId = null) {
             const produk = allProducts.find(p => p.id === produkId);
             if (!produk) return;
@@ -1118,7 +1313,6 @@
             const produk = allProducts.find(p => p.id === produkId);
             if (!produk) return;
 
-            // Ambil qty dari input yang sesuai
             const qtyInput = document.querySelector(`[data-id="${produkId}"] .qty-input`);
             let qty = parseFloat(qtyInput?.value) || 0;
             if (qty <= 0) {
@@ -1132,7 +1326,6 @@
                 const unit = allUnits.find(u => u.id === konv.unitId);
                 const unitName = unit ? unit.nama : '?';
                 const barcode = konv.barcode || '-';
-                // Harga satuan: jika konv punya hargaJual, gunakan itu, else produk.hargaJual * nilai
                 let hargaSatuan = konv.hargaJual || (produk.hargaJual * konv.nilai);
                 
                 const itemDiv = document.createElement('div');
@@ -1151,7 +1344,6 @@
                 satuanList.appendChild(itemDiv);
             }
 
-            // Event listener untuk tombol pilih
             document.querySelectorAll('.btn-pilih-unit').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const unitItem = e.target.closest('.unit-item');
@@ -1167,7 +1359,7 @@
             modalSatuan.classList.add('active');
         }
 
-        // ========== LONG PRESS (EVENT DELEGATION) ==========
+        // ========== LONG PRESS ==========
         let longPressTimer = null;
         let longPressProductId = null;
         let longPressTriggered = false;
@@ -1261,6 +1453,7 @@
             if (e.target === modalCart) modalCart.classList.remove('active');
             if (e.target === modalPending) modalPending.classList.remove('active');
             if (e.target === modalPayment) modalPayment.classList.remove('active');
+            if (e.target === confirmPiutangModal) confirmPiutangModal.classList.remove('active');
         });
         searchCustomer.addEventListener('input', () => {
             const keyword = searchCustomer.value.toLowerCase();
@@ -1335,35 +1528,317 @@
             formPending.reset();
         });
 
-        btnPayment.addEventListener('click', () => {
-            if (cartItems.length === 0) { alert('Keranjang masih kosong'); return; }
-            const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-            paymentTotal.textContent = total.toLocaleString();
-            jumlahBayar.value = '';
-            kembalian.value = '0';
-            modalPayment.classList.add('active');
-        });
-        closeModalPayment.addEventListener('click', () => modalPayment.classList.remove('active'));
-        jumlahBayar.addEventListener('input', () => {
-            const total = parseFloat(paymentTotal.textContent.replace(/\./g, '')) || 0;
-            const bayar = parseFloat(jumlahBayar.value) || 0;
-            const kembali = bayar - total;
-            kembalian.value = kembali >= 0 ? kembali.toLocaleString() : '0 (kurang)';
-        });
-        prosesPembayaran.addEventListener('click', () => {
-            const total = parseFloat(paymentTotal.textContent.replace(/\./g, '')) || 0;
-            const bayar = parseFloat(jumlahBayar.value) || 0;
-            if (bayar < total) { alert('Jumlah bayar kurang'); return; }
-            alert('Pembayaran berhasil!');
-            cartItems = [];
-            updateCartBadge();
-            modalPayment.classList.remove('active');
-            modalCart.classList.remove('active');
-        });
-
         floatingPending.addEventListener('click', () => { alert('Menuju halaman Pending Transaksi (belum dibuat)'); });
 
-        // AUTH
+        // ========== FUNGSI PEMBAYARAN ==========
+        function resetPaymentPage() {
+            paymentCash.value = '0';
+            paymentCard.value = '0';
+            paymentTransfer.value = '0';
+            paymentEwallet.value = '0';
+            paymentTotal.textContent = 'Rp 0';
+            paymentGrandTotal.textContent = 'Rp 0';
+            changeAmount.textContent = 'Kembalian: Rp 0';
+            shortageDisplay.style.display = 'none';
+        }
+
+        function setPaymentInputsDisabled(disabled) {
+            const inputs = [paymentCash, paymentCard, paymentTransfer, paymentEwallet];
+            inputs.forEach(el => { if (el) el.disabled = disabled; });
+        }
+
+        function openPaymentPage() {
+            if (cartItems.length === 0) {
+                alert('Keranjang masih kosong');
+                return;
+            }
+            modalCart.classList.remove('active');
+            resetPaymentPage();
+
+            const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+            paymentTotal.textContent = formatRupiah(total);
+            updatePaymentSummary();
+            modalPayment.classList.add('active');
+        }
+
+        btnPayment.addEventListener('click', openPaymentPage);
+
+        function closePaymentPage() {
+            modalPayment.classList.remove('active');
+            resetPaymentPage();
+            setPaymentInputsDisabled(false);
+            pendingPayments = [];
+            pendingTotalPaid = 0;
+        }
+        closeModalPayment.addEventListener('click', closePaymentPage);
+
+        function updatePaymentSummary() {
+            const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+            const cash = parseFloat(paymentCash.value) || 0;
+            const card = parseFloat(paymentCard.value) || 0;
+            const transfer = parseFloat(paymentTransfer.value) || 0;
+            const ewallet = parseFloat(paymentEwallet.value) || 0;
+            const paidTotal = cash + card + transfer + ewallet;
+
+            paymentGrandTotal.textContent = formatRupiah(paidTotal);
+
+            const change = paidTotal - total;
+            if (change >= 0) {
+                changeAmount.textContent = `Kembalian: ${formatRupiah(change)}`;
+                changeAmount.style.color = '#006B54';
+                shortageDisplay.style.display = 'none';
+            } else {
+                changeAmount.textContent = `Kembalian: Rp 0`;
+                changeAmount.style.color = 'red';
+                shortageDisplay.style.display = 'block';
+                shortageAmount.textContent = formatRupiah(total - paidTotal);
+            }
+        }
+
+        window.updatePaymentSummary = updatePaymentSummary;
+
+        prosesPembayaranBtn.addEventListener('click', async () => {
+            if (cartItems.length === 0) {
+                alert('Keranjang kosong');
+                return;
+            }
+
+            const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+            const cash = parseFloat(paymentCash.value) || 0;
+            const card = parseFloat(paymentCard.value) || 0;
+            const transfer = parseFloat(paymentTransfer.value) || 0;
+            const ewallet = parseFloat(paymentEwallet.value) || 0;
+            const paidTotal = cash + card + transfer + ewallet;
+            const shortage = total - paidTotal;
+
+            if (shortage > 0) {
+                if (!selectedCustomer) {
+                    alert('Untuk mencatat piutang, harus pilih pelanggan terlebih dahulu');
+                    return;
+                }
+                pendingPayments = [
+                    { method: 'cash', amount: cash },
+                    { method: 'card', amount: card },
+                    { method: 'transfer', amount: transfer },
+                    { method: 'ewallet', amount: ewallet }
+                ].filter(p => p.amount > 0);
+                pendingTotalPaid = paidTotal;
+
+                setPaymentInputsDisabled(true);
+
+                shortageConfirm.textContent = formatRupiah(shortage);
+                confirmPiutangModal.classList.add('active');
+                return;
+            }
+
+            await executePayment(paidTotal, 0);
+            handlePostPayment();
+        });
+
+        async function processPaymentWithPiutang() {
+            const paid = pendingTotalPaid;
+            const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+            const shortage = total - paid;
+
+            closeConfirmPiutangModal();
+
+            await executePayment(paid, shortage);
+            handlePostPayment();
+        }
+
+        confirmPiutangBtn.addEventListener('click', processPaymentWithPiutang);
+
+        function closeConfirmPiutangModal() {
+            confirmPiutangModal.classList.remove('active');
+            setPaymentInputsDisabled(false);
+            pendingPayments = [];
+            pendingTotalPaid = 0;
+        }
+        closeConfirmPiutang.addEventListener('click', closeConfirmPiutangModal);
+
+        async function executePayment(paidTotal, outstandingAdded) {
+            try {
+                // Kurangi stok
+                for (let item of cartItems) {
+                    if (item.produkId === 'piutang') continue; // piutang tidak kurangi stok
+                    const produk = allProducts.find(p => p.id === item.produkId);
+                    if (!produk) continue;
+                    // stokAwal adalah stok saat ini
+                    if (produk.stokAwal < item.qtyDasar) {
+                        alert(`Stok ${produk.nama} tidak mencukupi. Stok: ${produk.stokAwal}, dibutuhkan: ${item.qtyDasar}`);
+                        return;
+                    }
+                    produk.stokAwal -= item.qtyDasar;
+                    await updateItem(produkStore, produk.id, produk);
+                }
+
+                // Update piutang customer jika ada item piutang di cart
+                for (let item of cartItems) {
+                    if (item.produkId === 'piutang') {
+                        if (selectedCustomer) {
+                            selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) - item.subtotal;
+                            if (selectedCustomer.outstanding < 0) selectedCustomer.outstanding = 0;
+                            await updateItem(customerStore, selectedCustomer.id, selectedCustomer);
+                        }
+                    }
+                }
+
+                // Tambah piutang baru jika outstandingAdded > 0
+                if (outstandingAdded > 0 && selectedCustomer) {
+                    selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) + outstandingAdded;
+                    await updateItem(customerStore, selectedCustomer.id, selectedCustomer);
+                }
+
+                // Simpan transaksi ke sales (opsional, bisa ditambahkan store sales)
+                // Untuk sementara hanya notifikasi
+
+                // Data struk
+                lastTransactionData = {
+                    items: cartItems.map(item => ({
+                        name: item.nama,
+                        qty: item.qty,
+                        unit: item.unit || 'pcs',
+                        price: item.hargaSatuan,
+                        subtotal: item.subtotal
+                    })),
+                    total: cartItems.reduce((sum, i) => sum + i.subtotal, 0),
+                    paidAmount: paidTotal,
+                    change: paidTotal - (cartItems.reduce((sum, i) => sum + i.subtotal, 0)),
+                    date: new Date().toLocaleString('id-ID'),
+                    transactionNumber: 'TRX-' + Date.now()
+                };
+
+                // Kosongkan cart
+                cartItems = [];
+                selectedCustomer = null;
+                customerBadge.textContent = '0';
+                btnPiutang.classList.remove('active');
+                btnPiutang.style.background = '#ccc';
+
+                updateCartBadge();
+                renderCartModal();
+                closePaymentPage();
+
+                alert(`Pembayaran berhasil! ${outstandingAdded > 0 ? 'Piutang dicatat.' : ''}`);
+            } catch (error) {
+                console.error('Error executing payment:', error);
+                alert('Gagal memproses pembayaran: ' + error.message);
+            }
+        }
+
+        function handlePostPayment() {
+            // Tawarkan cetak struk
+            if (confirm('Transaksi berhasil. Cetak struk sekarang?')) {
+                if (printerPort && lastTransactionData) {
+                    doPrint(lastTransactionData);
+                } else {
+                    alert('Printer tidak terhubung atau data tidak ada');
+                }
+            }
+        }
+
+        // ========== FUNGSI PRINTER ==========
+        async function togglePrinter() {
+            if (printerPort) {
+                try {
+                    await printerPort.close();
+                    printerPort = null;
+                    updatePrinterStatus(false);
+                    alert('Printer diputuskan');
+                } catch (error) {
+                    console.error(error);
+                    alert('Gagal memutuskan printer');
+                }
+            } else {
+                if (!navigator.serial) {
+                    alert('Web Serial API tidak didukung di browser ini. Gunakan Chrome/Edge.');
+                    return;
+                }
+                try {
+                    const port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 9600 });
+                    printerPort = port;
+                    updatePrinterStatus(true);
+                    alert('Printer terhubung');
+                } catch (error) {
+                    console.error(error);
+                    alert('Gagal connect printer: ' + error.message);
+                }
+            }
+        }
+
+        function updatePrinterStatus(connected) {
+            if (connected) {
+                printerStatusLight.classList.add('connected');
+                printerStatusText.textContent = '';
+                connectBtnText.textContent = 'Disconnect';
+                printReceiptBtn.disabled = false;
+            } else {
+                printerStatusLight.classList.remove('connected');
+                printerStatusText.textContent = '';
+                connectBtnText.textContent = 'Connect';
+                printReceiptBtn.disabled = true;
+            }
+        }
+
+        async function doPrint(dataToPrint) {
+            if (!printerPort) {
+                alert('Printer tidak terhubung');
+                return;
+            }
+            try {
+                const writer = printerPort.writable.getWriter();
+                const encoder = new TextEncoder();
+                let receipt = '\n';
+                receipt += 'TOKO MUDA\n';
+                receipt += '===============\n';
+                receipt += `Tanggal: ${new Date().toLocaleString('id-ID')}\n`;
+                receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
+                receipt += '---------------\n';
+                dataToPrint.items.forEach(item => {
+                    receipt += `${item.name}\n`;
+                    receipt += `${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}\n`;
+                });
+                receipt += '---------------\n';
+                receipt += `Total    : ${formatRupiah(dataToPrint.total)}\n`;
+                receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
+                receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
+                receipt += '===============\n';
+                receipt += 'Terima kasih\n\n\n';
+
+                await writer.write(encoder.encode(receipt));
+                writer.releaseLock();
+                alert('Struk berhasil dicetak');
+            } catch (error) {
+                console.error('Error printing:', error);
+                alert('Gagal mencetak: ' + error.message);
+            }
+        }
+
+        async function printReceipt() {
+            if (!printerPort) {
+                alert('Printer belum terhubung');
+                return;
+            }
+            if (cartItems.length > 0) {
+                const confirmMsg = "Transaksi belum diproses. Proses pembayaran sekarang?";
+                if (confirm(confirmMsg)) {
+                    // langsung proses pembayaran dan auto print
+                    await prosesPembayaranBtn.click();
+                }
+                return;
+            }
+            if (lastTransactionData) {
+                await doPrint(lastTransactionData);
+                return;
+            }
+            alert('Tidak ada data untuk dicetak.');
+        }
+
+        connectPrinterBtn.addEventListener('click', togglePrinter);
+        printReceiptBtn.addEventListener('click', printReceipt);
+
+        // ========== AUTH ==========
         const loginBtn = document.getElementById('loginBtn');
         onAuthStateChanged(auth, (user) => {
             loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
@@ -1383,6 +1858,11 @@
         });
 
         document.getElementById('syncBtn').addEventListener('click', () => { alert('Fungsi sinkronisasi akan segera tersedia'); });
+
+        // Format Rupiah
+        function formatRupiah(angka) {
+            return 'Rp ' + angka.toLocaleString('id-ID');
+        }
 
         // Inisialisasi
         loadInitialData();
