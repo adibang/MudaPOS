@@ -105,44 +105,6 @@
             color: #006B54;
         }
         .sidebar-menu a i { color: #006B54; width: 20px; }
-        
-        /* CSS untuk submenu */
-        .has-submenu {
-            position: relative;
-        }
-        .has-submenu > a {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .has-submenu > a .arrow {
-            transition: transform 0.3s ease;
-            margin-left: auto;
-        }
-        .has-submenu.active > a .arrow {
-            transform: rotate(180deg);
-        }
-        .submenu {
-            list-style: none;
-            padding-left: 2.5rem;
-            margin-top: 0.5rem;
-            margin-bottom: 0.5rem;
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-        }
-        .has-submenu.active .submenu {
-            max-height: 500px; /* Nilai yang cukup besar untuk menampung semua submenu */
-        }
-        .submenu li {
-            margin-bottom: 0.25rem;
-        }
-        .submenu a {
-            padding: 0.5rem 1rem;
-            font-size: 0.9rem;
-            gap: 0.75rem;
-        }
-        
         .overlay {
             position: fixed;
             top: 0;
@@ -212,72 +174,24 @@
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2>MUDA POS</h2>
-            <button class="close-sidebar" id="closeSidebar"><i data-feather="x"></i></button>
+            <button class="close-sidebar" id="closeSidebar">
+                <i data-feather="x" width="20" height="20"></i>
+            </button>
         </div>
         <ul class="sidebar-menu">
-            <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
-            <li class="has-submenu" id="masterdataMenuItem">
-                <a href="#" class="menu-link" id="masterdataMenuToggle">
-                    <i data-feather="package"></i> Master Data
-                    <i data-feather="chevron-down" class="arrow"></i>
-                </a>
-                <ul class="submenu">
-                    <li><a href="masterdata.html" id="submenuTambahProduk"><i data-feather="plus-circle"></i> Tambah produk</a></li>
-                    <li><a href="masterdata.html" id="submenuDaftarProduk"><i data-feather="list"></i> Daftar produk</a></li>
-                    <li><a href="masterdata.html" id="submenuTambahKategori"><i data-feather="plus-circle"></i> Tambah kategori</a></li>
-                    <li><a href="masterdata.html" id="submenuDaftarKategori"><i data-feather="list"></i> Daftar kategori</a></li>
-                    <li><a href="masterdata.html" id="submenuTambahUnit"><i data-feather="plus-circle"></i> Tambah unit</a></li>
-                    <li><a href="masterdata.html" id="submenuDaftarUnit"><i data-feather="list"></i> Daftar unit</a></li>
-                </ul>
-            </li>
-            <li class="has-submenu" id="salesMenuItem">
-                <a href="#" class="menu-link" id="salesMenuToggle">
-                    <i data-feather="shopping-cart"></i> Sales
-                    <i data-feather="chevron-down" class="arrow"></i>
-                </a>
-                <ul class="submenu">
-                    <li><a href="sales.html" id="submenuSales"><i data-feather="shopping-cart"></i> Sales</a></li>
-                    <li><a href="sales-list.html" id="submenuDaftarSales"><i data-feather="list"></i> Daftar Sales</a></li>
-                </ul>
-            </li>
-            <li class="has-submenu" id="purchaseMenuItem">
-                <a href="#" class="menu-link" id="purchaseMenuToggle">
-                    <i data-feather="truck"></i> Purchase
-                    <i data-feather="chevron-down" class="arrow"></i>
-                </a>
-                <ul class="submenu">
-                    <li><a href="purchase.html" class="active"><i data-feather="shopping-cart"></i> Transaksi Pembelian</a></li>
-                    <li><a href="purchase-list.html"><i data-feather="list"></i> Daftar Pembelian</a></li>
-                </ul>
-            </li>
-            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
-            <li class="has-submenu" id="warehouseMenuItem">
-                <a href="#" class="menu-link" id="warehouseMenuToggle">
-                    <i data-feather="box"></i> Warehouse
-                    <i data-feather="chevron-down" class="arrow"></i>
-                </a>
-                <ul class="submenu">
-                    <li><a href="#" id="submenuTambahGudang"><i data-feather="plus-circle"></i> Tambah gudang</a></li>
-                    <li><a href="#" id="submenuDaftarGudang"><i data-feather="list"></i> Daftar gudang</a></li>
-                </ul>
-            </li>
-            <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
-            <li class="has-submenu" id="relationMenuItem">
-                <a href="#" class="menu-link" id="relationMenuToggle">
-                    <i data-feather="users"></i> Relation
-                    <i data-feather="chevron-down" class="arrow"></i>
-                </a>
-                <ul class="submenu">
-                    <li><a href="#" id="submenuTambahCustomer"><i data-feather="user-plus"></i> Tambah customer</a></li>
-                    <li><a href="#" id="submenuDaftarCustomer"><i data-feather="users"></i> Daftar customer</a></li>
-                    <li><a href="#" id="submenuTambahSupplier"><i data-feather="truck"></i> Tambah supplier</a></li>
-                    <li><a href="#" id="submenuDaftarSupplier"><i data-feather="list"></i> Daftar supplier</a></li>
-                </ul>
-            </li>
-            <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
-            <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
+            <li><a href="index.html"><i data-feather="home"></i> Home</a></li>
+            <li><a href="masterdata.html"><i data-feather="package"></i> Master Data</a></li>
+            <li><a href="sales.html"><i data-feather="shopping-cart"></i> Sales</a></li>
+            <li><a href="purchase.html"><i data-feather="truck"></i> Purchase</a></li>
+            <li><a href="finance.html"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li><a href="warehouse.html"><i data-feather="box"></i> Warehouse</a></li>
+            <li><a href="inventory.html"><i data-feather="layers"></i> Inventory</a></li>
+            <li><a href="relation.html"><i data-feather="users"></i> Relation</a></li>
+            <li><a href="report.html"><i data-feather="bar-chart-2"></i> Report</a></li>
+            <li><a href="setting.html"><i data-feather="settings"></i> Setting</a></li>
         </ul>
     </aside>
+
     <!-- Header -->
     <header class="header">
         <div class="header-left">
@@ -331,45 +245,6 @@
         menuToggle.addEventListener('click', openSidebar);
         closeSidebar.addEventListener('click', closeSidebarFunc);
         overlay.addEventListener('click', closeSidebarFunc);
-
-        // Fungsi untuk toggle submenu
-        function toggleSubmenu(menuItem) {
-            menuItem.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                this.classList.toggle('active');
-            });
-        }
-
-        // Aktifkan semua submenu
-        const submenuItems = document.querySelectorAll('.has-submenu');
-        submenuItems.forEach(item => toggleSubmenu(item));
-
-        // Tutup sidebar saat klik link di mobile
-        function handleMobileClick() {
-            if (window.innerWidth <= 768) {
-                document.querySelectorAll('.sidebar-menu a').forEach(link => {
-                    link.addEventListener('click', () => {
-                        // Jangan tutup sidebar jika yang diklik adalah parent menu (yang punya submenu)
-                        if (!link.closest('.has-submenu') || link.closest('.has-submenu').querySelector('.submenu') === null) {
-                            sidebar.classList.remove('open');
-                            overlay.classList.remove('active');
-                        }
-                    });
-                });
-            }
-        }
-        
-        handleMobileClick();
-
-        // Handle resize window
-        window.addEventListener('resize', function() {
-            // Reset event listeners untuk mobile
-            document.querySelectorAll('.sidebar-menu a').forEach(link => {
-                link.removeEventListener('click', handleMobileClick);
-            });
-            handleMobileClick();
-        });
     </script>
 
     <!-- Script module untuk Firebase (jika gagal, ikon tetap ada) -->
@@ -406,6 +281,16 @@
                 }
             }
         });
+
+        // Tutup sidebar saat klik link di mobile
+        if (window.innerWidth <= 768) {
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.addEventListener('click', () => {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('active');
+                });
+            });
+        }
     </script>
 </body>
 </html>
