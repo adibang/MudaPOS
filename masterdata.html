@@ -99,12 +99,50 @@
                     <li><a id="submenuDaftarUnit"><i data-feather="list"></i> Daftar unit</a></li>
                 </ul>
             </li>
-            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
-            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
+            <li class="has-submenu" id="salesMenuItem">
+                <a href="#" class="menu-link" id="salesMenuToggle">
+                    <i data-feather="shopping-cart"></i> Sales
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a href="sales.html" id="submenuSales"><i data-feather="shopping-cart"></i> Sales</a></li>
+                    <li><a href="sales-list.html" id="submenuDaftarSales"><i data-feather="list"></i> Daftar Sales</a></li>
+                </ul>
+            </li>
+            <li class="has-submenu" id="purchaseMenuItem">
+                <a href="#" class="menu-link" id="purchaseMenuToggle">
+                    <i data-feather="truck"></i> Purchase
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a href="purchase.html" class="active"><i data-feather="shopping-cart"></i> Transaksi Pembelian</a></li>
+                    <li><a href="purchase-list.html"><i data-feather="list"></i> Daftar Pembelian</a></li>
+                </ul>
+            </li>
             <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
-            <li><a href="warehouse.html" class="menu-link"><i data-feather="box"></i> Warehouse</a></li>
+            <li class="has-submenu" id="warehouseMenuItem">
+                <a href="#" class="menu-link" id="warehouseMenuToggle">
+                    <i data-feather="box"></i> Warehouse
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a id="submenuTambahGudang"><i data-feather="plus-circle"></i> Tambah gudang</a></li>
+                    <li><a id="submenuDaftarGudang"><i data-feather="list"></i> Daftar gudang</a></li>
+                </ul>
+            </li>
             <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
-            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
+            <li class="has-submenu" id="relationMenuItem">
+                <a href="#" class="menu-link" id="relationMenuToggle">
+                    <i data-feather="users"></i> Relation
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a id="submenuTambahCustomer"><i data-feather="user-plus"></i> Tambah customer</a></li>
+                    <li><a id="submenuDaftarCustomer"><i data-feather="users"></i> Daftar customer</a></li>
+                    <li><a id="submenuTambahSupplier"><i data-feather="truck"></i> Tambah supplier</a></li>
+                    <li><a id="submenuDaftarSupplier"><i data-feather="list"></i> Daftar supplier</a></li>
+                </ul>
+            </li>
             <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
             <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
         </ul>
