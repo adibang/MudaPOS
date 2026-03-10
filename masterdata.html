@@ -276,11 +276,23 @@
 
         <!-- ========== SECTION TAMBAH GUDANG ========== -->
         <div id="tambahGudangSection" class="content-section">
-            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Gudang</h2>
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Gudang Baru</h2>
             <form id="formTambahGudang">
                 <div class="form-group" style="max-width:350px;">
-                    <label>Nama Gudang</label>
+                    <label>Kode Gudang *</label>
+                    <input type="text" id="kodeGudang" required placeholder="Contoh: WH-001">
+                </div>
+                <div class="form-group" style="max-width:350px;">
+                    <label>Nama Gudang *</label>
                     <input type="text" id="namaGudang" required>
+                </div>
+                <div class="form-group" style="max-width:350px;">
+                    <label>Lokasi</label>
+                    <input type="text" id="lokasiGudang" placeholder="Contoh: Jl. Raya No. 123">
+                </div>
+                <div class="form-group" style="max-width:350px;">
+                    <label>Kapasitas (m³)</label>
+                    <input type="number" id="kapasitasGudang" placeholder="Contoh: 1000">
                 </div>
                 <button type="submit" class="btn">Simpan Gudang</button>
             </form>
@@ -290,8 +302,20 @@
         <div id="daftarGudangSection" class="content-section">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Gudang</h2>
             <div class="table-responsive">
-                <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
-                <tbody id="daftarGudangBody"><tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr></tbody></table>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kode</th>
+                            <th>Nama</th>
+                            <th>Lokasi</th>
+                            <th>Kapasitas</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daftarGudangBody">
+                        <tr><td colspan="5" style="text-align:center;">Memuat data...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
@@ -493,12 +517,15 @@
             unsubGudang = onSnapshot(q, (snapshot) => {
                 const tbody = document.getElementById('daftarGudangBody');
                 if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Belum ada data</td></tr>';
                 } else {
                     tbody.innerHTML = snapshot.docs.map(doc => {
                         const data = doc.data();
                         return `<tr>
+                            <td>${data.kode || '-'}</td>
                             <td>${data.nama}</td>
+                            <td>${data.lokasi || '-'}</td>
+                            <td>${data.kapasitas ? data.kapasitas + ' m³' : '-'}</td>
                             <td>
                                 <button class="btn-icon edit" onclick="editGudang('${doc.id}')"><i data-feather="edit-2"></i></button>
                                 <button class="btn-icon delete" onclick="hapusGudang('${doc.id}')"><i data-feather="trash-2"></i></button>
@@ -509,7 +536,7 @@
                 feather.replace();
             }, (error) => {
                 console.error('Snapshot gudang error:', error);
-                document.getElementById('daftarGudangBody').innerHTML = `<tr><td colspan="2" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+                document.getElementById('daftarGudangBody').innerHTML = `<tr><td colspan="5" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
             });
         }
 
@@ -519,7 +546,6 @@
             if (unsubProduk) unsubProduk();
             const q = query(produkCol, where('deleted', '==', false), orderBy('nama'));
             unsubProduk = onSnapshot(q, async (snapshot) => {
-                // Ambil data kategori dan unit untuk mapping
                 const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
                 const kategoriMap = {};
                 kategoriSnap.docs.forEach(d => kategoriMap[d.id] = d.data().nama);
@@ -587,7 +613,6 @@
             `;
             konversiContainer.appendChild(row);
 
-            // Isi dropdown unit untuk row ini
             const select = row.querySelector('.unitKonversi');
             (async () => {
                 const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false), orderBy('nama')));
@@ -685,18 +710,29 @@
         // ========== TAMBAH GUDANG ==========
         document.getElementById('formTambahGudang').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const kode = document.getElementById('kodeGudang').value.trim();
             const nama = document.getElementById('namaGudang').value.trim();
-            if (!nama) return alert('Nama gudang harus diisi');
+            const lokasi = document.getElementById('lokasiGudang').value.trim();
+            const kapasitas = document.getElementById('kapasitasGudang').value.trim();
+
+            if (!kode || !nama) {
+                alert('Kode dan Nama Gudang wajib diisi');
+                return;
+            }
+
             try {
                 await addDoc(gudangCol, {
+                    kode,
                     nama,
+                    lokasi,
+                    kapasitas: kapasitas ? parseInt(kapasitas) : null,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
                     deleted: false
                 });
                 alert('Gudang berhasil ditambahkan');
                 e.target.reset();
-                loadDropdowns();
+                loadDropdowns(); // perbarui dropdown di form produk
             } catch (error) {
                 console.error(error);
                 alert('Gagal menambah gudang: ' + error.message);
@@ -739,10 +775,29 @@
             }
         };
         window.editGudang = async (id) => {
-            const newName = prompt('Edit nama gudang:');
-            if (!newName) return;
             try {
-                await setDoc(doc(gudangCol, id), { nama: newName.trim(), updatedAt: serverTimestamp() }, { merge: true });
+                const docRef = doc(gudangCol, id);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    alert('Gudang tidak ditemukan');
+                    return;
+                }
+                const gudang = docSnap.data();
+
+                const kodeBaru = prompt('Edit Kode Gudang', gudang.kode || '');
+                if (kodeBaru === null) return;
+                const namaBaru = prompt('Edit Nama Gudang', gudang.nama || '');
+                if (namaBaru === null) return;
+                const lokasiBaru = prompt('Edit Lokasi', gudang.lokasi || '');
+                const kapasitasBaru = prompt('Edit Kapasitas (m³)', gudang.kapasitas || '');
+
+                await setDoc(docRef, {
+                    kode: kodeBaru,
+                    nama: namaBaru,
+                    lokasi: lokasiBaru,
+                    kapasitas: kapasitasBaru ? parseInt(kapasitasBaru) : null,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
             } catch (error) {
                 alert('Gagal edit: ' + error.message);
             }
@@ -853,7 +908,6 @@
                     produkRef = doc(produkCol, produkId);
                     await setDoc(produkRef, produkData, { merge: true });
 
-                    // Hapus konversi dan qty lama (soft delete)
                     const konvSnap = await getDocs(query(konversiCol, where('produkId', '==', produkId)));
                     for (const d of konvSnap.docs) {
                         await setDoc(doc(konversiCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
@@ -868,7 +922,6 @@
                     produkRef = await addDoc(produkCol, produkData);
                 }
 
-                // Simpan konversi baru
                 const konversiRows = document.querySelectorAll('.konversi-row');
                 for (let row of konversiRows) {
                     const unitId = row.querySelector('.unitKonversi').value;
@@ -889,7 +942,6 @@
                     });
                 }
 
-                // Simpan qty break baru
                 const qtyRows = document.querySelectorAll('.qtybreak-row');
                 for (let row of qtyRows) {
                     const minQty = row.querySelector('.minQty').value;
