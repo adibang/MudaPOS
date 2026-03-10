@@ -69,6 +69,9 @@
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
+        /* Search bar */
+        .search-bar { display:flex; gap:0.5rem; margin-bottom:1rem; }
+        .search-bar input { flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:6px; }
     </style>
 </head>
 <body>
@@ -223,6 +226,11 @@
         <!-- ========== SECTION DAFTAR PRODUK ========== -->
         <div id="daftarProdukSection" class="content-section">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Produk</h2>
+            <!-- Search bar for produk -->
+            <div class="search-bar">
+                <input type="text" id="searchProduk" placeholder="Cari berdasarkan kode, nama, barcode produk, atau barcode satuan...">
+                <button class="btn" id="clearSearchProduk">Clear</button>
+            </div>
             <div class="table-responsive">
                 <table>
                     <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Timbangan</th><th>Aksi</th></tr></thead>
@@ -246,6 +254,11 @@
         <!-- ========== SECTION DAFTAR KATEGORI ========== -->
         <div id="daftarKategoriSection" class="content-section">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Kategori</h2>
+            <!-- Search bar for kategori -->
+            <div class="search-bar">
+                <input type="text" id="searchKategori" placeholder="Cari nama kategori...">
+                <button class="btn" id="clearSearchKategori">Clear</button>
+            </div>
             <div class="table-responsive">
                 <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
                 <tbody id="daftarKategoriBody"><tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr></tbody></table>
@@ -430,6 +443,15 @@
         }
         window.showSection = showSection;
 
+        // ========== DATA GLOBAL UNTUK PENCARIAN ==========
+        let allProduk = [];
+        let allKonversi = [];
+        let allKategori = [];
+        let kategoriMap = {};
+        let unitMap = {};
+        let searchProdukTerm = '';
+        let searchKategoriTerm = '';
+
         // ========== LOAD DROPDOWNS ==========
         async function loadDropdowns() {
             try {
@@ -452,28 +474,27 @@
             }
         }
 
+        // ========== SUBSCRIBE KONVERSI (untuk pencarian barcode satuan) ==========
+        let unsubKonversi = null;
+        function subscribeKonversi() {
+            if (unsubKonversi) unsubKonversi();
+            const q = query(konversiCol, where('deleted', '==', false));
+            unsubKonversi = onSnapshot(q, (snapshot) => {
+                allKonversi = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderProdukFiltered(); // refresh tampilan produk jika ada perubahan konversi
+            }, (error) => {
+                console.error('Snapshot konversi error:', error);
+            });
+        }
+
         // ========== SUBSCRIBE DAFTAR KATEGORI ==========
         let unsubKategori = null;
         function subscribeDaftarKategori() {
             if (unsubKategori) unsubKategori();
             const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
             unsubKategori = onSnapshot(q, (snapshot) => {
-                const tbody = document.getElementById('daftarKategoriBody');
-                if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                } else {
-                    tbody.innerHTML = snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return `<tr>
-                            <td>${data.nama}</td>
-                            <td>
-                                <button class="btn-icon edit" onclick="editKategori('${doc.id}')"><i data-feather="edit-2"></i></button>
-                                <button class="btn-icon delete" onclick="hapusKategori('${doc.id}')"><i data-feather="trash-2"></i></button>
-                            </td>
-                        </tr>`;
-                    }).join('');
-                }
-                feather.replace();
+                allKategori = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderKategoriFiltered();
             }, (error) => {
                 console.error('Snapshot kategori error:', error);
                 document.getElementById('daftarKategoriBody').innerHTML = `<tr><td colspan="2" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
@@ -545,39 +566,109 @@
             if (unsubProduk) unsubProduk();
             const q = query(produkCol, where('deleted', '==', false), orderBy('nama'));
             unsubProduk = onSnapshot(q, async (snapshot) => {
+                allProduk = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Perbarui mapping kategori dan unit
                 const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
-                const kategoriMap = {};
+                kategoriMap = {};
                 kategoriSnap.docs.forEach(d => kategoriMap[d.id] = d.data().nama);
+                
                 const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
-                const unitMap = {};
+                unitMap = {};
                 unitSnap.docs.forEach(d => unitMap[d.id] = d.data().nama);
-
-                const tbody = document.getElementById('daftarProdukBody');
-                if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
-                } else {
-                    tbody.innerHTML = snapshot.docs.map(doc => {
-                        const p = doc.data();
-                        return `<tr>
-                            <td>${p.kode || '-'}</td>
-                            <td>${p.nama}</td>
-                            <td>${kategoriMap[p.kategoriId] || '-'}</td>
-                            <td>Rp ${(p.hargaJual || 0).toLocaleString()}</td>
-                            <td>${p.stokAwal || 0} ${unitMap[p.unitId] || ''}</td>
-                            <td>${p.produkTimbangan ? '✓' : '-'}</td>
-                            <td>
-                                <button class="btn-icon edit" onclick="editProduk('${doc.id}')"><i data-feather="edit-2"></i></button>
-                                <button class="btn-icon delete" onclick="hapusProduk('${doc.id}')"><i data-feather="trash-2"></i></button>
-                            </td>
-                        </tr>`;
-                    }).join('');
-                }
-                feather.replace();
+                
+                renderProdukFiltered();
             }, (error) => {
                 console.error('Snapshot produk error:', error);
                 document.getElementById('daftarProdukBody').innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
             });
         }
+
+        // ========== RENDER PRODUK DENGAN FILTER ==========
+        function renderProdukFiltered() {
+            const tbody = document.getElementById('daftarProdukBody');
+            const term = searchProdukTerm.toLowerCase().trim();
+            
+            let filtered = allProduk;
+            if (term) {
+                filtered = allProduk.filter(produk => {
+                    // Cek di field produk sendiri
+                    if (produk.kode && produk.kode.toLowerCase().includes(term)) return true;
+                    if (produk.nama && produk.nama.toLowerCase().includes(term)) return true;
+                    if (produk.barcode && produk.barcode.toLowerCase().includes(term)) return true;
+                    // Cek di barcode konversi
+                    const konversiProduk = allKonversi.filter(k => k.produkId === produk.id);
+                    return konversiProduk.some(k => k.barcode && k.barcode.toLowerCase().includes(term));
+                });
+            }
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada data</td></tr>';
+            } else {
+                tbody.innerHTML = filtered.map(produk => {
+                    const kategoriNama = kategoriMap[produk.kategoriId] || '-';
+                    const unitNama = unitMap[produk.unitId] || '';
+                    return `<tr>
+                        <td>${produk.kode || '-'}</td>
+                        <td>${produk.nama}</td>
+                        <td>${kategoriNama}</td>
+                        <td>Rp ${(produk.hargaJual || 0).toLocaleString()}</td>
+                        <td>${produk.stokAwal || 0} ${unitNama}</td>
+                        <td>${produk.produkTimbangan ? '✓' : '-'}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editProduk('${produk.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusProduk('${produk.id}')"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+            feather.replace();
+        }
+
+        // ========== RENDER KATEGORI DENGAN FILTER ==========
+        function renderKategoriFiltered() {
+            const tbody = document.getElementById('daftarKategoriBody');
+            const term = searchKategoriTerm.toLowerCase().trim();
+            let filtered = allKategori;
+            if (term) {
+                filtered = allKategori.filter(kat => kat.nama && kat.nama.toLowerCase().includes(term));
+            }
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Tidak ada data</td></tr>';
+            } else {
+                tbody.innerHTML = filtered.map(kat => {
+                    return `<tr>
+                        <td>${kat.nama}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editKategori('${kat.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusKategori('${kat.id}')"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+            feather.replace();
+        }
+
+        // ========== EVENT LISTENER PENCARIAN ==========
+        document.getElementById('searchProduk')?.addEventListener('input', (e) => {
+            searchProdukTerm = e.target.value;
+            renderProdukFiltered();
+        });
+        document.getElementById('clearSearchProduk')?.addEventListener('click', () => {
+            document.getElementById('searchProduk').value = '';
+            searchProdukTerm = '';
+            renderProdukFiltered();
+        });
+
+        document.getElementById('searchKategori')?.addEventListener('input', (e) => {
+            searchKategoriTerm = e.target.value;
+            renderKategoriFiltered();
+        });
+        document.getElementById('clearSearchKategori')?.addEventListener('click', () => {
+            document.getElementById('searchKategori').value = '';
+            searchKategoriTerm = '';
+            renderKategoriFiltered();
+        });
 
         // ========== FUNGSI UNTUK ROW KONVERSI DAN QTY BREAK ==========
         function tambahKonversiRow(data = null) {
@@ -1011,6 +1102,7 @@
         subscribeDaftarUnit();
         subscribeDaftarGudang();
         subscribeDaftarProduk();
+        subscribeKonversi(); // untuk pencarian barcode satuan
 
         // Jika ada section yang aktif saat load, pastikan subscribe untuk daftar
         if (sections.daftarProduk.classList.contains('active')) subscribeDaftarProduk();
