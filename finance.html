@@ -606,16 +606,16 @@
                 });
                 document.getElementById('cashBalance').innerText = 'Rp ' + cash.toLocaleString();
 
-                // Piutang dari sales yang belum lunas
-                const salesSnap = await getDocs(query(salesCol, where('status', '==', 'piutang')));
+                // Piutang dari sales yang belum lunas (outstanding > 0)
+                const salesSnap = await getDocs(query(salesCol, where('outstanding', '>', 0)));
                 let totalPiutang = 0;
                 salesSnap.forEach(doc => {
                     totalPiutang += doc.data().outstanding || 0;
                 });
                 document.getElementById('totalReceivable').innerText = 'Rp ' + totalPiutang.toLocaleString();
 
-                // Hutang dari purchase yang belum lunas
-                const purchaseSnap = await getDocs(query(purchaseCol, where('status', '==', 'hutang')));
+                // Hutang dari purchase yang belum lunas (outstanding > 0)
+                const purchaseSnap = await getDocs(query(purchaseCol, where('outstanding', '>', 0)));
                 let totalHutang = 0;
                 purchaseSnap.forEach(doc => {
                     totalHutang += doc.data().outstanding || 0;
@@ -633,12 +633,25 @@
                     where('createdAt', '<=', Timestamp.fromDate(endOfMonth))
                 ));
                 let totalSales = 0;
-                salesMonthSnap.forEach(doc => totalSales += doc.data().total || 0);
+                let totalHPP = 0;
+                salesMonthSnap.forEach(doc => {
+                    const sale = doc.data();
+                    totalSales += sale.total || 0;
+                    // Jika sale memiliki field totalPokok, gunakan itu
+                    if (sale.totalPokok) {
+                        totalHPP += sale.totalPokok;
+                    } else if (sale.items && Array.isArray(sale.items)) {
+                        // Fallback: jumlah subtotalPokok dari items
+                        sale.items.forEach(item => {
+                            totalHPP += item.subtotalPokok || 0;
+                        });
+                    } else {
+                        // Fallback lama (estimasi 70%)
+                        totalHPP += (sale.total || 0) * 0.7;
+                    }
+                });
 
-                // HPP (asumsi dari purchase? atau dari produk terjual? Sederhana: kita bisa ambil dari cost)
-                // Untuk demo, kita asumsikan HPP = 70% dari penjualan
-                const hpp = totalSales * 0.7;
-                const grossProfit = totalSales - hpp;
+                const grossProfit = totalSales - totalHPP;
 
                 // Pengeluaran bulan ini dari financeTransactions
                 const expenseMonthSnap = await getDocs(query(financeTransCol,
@@ -694,7 +707,7 @@
         async function loadReceivables() {
             const tbody = document.getElementById('receivableBody');
             try {
-                const salesSnap = await getDocs(query(salesCol, where('status', '==', 'piutang')));
+                const salesSnap = await getDocs(query(salesCol, where('outstanding', '>', 0)));
                 if (salesSnap.empty) {
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Tidak ada piutang</td></tr>';
                 } else {
@@ -741,7 +754,7 @@
         async function loadPayables() {
             const tbody = document.getElementById('payableBody');
             try {
-                const purchaseSnap = await getDocs(query(purchaseCol, where('status', '==', 'hutang')));
+                const purchaseSnap = await getDocs(query(purchaseCol, where('outstanding', '>', 0)));
                 if (purchaseSnap.empty) {
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Tidak ada hutang</td></tr>';
                 } else {
@@ -783,7 +796,7 @@
             }
         }
 
-        // ========== LABA RUGI ==========
+        // ========== LABA RUGI (DENGAN HPP AKURAT) ==========
         async function loadProfitLoss() {
             const startDate = document.getElementById('startDatePL').value;
             const endDate = document.getElementById('endDatePL').value;
@@ -800,14 +813,28 @@
                     where('createdAt', '<=', Timestamp.fromDate(end))
                 ));
                 let totalSales = 0;
-                salesSnap.forEach(doc => totalSales += doc.data().total || 0);
+                let totalHPP = 0;
+                salesSnap.forEach(doc => {
+                    const sale = doc.data();
+                    totalSales += sale.total || 0;
+                    // Prioritas: field totalPokok
+                    if (sale.totalPokok) {
+                        totalHPP += sale.totalPokok;
+                    } else if (sale.items && Array.isArray(sale.items)) {
+                        // Jumlah subtotalPokok dari items
+                        sale.items.forEach(item => {
+                            totalHPP += item.subtotalPokok || 0;
+                        });
+                    } else {
+                        // Fallback untuk data lama (estimasi 70%)
+                        totalHPP += (sale.total || 0) * 0.7;
+                    }
+                });
+
                 document.getElementById('totalSales').innerText = 'Rp ' + totalSales.toLocaleString();
+                document.getElementById('totalHPP').innerText = 'Rp ' + totalHPP.toLocaleString();
 
-                // HPP (asumsi dari cost produk, sederhana kita pakai 70% dari penjualan)
-                const hpp = totalSales * 0.7;
-                document.getElementById('totalHPP').innerText = 'Rp ' + hpp.toLocaleString();
-
-                const grossProfit = totalSales - hpp;
+                const grossProfit = totalSales - totalHPP;
                 document.getElementById('grossProfit').innerText = 'Rp ' + grossProfit.toLocaleString();
 
                 // Total pengeluaran
@@ -825,6 +852,7 @@
 
             } catch (error) {
                 console.error('Error load profit loss:', error);
+                alert('Gagal memuat laba rugi: ' + error.message);
             }
         }
 
@@ -866,7 +894,6 @@
 
         // ========== FUNGSI GLOBAL UNTUK EDIT/HAPUS ==========
         window.editCash = async (id) => {
-            // Implementasi edit (bisa diisi nanti)
             alert('Fitur edit belum diimplementasikan');
         };
         window.deleteCash = async (id) => {
@@ -881,7 +908,6 @@
         };
 
         window.showReceivableDetail = async (custId) => {
-            // Implementasi detail piutang per customer
             alert('Detail piutang untuk customer ' + custId);
         };
         window.showPayableDetail = async (suppId) => {
