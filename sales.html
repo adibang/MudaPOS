@@ -1009,7 +1009,7 @@
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
             collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc,
-            query, where, orderBy, serverTimestamp, runTransaction 
+            query, where, orderBy, serverTimestamp, runTransaction, writeBatch
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         console.log('Sales page dimulai...');
@@ -1021,8 +1021,9 @@
         const konversiCol = collection(dbCloud, 'konversiUnit');
         const unitCol = collection(dbCloud, 'unit');
         const qtyCol = collection(dbCloud, 'qtyBreak');
-        const pendingCol = collection(dbCloud, 'pending'); // untuk draft transaksi
-        const salesCol = collection(dbCloud, 'sales'); // untuk transaksi selesai (opsional)
+        const pendingCol = collection(dbCloud, 'pending');
+        const salesCol = collection(dbCloud, 'sales');
+        const settingsDocRef = doc(dbCloud, 'settings', 'app');
 
         // ========== DATA GLOBAL ==========
         let allProducts = [];
@@ -1040,13 +1041,20 @@
         let pendingPayments = [];
         let pendingTotalPaid = 0;
         let lastTransactionData = null;
-        let currentView = 'grid'; // default tampilan grid
+        let currentView = 'grid';
 
-        const barcodeConfig = {
+        // Konfigurasi default
+        let barcodeConfig = {
             flexLength: 2,
             flexValue: '11',
             productLength: 6,
             weightLength: 5
+        };
+        let printerSettings = {
+            autoConnect: false,
+            paperWidth: '58',
+            receiptHeader: '',
+            receiptFooter: ''
         };
 
         // ========== ELEMEN DOM ==========
@@ -1124,6 +1132,25 @@
             return 'Rp ' + angka.toLocaleString('id-ID');
         }
 
+        // ========== LOAD SETTINGS DARI FIRESTORE ==========
+        async function loadSettings() {
+            try {
+                const settingsSnap = await getDoc(settingsDocRef);
+                if (settingsSnap.exists()) {
+                    const data = settingsSnap.data();
+                    if (data.barcode) {
+                        barcodeConfig = { ...barcodeConfig, ...data.barcode };
+                    }
+                    if (data.printer) {
+                        printerSettings = { ...printerSettings, ...data.printer };
+                    }
+                }
+                console.log('Settings dimuat:', barcodeConfig, printerSettings);
+            } catch (error) {
+                console.error('Gagal memuat settings:', error);
+            }
+        }
+
         // ========== LOAD SEMUA DATA DARI FIRESTORE ==========
         async function loadAllData() {
             try {
@@ -1145,6 +1172,9 @@
                 allQtyBreak = qtySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 console.log('Data dimuat:', allProducts.length, 'produk');
+
+                // Load settings setelah data master (atau sebelum)
+                await loadSettings();
 
                 // Load daftar pending
                 await loadPendingFromDB();
@@ -1192,7 +1222,6 @@
                 return false;
             }
 
-            // Cek duplikasi kode (opsional)
             const existing = pendingList.find(p => p.pendingCode && p.pendingCode.toLowerCase() === pendingCode.toLowerCase());
             if (existing) {
                 pendingCodeError.textContent = 'Kode sudah digunakan.';
@@ -2106,13 +2135,11 @@
                     if (selectedCustomer) {
                         const custRef = doc(customerCol, selectedCustomer.id);
                         let newOutstanding = selectedCustomer.outstanding || 0;
-                        // Kurangi outstanding jika ada item piutang di keranjang
                         for (let item of cartItems) {
                             if (item.produkId === 'piutang') {
                                 newOutstanding -= item.subtotal;
                             }
                         }
-                        // Tambah outstanding jika ada kekurangan bayar
                         if (outstandingAdded > 0) {
                             newOutstanding += outstandingAdded;
                         }
@@ -2120,7 +2147,7 @@
                         transaction.update(custRef, { outstanding: newOutstanding, updatedAt: serverTimestamp() });
                     }
 
-                    // 4. Simpan transaksi ke koleksi sales (opsional)
+                    // 4. Simpan transaksi ke koleksi sales
                     const salesData = {
                         items: cartItems.map(item => ({
                             produkId: item.produkId,
@@ -2135,14 +2162,13 @@
                         change: paidTotal - (cartItems.reduce((sum, i) => sum + i.subtotal, 0)),
                         customerId: selectedCustomer ? selectedCustomer.id : null,
                         customerName: selectedCustomer ? selectedCustomer.nama : null,
-                        paymentMethods: pendingPayments, // array of {method, amount}
+                        paymentMethods: pendingPayments,
                         createdAt: serverTimestamp()
                     };
                     const salesRef = doc(salesCol);
                     transaction.set(salesRef, salesData);
                 });
 
-                // Simpan data struk untuk cetak
                 lastTransactionData = {
                     items: cartItems.map(item => ({
                         name: item.nama,
@@ -2158,7 +2184,6 @@
                     transactionNumber: 'TRX-' + Date.now()
                 };
 
-                // Kosongkan cart
                 cartItems = [];
                 selectedCustomer = null;
                 customerBadge.textContent = '0';
@@ -2239,6 +2264,9 @@
                 const writer = printerPort.writable.getWriter();
                 const encoder = new TextEncoder();
                 let receipt = '\n';
+                if (printerSettings.receiptHeader) {
+                    receipt += printerSettings.receiptHeader + '\n';
+                }
                 receipt += 'TOKO MUDA\n';
                 receipt += '===============\n';
                 receipt += `Tanggal: ${new Date().toLocaleString('id-ID')}\n`;
@@ -2253,6 +2281,9 @@
                 receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
                 receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
                 receipt += '===============\n';
+                if (printerSettings.receiptFooter) {
+                    receipt += printerSettings.receiptFooter + '\n';
+                }
                 receipt += 'Terima kasih\n\n\n';
 
                 await writer.write(encoder.encode(receipt));
