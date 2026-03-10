@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUDA POS - Setting</title>
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background:#f5f5f5; color:#333; font-size:14px; }
+        .text-primary { color:#006B54; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .btn-sync { background:transparent; border:1px solid #006B54; color:#006B54; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; margin-right:0.5rem; font-size:0.9rem; }
+        .btn-sync:hover { background:#e6f0ec; }
+        .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
+        .reset-btn:hover { background:#c82333; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
+        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
+        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
+        .sidebar-menu { list-style:none; }
+        .sidebar-menu li { margin-bottom:0.2rem; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
+        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
+        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
+        .has-submenu.open .submenu { display:block; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
+        .submenu a:hover { background:#e6f0ec; color:#006B54; }
+        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
+        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
+        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
+        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+        .content-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; display:none; }
+        .content-section.active { display:block; }
+        .form-group { margin-bottom:1rem; }
+        .form-group label { display:block; margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
+        .form-group input, .form-group select, .form-group textarea { width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
+        .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; margin-right:0.5rem; }
+        .btn:hover { background:#004d3b; }
+        .btn-secondary { background:#6c757d; }
+        .btn-secondary:hover { background:#5a6268; }
+        hr { margin:1.5rem 0; border:0; border-top:1px solid #e0e0e0; }
+        @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
+    </style>
+</head>
+<body>
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>MUDA POS</h2>
+            <button class="close-sidebar" id="closeSidebar"><i data-feather="x"></i></button>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
+            <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
+            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
+            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
+            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
+            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
+            <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
+            <!-- Setting dengan submenu -->
+            <li class="has-submenu" id="settingMenuItem">
+                <a href="#" class="menu-link" id="settingMenuToggle">
+                    <i data-feather="settings"></i> Setting
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a id="submenuConfig"><i data-feather="sliders"></i> Config</a></li>
+                    <li><a id="submenuPrinter"><i data-feather="printer"></i> Printer & Struk</a></li>
+                </ul>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
+        </div>
+        <div class="header-right" style="display:flex; align-items:center;">
+            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+        </div>
+    </header>
+
+    <!-- Tombol Reset (untuk development) -->
+    <button class="reset-btn" id="resetDbBtn" style="display:none;"><i data-feather="trash-2"></i> Reset</button>
+
+    <!-- Halaman Setting -->
+    <main class="main-content">
+        <h1 class="page-title">Pengaturan</h1>
+
+        <!-- Section Config (Barcode Timbangan) -->
+        <div id="configSection" class="content-section active">
+            <h2 style="margin-bottom:1.2rem;">Konfigurasi Barcode Timbangan</h2>
+            <form id="formBarcodeConfig">
+                <div class="form-group">
+                    <label>Jumlah Digit Flex</label>
+                    <input type="number" id="flexLength" min="1" max="3" value="2" required>
+                    <small class="text-muted">Biasanya 2 digit.</small>
+                </div>
+                <div class="form-group">
+                    <label>Nilai Flex</label>
+                    <input type="text" id="flexValue" value="11" required>
+                    <small class="text-muted">Kode identifikasi produk timbangan, misal "11".</small>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah Digit Kode Produk</label>
+                    <input type="number" id="productLength" min="1" max="10" value="6" required>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah Digit Berat (gram)</label>
+                    <input type="number" id="weightLength" min="1" max="10" value="5" required>
+                    <small class="text-muted">Contoh: 5 digit berarti berat maksimal 99999 gram.</small>
+                </div>
+                <button type="submit" class="btn">Simpan Konfigurasi</button>
+            </form>
+        </div>
+
+        <!-- Section Printer & Struk -->
+        <div id="printerSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem;">Pengaturan Printer & Struk</h2>
+            <form id="formPrinterConfig">
+                <div class="form-group">
+                    <label>Nama Toko / Header Struk</label>
+                    <input type="text" id="storeName" value="TOKO MUDA" required>
+                </div>
+                <div class="form-group">
+                    <label>Alamat Toko (opsional)</label>
+                    <textarea id="storeAddress" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Footer Struk</label>
+                    <input type="text" id="receiptFooter" value="Terima kasih">
+                </div>
+                <div class="form-group">
+                    <label>Ukuran Kertas (mm)</label>
+                    <select id="paperSize">
+                        <option value="58">58 mm</option>
+                        <option value="80">80 mm</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Format Tanggal</label>
+                    <select id="dateFormat">
+                        <option value="dd-MM-yyyy">DD-MM-YYYY</option>
+                        <option value="yyyy-MM-dd">YYYY-MM-DD</option>
+                        <option value="dd/MM/yyyy">DD/MM/YYYY</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Simpan Pengaturan Printer</button>
+            </form>
+        </div>
+    </main>
+
+    <!-- Script sidebar (non-module) -->
+    <script>
+        feather.replace();
+
+        const menuToggle = document.getElementById('menuToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+        function closeSidebarFunc() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+        menuToggle.addEventListener('click', openSidebar);
+        closeSidebar.addEventListener('click', closeSidebarFunc);
+        overlay.addEventListener('click', closeSidebarFunc);
+
+        // Toggle submenu setting
+        const settingItem = document.getElementById('settingMenuItem');
+        const settingToggle = document.getElementById('settingMenuToggle');
+        if (settingToggle) {
+            settingToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                settingItem.classList.toggle('open');
+            });
+        }
+
+        window.showSection = function(sectionName) { };
+    </script>
+
+    <!-- Script module utama (Firestore) -->
+    <script type="module">
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
+        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { collection, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        console.log('Setting page dimulai');
+
+        // Referensi dokumen settings
+        const barcodeConfigRef = doc(dbCloud, 'settings', 'barcodeConfig');
+        const printerConfigRef = doc(dbCloud, 'settings', 'printerConfig');
+
+        // Elemen DOM
+        const configSection = document.getElementById('configSection');
+        const printerSection = document.getElementById('printerSection');
+        const submenuConfig = document.getElementById('submenuConfig');
+        const submenuPrinter = document.getElementById('submenuPrinter');
+        const loginBtn = document.getElementById('loginBtn');
+
+        // Form elements
+        const flexLength = document.getElementById('flexLength');
+        const flexValue = document.getElementById('flexValue');
+        const productLength = document.getElementById('productLength');
+        const weightLength = document.getElementById('weightLength');
+        const storeName = document.getElementById('storeName');
+        const storeAddress = document.getElementById('storeAddress');
+        const receiptFooter = document.getElementById('receiptFooter');
+        const paperSize = document.getElementById('paperSize');
+        const dateFormat = document.getElementById('dateFormat');
+
+        // ========== NAVIGASI SECTION ==========
+        function showSection(section) {
+            configSection.classList.remove('active');
+            printerSection.classList.remove('active');
+            submenuConfig.classList.remove('active');
+            submenuPrinter.classList.remove('active');
+            section.classList.add('active');
+            if (section === configSection) submenuConfig.classList.add('active');
+            else submenuPrinter.classList.add('active');
+            if (window.innerWidth <= 768 && typeof closeSidebarFunc !== 'undefined') {
+                closeSidebarFunc();
+            }
+        }
+
+        submenuConfig.addEventListener('click', (e) => {
+            e.preventDefault();
+            showSection(configSection);
+            loadBarcodeConfig();
+        });
+        submenuPrinter.addEventListener('click', (e) => {
+            e.preventDefault();
+            showSection(printerSection);
+            loadPrinterConfig();
+        });
+
+        // ========== LOAD KONFIGURASI BARCODE ==========
+        async function loadBarcodeConfig() {
+            try {
+                const snap = await getDoc(barcodeConfigRef);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    flexLength.value = data.flexLength || 2;
+                    flexValue.value = data.flexValue || '11';
+                    productLength.value = data.productLength || 6;
+                    weightLength.value = data.weightLength || 5;
+                } else {
+                    // default
+                    flexLength.value = 2;
+                    flexValue.value = '11';
+                    productLength.value = 6;
+                    weightLength.value = 5;
+                }
+            } catch (error) {
+                console.error('Gagal memuat konfigurasi barcode:', error);
+                alert('Gagal memuat: ' + error.message);
+            }
+        }
+
+        // ========== LOAD KONFIGURASI PRINTER ==========
+        async function loadPrinterConfig() {
+            try {
+                const snap = await getDoc(printerConfigRef);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    storeName.value = data.storeName || 'TOKO MUDA';
+                    storeAddress.value = data.storeAddress || '';
+                    receiptFooter.value = data.receiptFooter || 'Terima kasih';
+                    paperSize.value = data.paperSize || '58';
+                    dateFormat.value = data.dateFormat || 'dd-MM-yyyy';
+                } else {
+                    storeName.value = 'TOKO MUDA';
+                    storeAddress.value = '';
+                    receiptFooter.value = 'Terima kasih';
+                    paperSize.value = '58';
+                    dateFormat.value = 'dd-MM-yyyy';
+                }
+            } catch (error) {
+                console.error('Gagal memuat konfigurasi printer:', error);
+                alert('Gagal memuat: ' + error.message);
+            }
+        }
+
+        // ========== SIMPAN KONFIGURASI BARCODE ==========
+        document.getElementById('formBarcodeConfig').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                flexLength: parseInt(flexLength.value),
+                flexValue: flexValue.value.trim(),
+                productLength: parseInt(productLength.value),
+                weightLength: parseInt(weightLength.value),
+                updatedAt: serverTimestamp(),
+                updatedBy: auth.currentUser?.uid || null
+            };
+            try {
+                await setDoc(barcodeConfigRef, data, { merge: true });
+                alert('Konfigurasi barcode berhasil disimpan');
+            } catch (error) {
+                console.error(error);
+                alert('Gagal menyimpan: ' + error.message);
+            }
+        });
+
+        // ========== SIMPAN KONFIGURASI PRINTER ==========
+        document.getElementById('formPrinterConfig').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                storeName: storeName.value.trim(),
+                storeAddress: storeAddress.value.trim(),
+                receiptFooter: receiptFooter.value.trim(),
+                paperSize: paperSize.value,
+                dateFormat: dateFormat.value,
+                updatedAt: serverTimestamp(),
+                updatedBy: auth.currentUser?.uid || null
+            };
+            try {
+                await setDoc(printerConfigRef, data, { merge: true });
+                alert('Pengaturan printer berhasil disimpan');
+            } catch (error) {
+                console.error(error);
+                alert('Gagal menyimpan: ' + error.message);
+            }
+        });
+
+        // ========== AUTH ==========
+        onAuthStateChanged(auth, (user) => {
+            loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            feather.replace();
+        });
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
+            } else {
+                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
+            }
+        });
+
+        // ========== INITIAL LOAD ==========
+        // Muat data untuk section aktif
+        if (configSection.classList.contains('active')) {
+            loadBarcodeConfig();
+        } else if (printerSection.classList.contains('active')) {
+            loadPrinterConfig();
+        } else {
+            // default
+            showSection(configSection);
+            loadBarcodeConfig();
+        }
+    </script>
+</body>
+</html>
