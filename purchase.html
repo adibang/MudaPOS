@@ -135,13 +135,13 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <!-- Tombol Sync disembunyikan karena tidak diperlukan lagi -->
+            <!-- Tombol Sync disembunyikan karena tidak diperlukan -->
             <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
 
-    <!-- Tombol Reset Darurat (tidak diperlukan) -->
+    <!-- Tombol Reset Darurat disembunyikan -->
     <button class="reset-btn" id="resetDbBtn" style="display:none;"><i data-feather="trash-2"></i> Reset DB</button>
 
     <!-- Halaman Purchase -->
@@ -279,11 +279,14 @@
 
     <!-- Script module untuk logika purchase (Firestore) -->
     <script type="module">
-        import { db, auth, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
+        // ========== IMPOR FIREBASE ==========
+        import { auth, provider, db, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
         import { 
-            collection, doc, getDocs, getDoc, setDoc, addDoc, 
-            query, where, orderBy, serverTimestamp, runTransaction 
+            collection, doc, getDocs, getDoc, query, where, 
+            serverTimestamp, runTransaction 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        console.log('Firebase berhasil dimuat');
 
         // ========== REFERENSI KOLEKSI ==========
         const produkCol = collection(db, 'produk');
@@ -292,8 +295,8 @@
         const konversiCol = collection(db, 'konversiUnit');
         const purchaseCol = collection(db, 'purchase');
 
-        // ========== STATE ==========
-        let cart = []; // setiap item: { id, nama, kode, hargaBeli, qty }
+        // ========== STATE KERANJANG ==========
+        let cart = [];
 
         // ========== ELEMEN DOM ==========
         const supplierSelect = document.getElementById('supplierSelect');
@@ -313,18 +316,20 @@
         const utangSpan = document.getElementById('utang');
         const simpanBtn = document.getElementById('simpanTransaksi');
         const loginBtn = document.getElementById('loginBtn');
+        const syncBtn = document.getElementById('syncBtn');
+        const resetBtn = document.getElementById('resetDbBtn');
+
+        // Sembunyikan tombol yang tidak diperlukan
+        if (syncBtn) syncBtn.style.display = 'none';
+        if (resetBtn) resetBtn.style.display = 'none';
 
         // ========== LOAD DROPDOWNS ==========
         async function loadSuppliers() {
             try {
                 const q = query(supplierCol, where('deleted', '==', false));
                 const snapshot = await getDocs(q);
-                let options = '<option value="">-- Pilih Supplier --</option>';
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    options += `<option value="${doc.id}">${data.nama} (${data.kode})</option>`;
-                });
-                supplierSelect.innerHTML = options;
+                supplierSelect.innerHTML = '<option value="">-- Pilih Supplier --</option>' + 
+                    snapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().nama} (${doc.data().kode})</option>`).join('');
             } catch (error) {
                 console.error('Gagal memuat supplier:', error);
                 alert('Gagal memuat data supplier: ' + error.message);
@@ -335,12 +340,8 @@
             try {
                 const q = query(gudangCol, where('deleted', '==', false));
                 const snapshot = await getDocs(q);
-                let options = '<option value="">-- Pilih Gudang --</option>';
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    options += `<option value="${doc.id}">${data.nama}</option>`;
-                });
-                warehouseSelect.innerHTML = options;
+                warehouseSelect.innerHTML = '<option value="">-- Pilih Gudang --</option>' + 
+                    snapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().nama}</option>`).join('');
             } catch (error) {
                 console.error('Gagal memuat gudang:', error);
                 alert('Gagal memuat data gudang: ' + error.message);
@@ -354,7 +355,6 @@
                 const snapshot = await getDocs(q);
                 let semuaProduk = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // Filter berdasarkan input
                 if (filter.trim()) {
                     const lower = filter.toLowerCase();
                     semuaProduk = semuaProduk.filter(p => 
@@ -363,16 +363,12 @@
                         (p.barcode && p.barcode.toLowerCase().includes(lower))
                     );
 
-                    // Jika tidak ditemukan, coba cari berdasarkan barcode konversi
                     if (semuaProduk.length === 0) {
+                        // Cari berdasarkan barcode konversi
                         const konvQuery = query(konversiCol, where('barcode', '>=', lower), where('barcode', '<=', lower + '\uf8ff'));
                         const konvSnap = await getDocs(konvQuery);
                         const produkIds = [...new Set(konvSnap.docs.map(d => d.data().produkId))];
-                        if (produkIds.length > 0) {
-                            const produkQuery = query(produkCol, where('id', 'in', produkIds));
-                            const produkSnap = await getDocs(produkQuery);
-                            semuaProduk = produkSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        }
+                        semuaProduk = semuaProduk.filter(p => produkIds.includes(p.id));
                     }
                 }
 
@@ -395,7 +391,7 @@
                 `).join('');
                 feather.replace();
 
-                // Event listener untuk tombol +/- dan klik kartu
+                // Event listener tombol +/- 
                 document.querySelectorAll('.product-card .minus').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -414,6 +410,8 @@
                         input.value = val + 1;
                     });
                 });
+
+                // Klik kartu untuk tambah ke keranjang
                 document.querySelectorAll('.product-card').forEach(card => {
                     card.addEventListener('click', async (e) => {
                         if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
@@ -432,7 +430,7 @@
                 });
             } catch (error) {
                 console.error('Gagal memuat produk:', error);
-                productListContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:red;">Gagal memuat produk: ${error.message}</div>`;
+                productListContainer.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:red;">Gagal memuat produk</div>';
             }
         }
 
@@ -494,7 +492,6 @@
             `}).join('');
             feather.replace();
 
-            // Event untuk input harga beli
             document.querySelectorAll('.harga-beli').forEach(input => {
                 input.addEventListener('change', (e) => {
                     const index = e.target.dataset.index;
@@ -505,7 +502,6 @@
                 });
             });
 
-            // Event untuk tombol di keranjang
             document.querySelectorAll('.cart-minus').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const index = btn.dataset.index;
@@ -569,7 +565,7 @@
             }
         }
 
-        // Event listener untuk input biaya
+        // Event listener input biaya
         [diskonPersen, diskonRp, ongkir, biayaLain, dibayar].forEach(el => {
             el.addEventListener('input', hitungTotal);
         });
@@ -582,7 +578,7 @@
             if (e.key === 'Enter') renderProductList(searchInput.value);
         });
 
-        // ========== SIMPAN TRANSAKSI (dengan transaksi Firestore) ==========
+        // ========== SIMPAN TRANSAKSI ==========
         simpanBtn.addEventListener('click', async () => {
             if (!supplierSelect.value) {
                 alert('Pilih supplier terlebih dahulu');
@@ -597,7 +593,6 @@
                 return;
             }
 
-            // Hitung total
             let subtotal = cart.reduce((sum, item) => sum + (item.hargaBeli * item.qty), 0);
             let diskonRpVal = parseFloat(diskonRp.value) || 0;
             let diskonPersenVal = parseFloat(diskonPersen.value) || 0;
@@ -613,7 +608,6 @@
 
             try {
                 await runTransaction(db, async (transaction) => {
-                    // Data purchase
                     const purchaseData = {
                         tanggal: new Date().toISOString(),
                         supplierId: supplierSelect.value,
@@ -636,11 +630,9 @@
                         createdAt: serverTimestamp()
                     };
 
-                    // Simpan purchase
                     const purchaseRef = doc(purchaseCol);
                     transaction.set(purchaseRef, purchaseData);
 
-                    // Update stok dan harga dasar untuk setiap produk
                     for (let item of cart) {
                         const produkRef = doc(produkCol, item.id);
                         const produkSnap = await transaction.get(produkRef);
@@ -668,7 +660,6 @@
 
                 alert('Transaksi berhasil disimpan' + (utang > 0 ? ` dengan utang Rp ${utang.toLocaleString()}` : ''));
 
-                // Reset
                 cart = [];
                 renderCart();
                 supplierSelect.value = '';
@@ -690,10 +681,10 @@
             try {
                 if (user) {
                     loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
-                    console.log('User logged in:', user.email);
+                    console.log('Logged in as:', user.email);
                 } else {
                     loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
-                    console.log('User logged out');
+                    console.log('Logged out');
                 }
                 feather.replace();
             } catch (error) {
@@ -715,14 +706,6 @@
                 console.error('Gagal login/logout:', error);
                 alert('Gagal: ' + error.message);
             }
-        });
-
-        // ========== TOMBOL SYNC DAN RESET (tidak digunakan) ==========
-        document.getElementById('syncBtn').addEventListener('click', () => {
-            alert('Sinkronasi real-time aktif. Tidak perlu sync manual.');
-        });
-        document.getElementById('resetDbBtn').addEventListener('click', () => {
-            alert('Data tersimpan di cloud, reset lokal tidak diperlukan.');
         });
 
         // ========== INITIAL LOAD ==========
