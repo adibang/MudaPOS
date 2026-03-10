@@ -6,8 +6,6 @@
     <title>MUDA POS - Daftar Pembelian</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- LocalForage -->
-    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <style>
         /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
@@ -84,7 +82,7 @@
                 </ul>
             </li>
             <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
-            <li><a href="warehouse.html" class="menu-link"><i data-feather="box"></i> Warehouse</a></li>
+            <!-- Warehouse dihapus karena sudah pindah ke masterdata -->
             <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
             <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
             <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
@@ -98,12 +96,12 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <button class="btn-sync" id="syncBtn"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
 
-    <!-- Tombol Reset Darurat (khusus purchase list) -->
+    <!-- Tombol Reset Darurat (untuk development) -->
     <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Semua Purchase</button>
 
     <!-- Halaman Daftar Pembelian -->
@@ -150,7 +148,6 @@
         closeSidebar.addEventListener('click', closeSidebarFunc);
         overlay.addEventListener('click', closeSidebarFunc);
 
-        // Toggle submenu purchase
         const purchaseItem = document.getElementById('purchaseMenuItem');
         const purchaseToggle = document.getElementById('purchaseMenuToggle');
         if (purchaseToggle) {
@@ -161,96 +158,112 @@
         }
     </script>
 
-    <!-- Script module untuk logika daftar pembelian -->
+    <!-- Script module untuk logika daftar pembelian (Firestore) -->
     <script type="module">
-        import { auth, provider } from './js/firebase-config.js';
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { 
+            collection, doc, getDocs, query, where, orderBy, 
+            onSnapshot, deleteDoc 
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Inisialisasi LocalForage untuk purchase
-        const purchaseStore = localforage.createInstance({ name: 'purchase' });
-        const supplierStore = localforage.createInstance({ name: 'supplier' });
+        console.log('Memulai purchase-list Firestore');
 
-        // Fungsi bantu
-        async function getAll(store) {
-            let items = [];
-            await store.iterate((value, key) => {
-                items.push({ ...value, id: key });
-            });
-            return items;
-        }
-        async function getById(store, id) {
-            return await store.getItem(id);
-        }
-        async function removeItem(store, id) {
-            await store.removeItem(id);
-        }
+        // Referensi koleksi
+        const purchaseCol = collection(dbCloud, 'purchase');
+        const supplierCol = collection(dbCloud, 'supplier');
 
-        // Format tanggal
+        // Elemen DOM
+        const tbody = document.getElementById('purchaseListBody');
+        const loginBtn = document.getElementById('loginBtn');
+        const resetBtn = document.getElementById('resetDbBtn');
+        const syncBtn = document.getElementById('syncBtn');
+
+        // Sembunyikan tombol sync
+        if (syncBtn) syncBtn.style.display = 'none';
+
+        // Fungsi format tanggal
         function formatDate(isoString) {
             if (!isoString) return '-';
-            const d = new Date(isoString);
-            return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+            try {
+                const d = new Date(isoString);
+                return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+            } catch {
+                return isoString;
+            }
         }
 
-        // Muat daftar purchase
-        async function loadPurchaseList() {
+        // Ambil data supplier untuk mapping
+        let supplierMap = {};
+        async function loadSuppliers() {
             try {
-                const purchases = await getAll(purchaseStore);
-                const suppliers = await getAll(supplierStore);
-                const supplierMap = Object.fromEntries(suppliers.map(s => [s.id, s.nama]));
+                const q = query(supplierCol, where('deleted', '==', false));
+                const snapshot = await getDocs(q);
+                supplierMap = {};
+                snapshot.docs.forEach(doc => {
+                    supplierMap[doc.id] = doc.data().nama;
+                });
+                console.log('Supplier dimuat:', supplierMap);
+            } catch (error) {
+                console.error('Gagal memuat supplier:', error);
+            }
+        }
 
-                const tbody = document.getElementById('purchaseListBody');
-                if (purchases.length === 0) {
+        // Subscribe ke koleksi purchase (urut dari terbaru)
+        let unsubPurchase = null;
+        function subscribePurchase() {
+            if (unsubPurchase) unsubPurchase();
+            const q = query(purchaseCol, orderBy('tanggal', 'desc')); // asumsikan field tanggal
+            unsubPurchase = onSnapshot(q, (snapshot) => {
+                if (snapshot.empty) {
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada transaksi pembelian</td></tr>';
                     return;
                 }
-
-                // Urutkan dari terbaru
-                purchases.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
-
-                tbody.innerHTML = purchases.map(p => {
+                let html = '';
+                snapshot.docs.forEach(doc => {
+                    const p = doc.data();
+                    const supplierNama = supplierMap[p.supplierId] || 'Unknown';
                     const status = p.utang > 0 ? 'utang' : 'lunas';
                     const statusClass = status === 'lunas' ? 'badge-lunas' : 'badge-utang';
-                    const statusText = status === 'lunas' ? 'Lunas' : `Utang Rp ${p.utang.toLocaleString()}`;
-                    return `
+                    const statusText = status === 'lunas' ? 'Lunas' : `Utang Rp ${(p.utang || 0).toLocaleString()}`;
+                    html += `
                     <tr>
                         <td>${formatDate(p.tanggal)}</td>
-                        <td>${supplierMap[p.supplierId] || 'Unknown'}</td>
-                        <td>Rp ${p.total?.toLocaleString() || 0}</td>
-                        <td>Rp ${p.dibayar?.toLocaleString() || 0}</td>
-                        <td>Rp ${p.utang?.toLocaleString() || 0}</td>
+                        <td>${supplierNama}</td>
+                        <td>Rp ${(p.total || 0).toLocaleString()}</td>
+                        <td>Rp ${(p.dibayar || 0).toLocaleString()}</td>
+                        <td>Rp ${(p.utang || 0).toLocaleString()}</td>
                         <td><span class="badge ${statusClass}">${statusText}</span></td>
                         <td>
-                            <button class="btn-icon view" onclick="viewPurchase('${p.id}')" title="Lihat Detail"><i data-feather="eye"></i></button>
-                            <button class="btn-icon delete" onclick="deletePurchase('${p.id}')" title="Hapus"><i data-feather="trash-2"></i></button>
+                            <button class="btn-icon view" onclick="viewPurchase('${doc.id}')" title="Lihat Detail"><i data-feather="eye"></i></button>
+                            <button class="btn-icon delete" onclick="deletePurchase('${doc.id}')" title="Hapus"><i data-feather="trash-2"></i></button>
                         </td>
-                    </tr>
-                `}).join('');
+                    </tr>`;
+                });
+                tbody.innerHTML = html;
                 feather.replace();
-            } catch (error) {
-                console.error(error);
-                document.getElementById('purchaseListBody').innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat data: ${error.message}</td></tr>`;
-            }
+            }, (error) => {
+                console.error('Gagal memuat daftar purchase:', error);
+                tbody.innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
         }
 
         // Fungsi global untuk tombol
         window.viewPurchase = (id) => {
-            // Untuk sementara tampilkan alert, nanti bisa dibuat modal/detail page
             alert('Fitur detail akan segera hadir\nID: ' + id);
         };
 
         window.deletePurchase = async (id) => {
             if (!confirm('Yakin hapus transaksi ini?')) return;
             try {
-                await removeItem(purchaseStore, id);
-                loadPurchaseList();
+                await deleteDoc(doc(purchaseCol, id));
+                // Snapshot akan update otomatis
             } catch (error) {
                 alert('Gagal menghapus: ' + error.message);
             }
         };
 
         // Auth
-        const loginBtn = document.getElementById('loginBtn');
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
@@ -259,6 +272,7 @@
             }
             feather.replace();
         });
+
         loginBtn.addEventListener('click', async () => {
             const user = auth.currentUser;
             if (user) {
@@ -268,25 +282,23 @@
             }
         });
 
-        // Reset semua data purchase
-        document.getElementById('resetDbBtn').addEventListener('click', async () => {
+        // Reset semua data purchase (hard delete)
+        resetBtn.addEventListener('click', async () => {
             if (!confirm('PERINGATAN: Semua data pembelian akan dihapus permanen. Lanjutkan?')) return;
             try {
-                await purchaseStore.clear();
-                loadPurchaseList();
+                const snapshot = await getDocs(purchaseCol);
+                for (const docSnap of snapshot.docs) {
+                    await deleteDoc(docSnap.ref);
+                }
                 alert('Semua data purchase telah dihapus');
             } catch (error) {
                 alert('Gagal reset: ' + error.message);
             }
         });
 
-        // Sync placeholder
-        document.getElementById('syncBtn').addEventListener('click', () => {
-            alert('Fungsi sinkronisasi akan segera hadir');
-        });
-
-        // Muat data saat halaman dimuat
-        loadPurchaseList();
+        // Initial load
+        await loadSuppliers(); // tunggu supplier terload
+        subscribePurchase();   // kemudian subscribe purchase
     </script>
 </body>
 </html>
