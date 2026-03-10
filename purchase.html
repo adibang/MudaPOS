@@ -282,9 +282,8 @@
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
-            collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, 
-            onSnapshot, query, where, orderBy, serverTimestamp, 
-            enableIndexedDbPersistence, runTransaction, increment 
+            collection, doc, getDocs, getDoc, query, where, 
+            serverTimestamp, runTransaction 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         console.log('Firebase berhasil diimpor');
@@ -585,7 +584,7 @@
             if (e.key === 'Enter') renderProductList(searchInput.value);
         });
 
-        // ========== SIMPAN TRANSAKSI ==========
+        // ========== SIMPAN TRANSAKSI (dengan urutan baca-tulis yang benar) ==========
         simpanBtn.addEventListener('click', async () => {
             if (!supplierSelect.value) {
                 alert('Pilih supplier terlebih dahulu');
@@ -616,6 +615,16 @@
             try {
                 console.log('Menyimpan transaksi...');
                 await runTransaction(dbCloud, async (transaction) => {
+                    // 1. Lakukan semua operasi baca (get) terlebih dahulu
+                    const produkRefs = cart.map(item => doc(produkCol, item.id));
+                    const produkSnaps = await Promise.all(produkRefs.map(ref => transaction.get(ref)));
+                    for (let i = 0; i < cart.length; i++) {
+                        if (!produkSnaps[i].exists()) {
+                            throw new Error(`Produk ${cart[i].nama} tidak ditemukan`);
+                        }
+                    }
+
+                    // 2. Siapkan data purchase
                     const purchaseData = {
                         tanggal: new Date().toISOString(),
                         supplierId: supplierSelect.value,
@@ -638,16 +647,14 @@
                         createdAt: serverTimestamp()
                     };
 
+                    // 3. Simpan purchase (tulis)
                     const purchaseRef = doc(purchaseCol);
                     transaction.set(purchaseRef, purchaseData);
 
-                    for (let item of cart) {
-                        const produkRef = doc(produkCol, item.id);
-                        const produkSnap = await transaction.get(produkRef);
-                        if (!produkSnap.exists()) {
-                            throw new Error(`Produk ${item.nama} tidak ditemukan`);
-                        }
-                        const produk = produkSnap.data();
+                    // 4. Update produk (tulis)
+                    for (let i = 0; i < cart.length; i++) {
+                        const item = cart[i];
+                        const produk = produkSnaps[i].data();
                         const stokLama = produk.stokAwal || 0;
                         const hargaDasarLama = produk.hargaDasar || 0;
                         const qty = item.qty;
@@ -658,7 +665,7 @@
                         const stokBaru = stokLama + qty;
                         const hargaDasarBaru = stokBaru === 0 ? 0 : (totalNilaiLama + totalNilaiBaru) / stokBaru;
 
-                        transaction.update(produkRef, {
+                        transaction.update(produkRefs[i], {
                             stokAwal: stokBaru,
                             hargaDasar: hargaDasarBaru,
                             updatedAt: serverTimestamp()
