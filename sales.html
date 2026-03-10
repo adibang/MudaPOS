@@ -6,10 +6,8 @@
     <title>MUDA POS - Sales</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- LocalForage -->
-    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <style>
-        /* ===== RESET & BASE ===== */
+        /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -710,7 +708,6 @@
             </li>
             <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
             <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
-            <li><a href="warehouse.html" class="menu-link"><i data-feather="box"></i> Warehouse</a></li>
             <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
             <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
             <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
@@ -724,13 +721,13 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <button class="btn-sync" id="syncBtn"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
 
-    <!-- Tombol Reset Darurat -->
-    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset DB</button>
+    <!-- Tombol Reset Darurat (untuk development) -->
+    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Data (DEV)</button>
 
     <!-- Halaman Sales -->
     <main class="main-content">
@@ -1006,64 +1003,52 @@
         }
     </script>
 
-    <!-- Script module utama -->
+    <!-- Script module utama (Firestore) -->
     <script type="module">
-        import { auth, provider } from './js/firebase-config.js';
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { 
+            collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc,
+            query, where, orderBy, serverTimestamp, runTransaction 
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // ========== LOCALFORAGE INSTANCES ==========
-        const produkStore = localforage.createInstance({ name: 'produk' });
-        const customerStore = localforage.createInstance({ name: 'customer' });
-        const gudangStore = localforage.createInstance({ name: 'gudang' });
-        const konversiStore = localforage.createInstance({ name: 'konversiUnit' });
-        const unitStore = localforage.createInstance({ name: 'unit' });
-        const qtyStore = localforage.createInstance({ name: 'qtyBreak' });
-        const pendingStore = localforage.createInstance({ name: 'pending' });
+        console.log('Sales page dimulai...');
 
-        let pendingCount = 0;
-        let selectedCustomer = null;
-        let cartItems = [];
+        // ========== REFERENSI KOLEKSI ==========
+        const produkCol = collection(dbCloud, 'produk');
+        const customerCol = collection(dbCloud, 'customer');
+        const gudangCol = collection(dbCloud, 'gudang');
+        const konversiCol = collection(dbCloud, 'konversiUnit');
+        const unitCol = collection(dbCloud, 'unit');
+        const qtyCol = collection(dbCloud, 'qtyBreak');
+        const pendingCol = collection(dbCloud, 'pending'); // untuk draft transaksi
+        const salesCol = collection(dbCloud, 'sales'); // untuk transaksi selesai (opsional)
 
-        // Data global
+        // ========== DATA GLOBAL ==========
         let allProducts = [];
         let allCustomers = [];
         let allGudang = [];
         let allKonversi = [];
         let allUnits = [];
         let allQtyBreak = [];
-
-        // Daftar pending
         let pendingList = [];
 
-        // Variabel pembayaran
+        let selectedCustomer = null;
+        let cartItems = [];
+        let pendingCount = 0;
         let printerPort = null;
         let pendingPayments = [];
         let pendingTotalPaid = 0;
         let lastTransactionData = null;
 
-        // Konfigurasi barcode
-        let barcodeConfig = {
+        const barcodeConfig = {
             flexLength: 2,
             flexValue: '11',
             productLength: 6,
             weightLength: 5
         };
 
-        // Fungsi bantu
-        function generateId() { return Date.now() + '-' + Math.random().toString(36).substr(2, 9); }
-        async function getAll(store) { let items = []; await store.iterate((value, key) => { items.push({ ...value, id: key }); }); return items; }
-        async function findByIndex(store, field, value) { let results = []; await store.iterate((item, key) => { if (item[field] === value) results.push({ ...item, id: key }); }); return results; }
-        async function getById(store, id) { return await store.getItem(id); }
-        async function updateItem(store, id, data) { await store.setItem(id, data); }
-        async function addItem(store, data) { const id = generateId(); await store.setItem(id, data); return id; }
-        async function removeItem(store, id) { await store.removeItem(id); }
-
-        // Format Rupiah
-        function formatRupiah(angka) {
-            return 'Rp ' + angka.toLocaleString('id-ID');
-        }
-
-        // Elemen DOM
+        // ========== ELEMEN DOM ==========
         const warehouseSelect = document.getElementById('warehouseSelect');
         const viewToggle = document.getElementById('viewToggle');
         const barcodeInput = document.getElementById('barcodeInput');
@@ -1107,7 +1092,6 @@
         const pendingListContainer = document.getElementById('pendingListContainer');
         const checkoutBtn = document.getElementById('checkoutBtn');
 
-        // Elemen payment
         const paymentTotal = document.getElementById('paymentTotal');
         const paymentGrandTotal = document.getElementById('paymentGrandTotal');
         const paymentCash = document.getElementById('paymentCash');
@@ -1127,48 +1111,68 @@
         const confirmPiutangBtn = document.getElementById('confirmPiutangBtn');
         const shortageConfirm = document.getElementById('shortageConfirm');
         const confirmPiutangModal = document.getElementById('confirmPiutangModal');
+        const loginBtn = document.getElementById('loginBtn');
+        const syncBtn = document.getElementById('syncBtn');
+        const resetBtn = document.getElementById('resetDbBtn');
 
-        // State
-        let currentView = 'grid';
+        // Sembunyikan tombol sync
+        if (syncBtn) syncBtn.style.display = 'none';
 
-        // ========== FUNGSI GUDANG ==========
+        // ========== FUNGSI FORMAT RUPIAH ==========
+        function formatRupiah(angka) {
+            return 'Rp ' + angka.toLocaleString('id-ID');
+        }
+
+        // ========== LOAD SEMUA DATA DARI FIRESTORE ==========
+        async function loadAllData() {
+            try {
+                console.log('Memuat data master...');
+                const [produkSnap, customerSnap, gudangSnap, konversiSnap, unitSnap, qtySnap] = await Promise.all([
+                    getDocs(query(produkCol, where('deleted', '==', false))),
+                    getDocs(query(customerCol, where('deleted', '==', false))),
+                    getDocs(query(gudangCol, where('deleted', '==', false))),
+                    getDocs(query(konversiCol, where('deleted', '==', false))),
+                    getDocs(query(unitCol, where('deleted', '==', false))),
+                    getDocs(query(qtyCol, where('deleted', '==', false)))
+                ]);
+
+                allProducts = produkSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allCustomers = customerSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), outstanding: doc.data().outstanding || 0 }));
+                allGudang = gudangSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allKonversi = konversiSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allUnits = unitSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allQtyBreak = qtySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                console.log('Data dimuat:', allProducts.length, 'produk');
+
+                // Load daftar pending
+                await loadPendingFromDB();
+
+                // Isi dropdown gudang
+                warehouseSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
+                    allGudang.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
+                const saved = loadSelectedWarehouse();
+                if (saved && allGudang.some(g => g.id === saved)) warehouseSelect.value = saved;
+
+                renderProducts();
+            } catch (error) {
+                console.error('Gagal memuat data:', error);
+                alert('Gagal memuat data: ' + error.message);
+            }
+        }
+
         function saveSelectedWarehouse(warehouseId) {
             if (warehouseId) localStorage.setItem('selectedWarehouse', warehouseId);
             else localStorage.removeItem('selectedWarehouse');
         }
         function loadSelectedWarehouse() { return localStorage.getItem('selectedWarehouse'); }
 
-        // ========== LOAD DATA AWAL ==========
-        async function loadInitialData() {
-            try {
-                allProducts = await getAll(produkStore);
-                allCustomers = await getAll(customerStore);
-                // Pastikan setiap customer memiliki properti outstanding
-                allCustomers = allCustomers.map(c => ({
-                    ...c,
-                    outstanding: c.outstanding !== undefined ? c.outstanding : 0
-                }));
-                allGudang = await getAll(gudangStore);
-                allKonversi = await getAll(konversiStore);
-                allUnits = await getAll(unitStore);
-                allQtyBreak = await getAll(qtyStore);
-                
-                warehouseSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
-                    allGudang.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
-                
-                const saved = loadSelectedWarehouse();
-                if (saved && allGudang.some(g => g.id === saved)) warehouseSelect.value = saved;
-                
-                await loadPendingFromDB();
-                renderProducts();
-            } catch (error) { console.error('Gagal load data:', error); }
-        }
-
         // ========== FUNGSI PENDING ==========
         async function loadPendingFromDB() {
             try {
-                pendingList = await getAll(pendingStore);
-                pendingList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                const q = query(pendingCol, orderBy('createdAt', 'desc'));
+                const snapshot = await getDocs(q);
+                pendingList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updatePendingBadge();
             } catch (error) {
                 console.error('Gagal muat pending:', error);
@@ -1177,9 +1181,8 @@
         }
 
         function updatePendingBadge() {
-            const count = pendingList.length;
-            pendingCount = count;
-            pendingCountSpan.textContent = count;
+            pendingCount = pendingList.length;
+            pendingCountSpan.textContent = pendingCount;
         }
 
         async function savePendingTransaction(pendingCode) {
@@ -1188,7 +1191,9 @@
                 return false;
             }
 
-            if (pendingList.some(p => p.pendingCode && p.pendingCode.toLowerCase() === pendingCode.toLowerCase())) {
+            // Cek duplikasi kode (opsional)
+            const existing = pendingList.find(p => p.pendingCode && p.pendingCode.toLowerCase() === pendingCode.toLowerCase());
+            if (existing) {
                 pendingCodeError.textContent = 'Kode sudah digunakan.';
                 return false;
             }
@@ -1210,12 +1215,12 @@
                 customerId: selectedCustomer ? selectedCustomer.id : null,
                 customerName: selectedCustomer ? selectedCustomer.nama : null,
                 total: total,
-                createdAt: new Date().toISOString()
+                createdAt: serverTimestamp()
             };
 
             try {
-                const id = await addItem(pendingStore, transactionData);
-                transactionData.id = id;
+                const docRef = await addDoc(pendingCol, transactionData);
+                transactionData.id = docRef.id;
                 pendingList.unshift(transactionData);
                 updatePendingBadge();
                 return true;
@@ -1228,7 +1233,7 @@
 
         async function deletePendingTransaction(id) {
             try {
-                await removeItem(pendingStore, id);
+                await deleteDoc(doc(pendingCol, id));
                 pendingList = pendingList.filter(p => p.id !== id);
                 updatePendingBadge();
                 renderPendingList();
@@ -1307,7 +1312,7 @@
                     <div class="pending-item">
                         <div class="pending-info">
                             <strong>${trans.pendingCode || 'Tanpa Kode'}</strong>
-                            <small>Tanggal: ${new Date(trans.createdAt).toLocaleString('id-ID')}</small>
+                            <small>Tanggal: ${new Date(trans.createdAt?.toDate?.() || trans.createdAt).toLocaleString('id-ID')}</small>
                             <small>Total: ${formatRupiah(trans.total)}</small>
                             <small>Customer: ${trans.customerName || '-'}</small>
                         </div>
@@ -1328,7 +1333,7 @@
             }
         };
 
-        // ========== RENDER PRODUK (dengan pencarian case‑insensitive dan mencakup barcode satuan) ==========
+        // ========== RENDER PRODUK ==========
         function renderProducts() {
             const selectedWarehouseId = warehouseSelect.value;
             if (!selectedWarehouseId) {
@@ -1340,13 +1345,11 @@
             let filtered = allProducts.filter(p => {
                 if (p.gudangId !== selectedWarehouseId) return false;
                 
-                // Cek nama, kode, barcode produk
                 const matchProduk = (p.nama && p.nama.toLowerCase().includes(keyword)) ||
                                    (p.kode && p.kode.toLowerCase().includes(keyword)) ||
                                    (p.barcode && p.barcode.toLowerCase().includes(keyword));
                 if (matchProduk) return true;
                 
-                // Cek konversi satuan (barcode dari unit konversi)
                 const konversiProduk = allKonversi.filter(k => k.produkId === p.id);
                 return konversiProduk.some(k => k.barcode && k.barcode.trim().toLowerCase().includes(keyword));
             });
@@ -1420,7 +1423,6 @@
 
             const barcodeLower = barcode.toLowerCase();
 
-            // Cari berdasarkan kode atau barcode produk
             let produk = allProducts.find(p => 
                 (p.kode && p.kode.trim().toLowerCase() === barcodeLower) || 
                 (p.barcode && p.barcode.trim().toLowerCase() === barcodeLower)
@@ -1433,7 +1435,6 @@
                 return;
             }
 
-            // Cari berdasarkan barcode konversi satuan
             for (let konv of allKonversi) {
                 if (konv.barcode && konv.barcode.trim().toLowerCase() === barcodeLower) {
                     const produk = allProducts.find(p => p.id === konv.produkId);
@@ -1446,7 +1447,6 @@
                 }
             }
 
-            // Jika barcode 13 digit (format timbangan)
             if (barcode.length === 13) {
                 const flex = barcode.substr(0, barcodeConfig.flexLength);
                 if (flex !== barcodeConfig.flexValue) {
@@ -1489,20 +1489,18 @@
 
             let konversi = null;
             let nilaiKonversi = 1;
-            let hargaSatuan = produk.hargaJual; // default harga produk
+            let hargaSatuan = produk.hargaJual;
 
             if (konversiId) {
                 konversi = allKonversi.find(k => k.id === konversiId && k.produkId === produkId);
                 if (!konversi) { alert('Konversi tidak ditemukan'); return; }
                 nilaiKonversi = konversi.nilai;
-                // Gunakan harga jual dari konversi jika ada, jika tidak gunakan harga produk * nilai konversi
                 hargaSatuan = konversi.hargaJual || (produk.hargaJual * nilaiKonversi);
             }
 
             const qtyDasar = qty * nilaiKonversi;
             if (qtyDasar <= 0) { alert('Qty harus lebih dari 0'); return; }
 
-            // Cek stok
             const existingItems = cartItems.filter(item => item.produkId === produkId);
             const totalQtyDasarLama = existingItems.reduce((sum, item) => sum + item.qtyDasar, 0);
             if (produk.stokAwal < totalQtyDasarLama + qtyDasar) {
@@ -1514,7 +1512,6 @@
             if (existingIndex >= 0) {
                 cartItems[existingIndex].qty += qty;
                 cartItems[existingIndex].qtyDasar += qtyDasar;
-                // Update harga satuan (jika ada perubahan karena qty break)
                 updateHargaProduk(produkId);
             } else {
                 const unit = konversi ? allUnits.find(u => u.id === konversi.unitId) : allUnits.find(u => u.id === produk.unitId);
@@ -1553,7 +1550,6 @@
             }
 
             for (let item of items) {
-                // Jika item menggunakan konversi, harga dasarnya adalah hargaDasar * nilaiKonversi
                 if (item.konversiId) {
                     const konv = allKonversi.find(k => k.id === item.konversiId);
                     if (konv) {
@@ -1794,7 +1790,7 @@
         // MODAL CUSTOMER
         async function loadCustomers() {
             try { 
-                allCustomers = await getAll(customerStore);
+                allCustomers = await getAll(customerCol);
                 allCustomers = allCustomers.map(c => ({
                     ...c,
                     outstanding: c.outstanding !== undefined ? c.outstanding : 0
@@ -1839,7 +1835,6 @@
                 alert(`Customer dipilih: ${customer.nama}`);
                 modalCustomer.classList.remove('active');
                 customerBadge.textContent = '1';
-                // Aktifkan tombol piutang jika outstanding > 0
                 if (selectedCustomer.outstanding > 0) {
                     btnPiutang.classList.add('active');
                     btnPiutang.style.background = '#dc3545';
@@ -1851,7 +1846,7 @@
         });
 
         // MODAL BUNDLE (sementara)
-        async function loadBundles() { try { const produk = await getAll(produkStore); renderBundleList(produk); } catch (error) { console.error(error); } }
+        async function loadBundles() { try { const produk = await getAll(produkCol); renderBundleList(produk); } catch (error) { console.error(error); } }
         function renderBundleList(items) { bundleListBody.innerHTML = items.map(p => `<tr data-id="${p.id}"><td>${p.kode || '-'}</td><td>${p.nama}</td><td>Rp ${(p.hargaJual || 0).toLocaleString()}</td></tr>`).join(''); }
         btnBundle.addEventListener('click', () => { modalBundle.classList.add('active'); loadBundles(); });
         closeModalBundle.addEventListener('click', () => modalBundle.classList.remove('active'));
@@ -1873,7 +1868,6 @@
         btnCart.addEventListener('click', () => { renderCartModal(); modalCart.classList.add('active'); });
         closeModalCart.addEventListener('click', () => modalCart.classList.remove('active'));
 
-        // Tombol Simpan Draft di modal cart
         saveDraftBtn.addEventListener('click', () => {
             if (cartItems.length === 0) {
                 alert('Keranjang kosong, tidak ada yang disimpan');
@@ -1885,7 +1879,6 @@
             modalPending.classList.add('active');
         });
 
-        // Tombol "Lanjut ke Pembayaran" di modal cart
         checkoutBtn.addEventListener('click', () => {
             if (cartItems.length === 0) {
                 alert('Keranjang kosong');
@@ -1895,7 +1888,6 @@
             openPaymentPage();
         });
 
-        // Form simpan pending
         formPending.addEventListener('submit', async (e) => {
             e.preventDefault();
             const kode = namaPending.value.trim();
@@ -1912,7 +1904,6 @@
             }
         });
 
-        // Tombol Pending di toolbar dan floating pending buka daftar
         btnPending.addEventListener('click', openPendingListModal);
         floatingPending.addEventListener('click', openPendingListModal);
 
@@ -1923,7 +1914,6 @@
 
         closeModalPendingList.addEventListener('click', () => modalPendingList.classList.remove('active'));
 
-        // Tombol Piutang
         btnPiutang.addEventListener('click', () => {
             if (!selectedCustomer) {
                 alert('Pilih customer terlebih dahulu');
@@ -2081,44 +2071,77 @@
 
         async function executePayment(paidTotal, outstandingAdded) {
             try {
-                // Kurangi stok
-                for (let item of cartItems) {
-                    if (item.produkId === 'piutang') continue;
-                    const produk = allProducts.find(p => p.id === item.produkId);
-                    if (!produk) continue;
-                    if (produk.stokAwal < item.qtyDasar) {
-                        alert(`Stok ${produk.nama} tidak mencukupi. Stok: ${produk.stokAwal}, dibutuhkan: ${item.qtyDasar}`);
-                        return;
-                    }
-                    produk.stokAwal -= item.qtyDasar;
-                    await updateItem(produkStore, produk.id, produk);
-                }
-
-                // Update piutang customer
-                if (selectedCustomer) {
-                    let customerUpdated = false;
-                    // 1. Kurangi outstanding dari item piutang di keranjang
+                await runTransaction(dbCloud, async (transaction) => {
+                    // 1. Baca semua produk yang akan dikurangi stok
+                    const produkRefs = [];
+                    const produkItems = [];
                     for (let item of cartItems) {
-                        if (item.produkId === 'piutang') {
-                            selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) - item.subtotal;
-                            if (selectedCustomer.outstanding < 0) selectedCustomer.outstanding = 0;
-                            customerUpdated = true;
+                        if (item.produkId === 'piutang') continue;
+                        const ref = doc(produkCol, item.produkId);
+                        produkRefs.push(ref);
+                        produkItems.push(item);
+                    }
+
+                    const produkSnaps = await Promise.all(produkRefs.map(ref => transaction.get(ref)));
+                    for (let i = 0; i < produkItems.length; i++) {
+                        if (!produkSnaps[i].exists()) {
+                            throw new Error(`Produk ${produkItems[i].nama} tidak ditemukan`);
+                        }
+                        const produk = produkSnaps[i].data();
+                        if (produk.stokAwal < produkItems[i].qtyDasar) {
+                            throw new Error(`Stok ${produkItems[i].nama} tidak mencukupi. Stok: ${produk.stokAwal}, dibutuhkan: ${produkItems[i].qtyDasar}`);
                         }
                     }
-                    // 2. Tambah piutang baru jika ada kekurangan bayar
-                    if (outstandingAdded > 0) {
-                        selectedCustomer.outstanding = (selectedCustomer.outstanding || 0) + outstandingAdded;
-                        customerUpdated = true;
-                    }
-                    if (customerUpdated) {
-                        await updateItem(customerStore, selectedCustomer.id, selectedCustomer);
-                        // Perbarui di allCustomers agar konsisten
-                        const idx = allCustomers.findIndex(c => c.id === selectedCustomer.id);
-                        if (idx !== -1) allCustomers[idx].outstanding = selectedCustomer.outstanding;
-                    }
-                }
 
-                // Simpan data struk
+                    // 2. Update stok produk
+                    for (let i = 0; i < produkItems.length; i++) {
+                        const ref = produkRefs[i];
+                        const produk = produkSnaps[i].data();
+                        const newStok = produk.stokAwal - produkItems[i].qtyDasar;
+                        transaction.update(ref, { stokAwal: newStok, updatedAt: serverTimestamp() });
+                    }
+
+                    // 3. Update piutang customer
+                    if (selectedCustomer) {
+                        const custRef = doc(customerCol, selectedCustomer.id);
+                        let newOutstanding = selectedCustomer.outstanding || 0;
+                        // Kurangi outstanding jika ada item piutang di keranjang
+                        for (let item of cartItems) {
+                            if (item.produkId === 'piutang') {
+                                newOutstanding -= item.subtotal;
+                            }
+                        }
+                        // Tambah outstanding jika ada kekurangan bayar
+                        if (outstandingAdded > 0) {
+                            newOutstanding += outstandingAdded;
+                        }
+                        if (newOutstanding < 0) newOutstanding = 0;
+                        transaction.update(custRef, { outstanding: newOutstanding, updatedAt: serverTimestamp() });
+                    }
+
+                    // 4. Simpan transaksi ke koleksi sales (opsional)
+                    const salesData = {
+                        items: cartItems.map(item => ({
+                            produkId: item.produkId,
+                            nama: item.nama,
+                            qty: item.qty,
+                            unit: item.unit,
+                            hargaSatuan: item.hargaSatuan,
+                            subtotal: item.subtotal
+                        })),
+                        total: cartItems.reduce((sum, i) => sum + i.subtotal, 0),
+                        paidAmount: paidTotal,
+                        change: paidTotal - (cartItems.reduce((sum, i) => sum + i.subtotal, 0)),
+                        customerId: selectedCustomer ? selectedCustomer.id : null,
+                        customerName: selectedCustomer ? selectedCustomer.nama : null,
+                        paymentMethods: pendingPayments, // array of {method, amount}
+                        createdAt: serverTimestamp()
+                    };
+                    const salesRef = doc(salesCol);
+                    transaction.set(salesRef, salesData);
+                });
+
+                // Simpan data struk untuk cetak
                 lastTransactionData = {
                     items: cartItems.map(item => ({
                         name: item.nama,
@@ -2263,7 +2286,6 @@
         printReceiptBtn.addEventListener('click', printReceipt);
 
         // ========== AUTH ==========
-        const loginBtn = document.getElementById('loginBtn');
         onAuthStateChanged(auth, (user) => {
             loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
             feather.replace();
@@ -2274,25 +2296,26 @@
             else { try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); } }
         });
 
-        document.getElementById('resetDbBtn').addEventListener('click', () => {
-            if (confirm('Reset database lokal? Semua data produk, customer, gudang, dan pending akan hilang.')) {
-                Promise.all([ 
-                    produkStore.clear(), 
-                    customerStore.clear(), 
-                    gudangStore.clear(), 
-                    konversiStore.clear(), 
-                    unitStore.clear(), 
-                    qtyStore.clear(),
-                    pendingStore.clear()
-                ])
-                .then(() => { alert('Database direset. Muat ulang halaman.'); location.reload(); }).catch(console.error);
+        // Reset data untuk development (hapus semua dokumen)
+        resetBtn.addEventListener('click', async () => {
+            if (!confirm('Hapus SEMUA data di Firestore? (produk, customer, dll.)')) return;
+            try {
+                const collections = [produkCol, customerCol, gudangCol, konversiCol, unitCol, qtyCol, pendingCol];
+                for (const col of collections) {
+                    const snap = await getDocs(col);
+                    const batch = writeBatch(dbCloud);
+                    snap.docs.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+                }
+                alert('Semua data dihapus. Muat ulang halaman.');
+                location.reload();
+            } catch (error) {
+                alert('Gagal reset: ' + error.message);
             }
         });
 
-        document.getElementById('syncBtn').addEventListener('click', () => { alert('Fungsi sinkronisasi akan segera tersedia'); });
-
-        // Inisialisasi
-        loadInitialData();
+        // ========== INITIAL LOAD ==========
+        loadAllData();
     </script>
 </body>
 </html>
