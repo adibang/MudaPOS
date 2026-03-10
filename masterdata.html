@@ -7,7 +7,7 @@
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
     <style>
-        /* ===== CSS LENGKAP (sama seperti sebelumnya) ===== */
+        /* ===== CSS LENGKAP ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -95,6 +95,8 @@
                     <li><a id="submenuDaftarKategori"><i data-feather="list"></i> Daftar kategori</a></li>
                     <li><a id="submenuTambahUnit"><i data-feather="plus-circle"></i> Tambah unit</a></li>
                     <li><a id="submenuDaftarUnit"><i data-feather="list"></i> Daftar unit</a></li>
+                    <li><a id="submenuTambahGudang"><i data-feather="plus-circle"></i> Tambah gudang</a></li>
+                    <li><a id="submenuDaftarGudang"><i data-feather="list"></i> Daftar gudang</a></li>
                 </ul>
             </li>
             <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
@@ -122,9 +124,9 @@
     <!-- Tombol Reset Darurat -->
     <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset DB</button>
 
-    <!-- Main Content dengan semua section -->
+    <!-- Main Content -->
     <main class="main-content">
-        <h1 class="page-title">Master Data</h1>
+        <h1 class="page-title">Master Data (Firestore)</h1>
 
         <!-- ========== SECTION TAMBAH PRODUK ========== -->
         <div id="tambahProdukSection" class="content-section active">
@@ -271,31 +273,44 @@
                 <tbody id="daftarUnitBody"><tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr></tbody></table>
             </div>
         </div>
+
+        <!-- ========== SECTION TAMBAH GUDANG ========== -->
+        <div id="tambahGudangSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Gudang</h2>
+            <form id="formTambahGudang">
+                <div class="form-group" style="max-width:350px;">
+                    <label>Nama Gudang</label>
+                    <input type="text" id="namaGudang" required>
+                </div>
+                <button type="submit" class="btn">Simpan Gudang</button>
+            </form>
+        </div>
+
+        <!-- ========== SECTION DAFTAR GUDANG ========== -->
+        <div id="daftarGudangSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Gudang</h2>
+            <div class="table-responsive">
+                <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
+                <tbody id="daftarGudangBody"><tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr></tbody></table>
+            </div>
+        </div>
     </main>
 
-    <!-- Script biasa untuk sidebar (non-module) -->
+    <!-- Script sidebar (non-module) -->
     <script>
         feather.replace();
 
-        // Sidebar
         const menuToggle = document.getElementById('menuToggle');
         const closeSidebar = document.getElementById('closeSidebar');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('overlay');
 
-        function openSidebar() {
-            sidebar.classList.add('open');
-            overlay.classList.add('active');
-        }
-        function closeSidebarFunc() {
-            sidebar.classList.remove('open');
-            overlay.classList.remove('active');
-        }
+        function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+        function closeSidebarFunc() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
         menuToggle.addEventListener('click', openSidebar);
         closeSidebar.addEventListener('click', closeSidebarFunc);
         overlay.addEventListener('click', closeSidebarFunc);
 
-        // Toggle submenu master data
         const masterdataItem = document.getElementById('masterdataMenuItem');
         const masterdataToggle = document.getElementById('masterdataMenuToggle');
         if (masterdataToggle) {
@@ -305,22 +320,20 @@
             });
         }
 
-        // Fungsi showSection akan di-override oleh module
-        window.showSection = function(sectionName) {};
+        window.showSection = function(sectionName) { };
     </script>
 
     <!-- Script module utama (Firestore) -->
     <script type="module">
-        // Import Firebase
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
-            collection, doc, getDocs, getDoc, setDoc, addDoc, 
+            collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, 
             onSnapshot, query, where, orderBy, serverTimestamp, 
-            enableIndexedDbPersistence 
+            enableIndexedDbPersistence, runTransaction, increment 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Aktifkan offline persistence
+        // Aktifkan persistence
         enableIndexedDbPersistence(dbCloud).catch((err) => {
             if (err.code == 'failed-precondition') {
                 console.warn('Persistence gagal: multiple tabs open');
@@ -351,7 +364,9 @@
             tambahKategori: document.getElementById('tambahKategoriSection'),
             daftarKategori: document.getElementById('daftarKategoriSection'),
             tambahUnit: document.getElementById('tambahUnitSection'),
-            daftarUnit: document.getElementById('daftarUnitSection')
+            daftarUnit: document.getElementById('daftarUnitSection'),
+            tambahGudang: document.getElementById('tambahGudangSection'),
+            daftarGudang: document.getElementById('daftarGudangSection')
         };
         const submenus = {
             tambahProduk: document.getElementById('submenuTambahProduk'),
@@ -359,7 +374,9 @@
             tambahKategori: document.getElementById('submenuTambahKategori'),
             daftarKategori: document.getElementById('submenuDaftarKategori'),
             tambahUnit: document.getElementById('submenuTambahUnit'),
-            daftarUnit: document.getElementById('submenuDaftarUnit')
+            daftarUnit: document.getElementById('submenuDaftarUnit'),
+            tambahGudang: document.getElementById('submenuTambahGudang'),
+            daftarGudang: document.getElementById('submenuDaftarGudang')
         };
 
         function showSection(sectionName) {
@@ -367,19 +384,27 @@
             Object.values(submenus).forEach(s => s && s.classList.remove('active'));
             if (sections[sectionName]) sections[sectionName].classList.add('active');
             if (submenus[sectionName]) submenus[sectionName].classList.add('active');
-            if (window.innerWidth <= 768 && typeof closeSidebarFunc === 'function') {
+            if (window.innerWidth <= 768 && typeof closeSidebarFunc !== 'undefined') {
                 closeSidebarFunc();
             }
         }
 
-        // Pasang event listener untuk submenu
-        submenus.tambahProduk?.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahProduk'); });
-        submenus.daftarProduk?.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarProduk'); });
-        submenus.tambahKategori?.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahKategori'); });
-        submenus.daftarKategori?.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarKategori'); });
-        submenus.tambahUnit?.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahUnit'); });
-        submenus.daftarUnit?.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); });
-
+        // Pasang event listener submenu
+        for (let [key, el] of Object.entries(submenus)) {
+            if (el) {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showSection(key);
+                    // Jika section daftar, pastikan subscribe aktif
+                    if (key.startsWith('daftar')) {
+                        if (key === 'daftarProduk') subscribeDaftarProduk();
+                        if (key === 'daftarKategori') subscribeDaftarKategori();
+                        if (key === 'daftarUnit') subscribeDaftarUnit();
+                        if (key === 'daftarGudang') subscribeDaftarGudang();
+                    }
+                });
+            }
+        }
         window.showSection = showSection;
 
         // ========== LOAD DROPDOWNS ==========
@@ -388,21 +413,145 @@
                 const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
                 const kategoriSelect = document.getElementById('kategoriProduk');
                 kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
-                    kategoriSnap.docs.map(doc => `<option value="${doc.id}">${doc.data().nama}</option>`).join('');
+                    kategoriSnap.docs.map(d => `<option value="${d.id}">${d.data().nama}</option>`).join('');
 
                 const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
                 const unitSelect = document.getElementById('unit');
                 unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
-                    unitSnap.docs.map(doc => `<option value="${doc.id}">${doc.data().nama}</option>`).join('');
+                    unitSnap.docs.map(d => `<option value="${d.id}">${d.data().nama}</option>`).join('');
 
                 const gudangSnap = await getDocs(query(gudangCol, where('deleted', '==', false)));
                 const gudangSelect = document.getElementById('gudang');
                 gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
-                    gudangSnap.docs.map(doc => `<option value="${doc.id}">${doc.data().nama}</option>`).join('');
+                    gudangSnap.docs.map(d => `<option value="${d.id}">${d.data().nama}</option>`).join('');
             } catch (error) {
                 console.error('loadDropdowns error:', error);
-                alert('Gagal memuat data dropdown: ' + error.message);
             }
+        }
+
+        // ========== SUBSCRIBE DAFTAR KATEGORI ==========
+        let unsubKategori = null;
+        function subscribeDaftarKategori() {
+            if (unsubKategori) unsubKategori();
+            const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
+            unsubKategori = onSnapshot(q, (snapshot) => {
+                const tbody = document.getElementById('daftarKategoriBody');
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                } else {
+                    tbody.innerHTML = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return `<tr>
+                            <td>${data.nama}</td>
+                            <td>
+                                <button class="btn-icon edit" onclick="editKategori('${doc.id}')"><i data-feather="edit-2"></i></button>
+                                <button class="btn-icon delete" onclick="hapusKategori('${doc.id}')"><i data-feather="trash-2"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                feather.replace();
+            }, (error) => {
+                console.error('Snapshot kategori error:', error);
+                document.getElementById('daftarKategoriBody').innerHTML = `<tr><td colspan="2" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
+        }
+
+        // ========== SUBSCRIBE DAFTAR UNIT ==========
+        let unsubUnit = null;
+        function subscribeDaftarUnit() {
+            if (unsubUnit) unsubUnit();
+            const q = query(unitCol, where('deleted', '==', false), orderBy('nama'));
+            unsubUnit = onSnapshot(q, (snapshot) => {
+                const tbody = document.getElementById('daftarUnitBody');
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                } else {
+                    tbody.innerHTML = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return `<tr>
+                            <td>${data.nama}</td>
+                            <td>
+                                <button class="btn-icon edit" onclick="editUnit('${doc.id}')"><i data-feather="edit-2"></i></button>
+                                <button class="btn-icon delete" onclick="hapusUnit('${doc.id}')"><i data-feather="trash-2"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                feather.replace();
+            }, (error) => {
+                console.error('Snapshot unit error:', error);
+                document.getElementById('daftarUnitBody').innerHTML = `<tr><td colspan="2" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
+        }
+
+        // ========== SUBSCRIBE DAFTAR GUDANG ==========
+        let unsubGudang = null;
+        function subscribeDaftarGudang() {
+            if (unsubGudang) unsubGudang();
+            const q = query(gudangCol, where('deleted', '==', false), orderBy('nama'));
+            unsubGudang = onSnapshot(q, (snapshot) => {
+                const tbody = document.getElementById('daftarGudangBody');
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+                } else {
+                    tbody.innerHTML = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return `<tr>
+                            <td>${data.nama}</td>
+                            <td>
+                                <button class="btn-icon edit" onclick="editGudang('${doc.id}')"><i data-feather="edit-2"></i></button>
+                                <button class="btn-icon delete" onclick="hapusGudang('${doc.id}')"><i data-feather="trash-2"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                feather.replace();
+            }, (error) => {
+                console.error('Snapshot gudang error:', error);
+                document.getElementById('daftarGudangBody').innerHTML = `<tr><td colspan="2" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
+        }
+
+        // ========== SUBSCRIBE DAFTAR PRODUK ==========
+        let unsubProduk = null;
+        function subscribeDaftarProduk() {
+            if (unsubProduk) unsubProduk();
+            const q = query(produkCol, where('deleted', '==', false), orderBy('nama'));
+            unsubProduk = onSnapshot(q, async (snapshot) => {
+                // Ambil data kategori dan unit untuk mapping
+                const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
+                const kategoriMap = {};
+                kategoriSnap.docs.forEach(d => kategoriMap[d.id] = d.data().nama);
+                const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
+                const unitMap = {};
+                unitSnap.docs.forEach(d => unitMap[d.id] = d.data().nama);
+
+                const tbody = document.getElementById('daftarProdukBody');
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
+                } else {
+                    tbody.innerHTML = snapshot.docs.map(doc => {
+                        const p = doc.data();
+                        return `<tr>
+                            <td>${p.kode || '-'}</td>
+                            <td>${p.nama}</td>
+                            <td>${kategoriMap[p.kategoriId] || '-'}</td>
+                            <td>Rp ${(p.hargaJual || 0).toLocaleString()}</td>
+                            <td>${p.stokAwal || 0} ${unitMap[p.unitId] || ''}</td>
+                            <td>${p.produkTimbangan ? '✓' : '-'}</td>
+                            <td>
+                                <button class="btn-icon edit" onclick="editProduk('${doc.id}')"><i data-feather="edit-2"></i></button>
+                                <button class="btn-icon delete" onclick="hapusProduk('${doc.id}')"><i data-feather="trash-2"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                feather.replace();
+            }, (error) => {
+                console.error('Snapshot produk error:', error);
+                document.getElementById('daftarProdukBody').innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
         }
 
         // ========== FUNGSI UNTUK ROW KONVERSI DAN QTY BREAK ==========
@@ -438,10 +587,10 @@
             `;
             konversiContainer.appendChild(row);
 
-            // Isi dropdown unit
+            // Isi dropdown unit untuk row ini
             const select = row.querySelector('.unitKonversi');
             (async () => {
-                const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
+                const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false), orderBy('nama')));
                 unitSnap.docs.forEach(d => select.add(new Option(d.data().nama, d.id)));
                 if (data && data.unitId) select.value = data.unitId;
             })();
@@ -487,12 +636,12 @@
             row.querySelector('.remove-row').addEventListener('click', () => row.remove());
         }
 
+        // ========== TAMBAH KONVERSI / QTY BREAK ==========
         document.getElementById('tambahKonversi').addEventListener('click', () => tambahKonversiRow());
         document.getElementById('tambahQtyBreak').addEventListener('click', () => tambahQtyBreakRow());
 
         // ========== TAMBAH KATEGORI ==========
-        const formTambahKategori = document.getElementById('formTambahKategori');
-        formTambahKategori?.addEventListener('submit', async (e) => {
+        document.getElementById('formTambahKategori').addEventListener('submit', async (e) => {
             e.preventDefault();
             const nama = document.getElementById('namaKategori').value.trim();
             if (!nama) return alert('Nama kategori harus diisi');
@@ -504,7 +653,7 @@
                     deleted: false
                 });
                 alert('Kategori berhasil ditambahkan');
-                formTambahKategori.reset();
+                e.target.reset();
                 loadDropdowns();
             } catch (error) {
                 console.error(error);
@@ -513,8 +662,7 @@
         });
 
         // ========== TAMBAH UNIT ==========
-        const formTambahUnit = document.getElementById('formTambahUnit');
-        formTambahUnit?.addEventListener('submit', async (e) => {
+        document.getElementById('formTambahUnit').addEventListener('submit', async (e) => {
             e.preventDefault();
             const nama = document.getElementById('namaUnit').value.trim();
             if (!nama) return alert('Nama unit harus diisi');
@@ -526,7 +674,7 @@
                     deleted: false
                 });
                 alert('Unit berhasil ditambahkan');
-                formTambahUnit.reset();
+                e.target.reset();
                 loadDropdowns();
             } catch (error) {
                 console.error(error);
@@ -534,151 +682,81 @@
             }
         });
 
-        // ========== SUBSCRIBE DAFTAR KATEGORI ==========
-        let unsubscribeKategori = null;
-        function subscribeDaftarKategori() {
-            if (unsubscribeKategori) unsubscribeKategori();
-            const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
-            unsubscribeKategori = onSnapshot(q, (snapshot) => {
-                const tbody = document.getElementById('daftarKategoriBody');
-                if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                    return;
-                }
-                tbody.innerHTML = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return `<tr>
-                        <td>${data.nama}</td>
-                        <td>
-                            <button class="btn-icon edit" onclick="editKategori('${doc.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusKategori('${doc.id}')"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>`;
-                }).join('');
-                feather.replace();
-            }, (error) => {
-                console.error('Snapshot kategori error:', error);
-                document.getElementById('daftarKategoriBody').innerHTML = `<tr><td colspan="2" style="text-align:center; color:red;">Gagal memuat: ${error.message}</td></tr>`;
-            });
-        }
-
-        // ========== SUBSCRIBE DAFTAR UNIT ==========
-        let unsubscribeUnit = null;
-        function subscribeDaftarUnit() {
-            if (unsubscribeUnit) unsubscribeUnit();
-            const q = query(unitCol, where('deleted', '==', false), orderBy('nama'));
-            unsubscribeUnit = onSnapshot(q, (snapshot) => {
-                const tbody = document.getElementById('daftarUnitBody');
-                if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                    return;
-                }
-                tbody.innerHTML = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return `<tr>
-                        <td>${data.nama}</td>
-                        <td>
-                            <button class="btn-icon edit" onclick="editUnit('${doc.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusUnit('${doc.id}')"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>`;
-                }).join('');
-                feather.replace();
-            }, (error) => {
-                console.error('Snapshot unit error:', error);
-                document.getElementById('daftarUnitBody').innerHTML = `<tr><td colspan="2" style="text-align:center; color:red;">Gagal memuat: ${error.message}</td></tr>`;
-            });
-        }
+        // ========== TAMBAH GUDANG ==========
+        document.getElementById('formTambahGudang').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nama = document.getElementById('namaGudang').value.trim();
+            if (!nama) return alert('Nama gudang harus diisi');
+            try {
+                await addDoc(gudangCol, {
+                    nama,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                    deleted: false
+                });
+                alert('Gudang berhasil ditambahkan');
+                e.target.reset();
+                loadDropdowns();
+            } catch (error) {
+                console.error(error);
+                alert('Gagal menambah gudang: ' + error.message);
+            }
+        });
 
         // ========== FUNGSI EDIT/HAPUS GLOBAL ==========
         window.editKategori = async (id) => {
             const newName = prompt('Edit nama kategori:');
-            if (newName && newName.trim()) {
-                try {
-                    await setDoc(doc(kategoriCol, id), {
-                        nama: newName.trim(),
-                        updatedAt: serverTimestamp()
-                    }, { merge: true });
-                } catch (error) {
-                    alert('Gagal edit: ' + error.message);
-                }
+            if (!newName) return;
+            try {
+                await setDoc(doc(kategoriCol, id), { nama: newName.trim(), updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal edit: ' + error.message);
             }
         };
         window.hapusKategori = async (id) => {
-            if (confirm('Yakin hapus kategori?')) {
-                try {
-                    await setDoc(doc(kategoriCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
-                } catch (error) {
-                    alert('Gagal hapus: ' + error.message);
-                }
+            if (!confirm('Yakin hapus kategori?')) return;
+            try {
+                await setDoc(doc(kategoriCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal hapus: ' + error.message);
             }
         };
         window.editUnit = async (id) => {
             const newName = prompt('Edit nama unit:');
-            if (newName && newName.trim()) {
-                try {
-                    await setDoc(doc(unitCol, id), {
-                        nama: newName.trim(),
-                        updatedAt: serverTimestamp()
-                    }, { merge: true });
-                } catch (error) {
-                    alert('Gagal edit: ' + error.message);
-                }
+            if (!newName) return;
+            try {
+                await setDoc(doc(unitCol, id), { nama: newName.trim(), updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal edit: ' + error.message);
             }
         };
         window.hapusUnit = async (id) => {
-            if (confirm('Yakin hapus unit?')) {
-                try {
-                    await setDoc(doc(unitCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
-                } catch (error) {
-                    alert('Gagal hapus: ' + error.message);
-                }
+            if (!confirm('Yakin hapus unit?')) return;
+            try {
+                await setDoc(doc(unitCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal hapus: ' + error.message);
+            }
+        };
+        window.editGudang = async (id) => {
+            const newName = prompt('Edit nama gudang:');
+            if (!newName) return;
+            try {
+                await setDoc(doc(gudangCol, id), { nama: newName.trim(), updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal edit: ' + error.message);
+            }
+        };
+        window.hapusGudang = async (id) => {
+            if (!confirm('Yakin hapus gudang?')) return;
+            try {
+                await setDoc(doc(gudangCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal hapus: ' + error.message);
             }
         };
 
-        // ========== SUBSCRIBE DAFTAR PRODUK ==========
-        let unsubscribeProduk = null;
-        function subscribeDaftarProduk() {
-            if (unsubscribeProduk) unsubscribeProduk();
-            const q = query(produkCol, where('deleted', '==', false), orderBy('nama'));
-            unsubscribeProduk = onSnapshot(q, async (snapshot) => {
-                const tbody = document.getElementById('daftarProdukBody');
-                if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada data</td></tr>';
-                    return;
-                }
-
-                const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
-                const kategoriMap = {};
-                kategoriSnap.docs.forEach(d => kategoriMap[d.id] = d.data().nama);
-
-                const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
-                const unitMap = {};
-                unitSnap.docs.forEach(d => unitMap[d.id] = d.data().nama);
-
-                tbody.innerHTML = snapshot.docs.map(doc => {
-                    const p = doc.data();
-                    return `<tr>
-                        <td>${p.kode || '-'}</td>
-                        <td>${p.nama}</td>
-                        <td>${kategoriMap[p.kategoriId] || '-'}</td>
-                        <td>Rp ${(p.hargaJual || 0).toLocaleString()}</td>
-                        <td>${p.stokAwal || 0} ${unitMap[p.unitId] || ''}</td>
-                        <td>${p.produkTimbangan ? '✓' : '-'}</td>
-                        <td>
-                            <button class="btn-icon edit" onclick="editProduk('${doc.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusProduk('${doc.id}')"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>`;
-                }).join('');
-                feather.replace();
-            }, (error) => {
-                console.error('Snapshot produk error:', error);
-                document.getElementById('daftarProdukBody').innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat: ${error.message}</td></tr>`;
-            });
-        }
-
-        // ========== EDIT DAN HAPUS PRODUK ==========
+        // ========== EDIT PRODUK ==========
         window.editProduk = async (id) => {
             try {
                 const produkRef = doc(produkCol, id);
@@ -708,7 +786,7 @@
                 konversiContainer.innerHTML = '';
                 const konversiQuery = query(konversiCol, where('produkId', '==', id), where('deleted', '==', false));
                 const konversiSnap = await getDocs(konversiQuery);
-                konversiSnap.docs.forEach(doc => tambahKonversiRow({ ...doc.data(), id: doc.id }));
+                konversiSnap.docs.forEach(doc => tambahKonversiRow(doc.data()));
 
                 qtyBreakContainer.innerHTML = '';
                 const qtyQuery = query(qtyCol, where('produkId', '==', id), where('deleted', '==', false));
@@ -724,32 +802,29 @@
         };
 
         window.hapusProduk = async (id) => {
-            if (confirm('Yakin hapus produk?')) {
-                try {
-                    await setDoc(doc(produkCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
-
-                    const konversiQuery = query(konversiCol, where('produkId', '==', id));
-                    const konversiSnap = await getDocs(konversiQuery);
-                    for (const docSnap of konversiSnap.docs) {
-                        await setDoc(doc(konversiCol, docSnap.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
-                    }
-                    const qtyQuery = query(qtyCol, where('produkId', '==', id));
-                    const qtySnap = await getDocs(qtyQuery);
-                    for (const docSnap of qtySnap.docs) {
-                        await setDoc(doc(qtyCol, docSnap.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
-                    }
-                } catch (error) {
-                    alert('Gagal hapus: ' + error.message);
+            if (!confirm('Yakin hapus produk?')) return;
+            try {
+                await setDoc(doc(produkCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                // Soft delete konversi & qty terkait
+                const konversiQuery = query(konversiCol, where('produkId', '==', id));
+                const konversiSnap = await getDocs(konversiQuery);
+                for (const d of konversiSnap.docs) {
+                    await setDoc(doc(konversiCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                 }
+                const qtyQuery = query(qtyCol, where('produkId', '==', id));
+                const qtySnap = await getDocs(qtyQuery);
+                for (const d of qtySnap.docs) {
+                    await setDoc(doc(qtyCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                }
+            } catch (error) {
+                alert('Gagal hapus: ' + error.message);
             }
         };
 
         // ========== SIMPAN PRODUK ==========
-        const formTambahProduk = document.getElementById('formTambahProduk');
-        formTambahProduk?.addEventListener('submit', async (e) => {
+        document.getElementById('formTambahProduk').addEventListener('submit', async (e) => {
             e.preventDefault();
             const produkId = produkIdInput.value;
-
             const produkData = {
                 nama: document.getElementById('namaProduk').value,
                 kode: document.getElementById('kodeProduk').value,
@@ -775,23 +850,19 @@
             try {
                 let produkRef;
                 if (produkId) {
-                    // UPDATE
                     produkRef = doc(produkCol, produkId);
                     await setDoc(produkRef, produkData, { merge: true });
 
-                    // Hapus konversi & qty lama (soft delete)
-                    const konversiQuery = query(konversiCol, where('produkId', '==', produkId));
-                    const konversiSnap = await getDocs(konversiQuery);
-                    for (const docSnap of konversiSnap.docs) {
-                        await setDoc(doc(konversiCol, docSnap.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                    // Hapus konversi dan qty lama (soft delete)
+                    const konvSnap = await getDocs(query(konversiCol, where('produkId', '==', produkId)));
+                    for (const d of konvSnap.docs) {
+                        await setDoc(doc(konversiCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                     }
-                    const qtyQuery = query(qtyCol, where('produkId', '==', produkId));
-                    const qtySnap = await getDocs(qtyQuery);
-                    for (const docSnap of qtySnap.docs) {
-                        await setDoc(doc(qtyCol, docSnap.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                    const qtySnap = await getDocs(query(qtyCol, where('produkId', '==', produkId)));
+                    for (const d of qtySnap.docs) {
+                        await setDoc(doc(qtyCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                     }
                 } else {
-                    // TAMBAH BARU
                     produkData.createdAt = serverTimestamp();
                     produkData.deleted = false;
                     produkRef = await addDoc(produkCol, produkData);
@@ -836,11 +907,12 @@
 
                 alert(produkId ? 'Produk berhasil diperbarui' : 'Produk berhasil ditambahkan');
 
-                formTambahProduk.reset();
+                e.target.reset();
                 konversiContainer.innerHTML = '';
                 qtyBreakContainer.innerHTML = '';
                 produkIdInput.value = '';
                 formProdukTitle.innerText = 'Tambah Produk Baru';
+
                 showSection('daftarProduk');
             } catch (error) {
                 console.error(error);
@@ -848,6 +920,7 @@
             }
         });
 
+        // ========== RESET FORM PRODUK ==========
         document.querySelector('button[type="reset"]').addEventListener('click', function() {
             produkIdInput.value = '';
             formProdukTitle.innerText = 'Tambah Produk Baru';
@@ -873,20 +946,26 @@
             }
         });
 
-        // ========== TOMBOL RESET & SYNC ==========
+        // ========== TOMBOL RESET (tidak relevan) ==========
         document.getElementById('resetDbBtn').addEventListener('click', () => {
-            alert('Fungsi reset database lokal tidak tersedia. Data tersimpan di cloud.');
+            alert('Data tersimpan di cloud, reset lokal tidak diperlukan.');
         });
         document.getElementById('syncBtn').addEventListener('click', () => {
-            alert('Sinkronasi otomatis berjalan real-time. Tidak perlu sync manual.');
+            alert('Sinkronasi real-time aktif. Tidak perlu sync manual.');
         });
 
         // ========== INITIAL LOAD ==========
         loadDropdowns();
-        // Subscribe ke daftar jika section aktif
+        subscribeDaftarKategori();
+        subscribeDaftarUnit();
+        subscribeDaftarGudang();
+        subscribeDaftarProduk();
+
+        // Jika ada section yang aktif saat load, pastikan subscribe untuk daftar
+        if (sections.daftarProduk.classList.contains('active')) subscribeDaftarProduk();
         if (sections.daftarKategori.classList.contains('active')) subscribeDaftarKategori();
         if (sections.daftarUnit.classList.contains('active')) subscribeDaftarUnit();
-        if (sections.daftarProduk.classList.contains('active')) subscribeDaftarProduk();
+        if (sections.daftarGudang.classList.contains('active')) subscribeDaftarGudang();
     </script>
 </body>
 </html>
