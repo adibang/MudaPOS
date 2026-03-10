@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDA POS - Purchase</title>
+    <title>MUDA POS - Relation (Firestore)</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
     <style>
@@ -39,61 +39,31 @@
         .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
         .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
         .overlay.active { display:block; }
-        .main-content { padding:1.5rem; max-width:1400px; margin:0 auto; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
         .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
-        
-        /* Komponen Purchase */
-        .search-section { display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; align-items:center; }
-        .search-box { flex:1; min-width:250px; display:flex; background:white; border:1px solid #ddd; border-radius:8px; overflow:hidden; }
-        .search-box input { flex:1; border:none; padding:0.6rem 1rem; font-size:1rem; outline:none; }
-        .search-box button { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; cursor:pointer; display:flex; align-items:center; gap:0.3rem; }
-        .search-box button:hover { background:#004d3b; }
-        .btn-add-product { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; text-decoration:none; }
-        .btn-add-product:hover { background:#004d3b; }
-        
-        .product-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:1rem; margin-bottom:2rem; }
-        .product-card { background:white; border-radius:10px; padding:1rem; box-shadow:0 2px 4px rgba(0,0,0,0.03); border:1px solid #f0f0f0; cursor:pointer; transition:0.2s; }
-        .product-card:hover { border-color:#006B54; box-shadow:0 4px 8px rgba(0,107,84,0.1); }
-        .product-card .nama { font-weight:600; font-size:1rem; color:#333; }
-        .product-card .kode { font-size:0.8rem; color:#666; margin:0.2rem 0 0.5rem; }
-        .product-card .harga { color:#006B54; font-weight:500; }
-        .product-card .qty-control { display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem; }
-        .product-card .qty-control button { background:#f0f0f0; border:none; width:28px; height:28px; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-        .product-card .qty-control button:hover { background:#006B54; color:white; }
-        .product-card .qty-control input { width:50px; text-align:center; border:1px solid #ddd; border-radius:4px; padding:0.2rem; }
-
-        .cart-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; margin-bottom:2rem; }
-        .cart-section h3 { margin-bottom:1rem; color:#006B54; font-size:1.2rem; }
-        .table-responsive { overflow-x: auto; }
-        .cart-table { width:100%; border-collapse:collapse; min-width:800px; }
-        .cart-table th, .cart-table td { padding:0.8rem 0.5rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
-        .cart-table th { background:#f9f9f9; font-weight:600; color:#006B54; }
-        .cart-table .qty-control { display:flex; align-items:center; gap:0.3rem; }
-        .cart-table .qty-control button { background:#f0f0f0; border:none; width:24px; height:24px; border-radius:4px; cursor:pointer; }
-        .cart-table .qty-control button:hover { background:#006B54; color:white; }
-        .cart-table .qty-control input { width:50px; text-align:center; border:1px solid #ddd; border-radius:4px; padding:0.2rem; }
-        .cart-table .remove { color:#dc3545; cursor:pointer; }
-        .cart-table input[type="number"].harga-beli { width:100px; padding:0.2rem; border:1px solid #ddd; border-radius:4px; }
-
-        .transaction-details { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:1.5rem; margin-bottom:2rem; }
-        .detail-box { background:white; border-radius:12px; padding:1.5rem; border:1px solid #f0f0f0; }
-        .detail-box h4 { margin-bottom:1rem; color:#006B54; font-size:1.1rem; }
-        .form-group { margin-bottom:1rem; }
-        .form-group label { display:block; margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
-        .form-group select, .form-group input { width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
-        .form-group select:focus, .form-group input:focus { outline:none; border-color:#006B54; }
-        .total-row { display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:1rem; }
-        .total-row.grand-total { font-weight:700; font-size:1.2rem; color:#006B54; border-top:1px solid #eee; padding-top:0.5rem; margin-top:0.5rem; }
-        .payment-info { background:#f9f9f9; padding:1rem; border-radius:8px; margin-top:1rem; }
-        .payment-info .amount { font-size:1.3rem; font-weight:700; color:#006B54; }
-
-        .btn-save { background:#006B54; color:white; border:none; padding:0.8rem 2rem; border-radius:8px; font-weight:600; font-size:1rem; cursor:pointer; margin-top:1rem; width:100%; }
-        .btn-save:hover { background:#004d3b; }
-
-        @media (max-width:768px) {
-            .search-section { flex-direction:column; align-items:stretch; }
-            .product-list { grid-template-columns:repeat(2,1fr); }
-        }
+        .content-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; display:none; }
+        .content-section.active { display:block; }
+        .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px,1fr)); gap:1rem; margin-bottom:1.2rem; }
+        .form-group { display:flex; flex-direction:column; }
+        .form-group label { margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
+        .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline:none; border-color:#006B54; }
+        .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; margin-right:0.5rem; }
+        .btn:hover { background:#004d3b; }
+        .btn-secondary { background:#6c757d; }
+        .btn-secondary:hover { background:#5a6268; }
+        .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; margin-top:0.5rem; }
+        .btn-outline:hover { background:#e6f0ec; }
+        .table-responsive { overflow-x:auto; margin-top:1rem; }
+        table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:600px; }
+        th, td { padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
+        th { background:#f9f9f9; font-weight:600; color:#006B54; }
+        tr:hover { background:#f5f5f5; }
+        .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; }
+        .btn-icon.delete { color:#dc3545; }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
     </style>
 </head>
 <body>
@@ -110,20 +80,23 @@
             <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
             <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
             <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
-            <li class="has-submenu" id="purchaseMenuItem">
-                <a href="#" class="menu-link" id="purchaseMenuToggle">
-                    <i data-feather="truck"></i> Purchase
-                    <i data-feather="chevron-down" class="arrow"></i>
-                </a>
-                <ul class="submenu">
-                    <li><a href="purchase.html" class="active"><i data-feather="shopping-cart"></i> Transaksi Pembelian</a></li>
-                    <li><a href="purchase-list.html"><i data-feather="list"></i> Daftar Pembelian</a></li>
-                </ul>
-            </li>
+            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
             <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
             <!-- Warehouse sudah dihapus karena pindah ke masterdata -->
             <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
-            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
+            <!-- Relation dengan submenu -->
+            <li class="has-submenu" id="relationMenuItem">
+                <a href="#" class="menu-link" id="relationMenuToggle">
+                    <i data-feather="users"></i> Relation
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a id="submenuTambahCustomer"><i data-feather="user-plus"></i> Tambah customer</a></li>
+                    <li><a id="submenuDaftarCustomer"><i data-feather="users"></i> Daftar customer</a></li>
+                    <li><a id="submenuTambahSupplier"><i data-feather="truck"></i> Tambah supplier</a></li>
+                    <li><a id="submenuDaftarSupplier"><i data-feather="list"></i> Daftar supplier</a></li>
+                </ul>
+            </li>
             <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
             <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
         </ul>
@@ -135,126 +108,170 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <!-- Tombol Sync disembunyikan karena tidak diperlukan -->
-            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <button class="btn-sync" id="syncBtn"><i data-feather="refresh-cw"></i><span>Sync</span></button>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
 
-    <!-- Tombol Reset Darurat disembunyikan -->
-    <button class="reset-btn" id="resetDbBtn" style="display:none;"><i data-feather="trash-2"></i> Reset DB</button>
+    <!-- Tombol Reset Darurat (ubah fungsinya) -->
+    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Firestore (DEV)</button>
 
-    <!-- Halaman Purchase -->
+    <!-- Halaman Relation -->
     <main class="main-content">
-        <h1 class="page-title">Purchase Order</h1>
+        <h1 class="page-title">Relation</h1>
 
-        <!-- Supplier dan Warehouse -->
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
-            <div class="form-group">
-                <label>Pilih Supplier *</label>
-                <select id="supplierSelect" required>
-                    <option value="">-- Pilih Supplier --</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Pilih Warehouse *</label>
-                <select id="warehouseSelect" required>
-                    <option value="">-- Pilih Gudang --</option>
-                </select>
-            </div>
+        <!-- ========== SECTION TAMBAH CUSTOMER ========== -->
+        <div id="tambahCustomerSection" class="content-section active">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Customer Baru</h2>
+            <form id="formTambahCustomer">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Kode Customer *</label>
+                        <input type="text" id="kodeCustomer" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Customer *</label>
+                        <input type="text" id="namaCustomer" required>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Level Customer</label>
+                        <input type="text" id="levelCustomer" placeholder="Contoh: Gold, Silver">
+                    </div>
+                    <div class="form-group">
+                        <label>Kontak</label>
+                        <input type="text" id="kontakCustomer" placeholder="No. HP/Telepon">
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>No. Rekening</label>
+                        <input type="text" id="noRekeningCustomer">
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Bank</label>
+                        <input type="text" id="bankCustomer">
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>No. Token Listrik</label>
+                        <input type="text" id="tokenCustomer">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="emailCustomer">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Alamat</label>
+                    <textarea id="alamatCustomer" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn">Simpan Customer</button>
+            </form>
         </div>
 
-        <!-- Pencarian dan Tombol Tambah Produk -->
-        <div class="search-section">
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Cari produk (kode, nama, barcode...)">
-                <button id="searchBtn"><i data-feather="search"></i> Cari</button>
-            </div>
-            <a href="masterdata.html#tambahProduk" class="btn-add-product" id="addProductBtn">
-                <i data-feather="plus-circle"></i> Tambah Produk Baru
-            </a>
-        </div>
-
-        <!-- Daftar Produk Hasil Pencarian -->
-        <div id="productListContainer" class="product-list">
-            <!-- Akan diisi JS -->
-        </div>
-
-        <!-- Keranjang Belanja -->
-        <div class="cart-section">
-            <h3><i data-feather="shopping-cart"></i> Keranjang Pembelian</h3>
+        <!-- ========== SECTION DAFTAR CUSTOMER ========== -->
+        <div id="daftarCustomerSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Customer</h2>
             <div class="table-responsive">
-                <table class="cart-table" id="cartTable">
+                <table>
                     <thead>
                         <tr>
-                            <th>Produk</th>
-                            <th>Harga Beli</th>
-                            <th>Qty</th>
-                            <th>Subtotal</th>
+                            <th>Kode</th>
+                            <th>Nama</th>
+                            <th>Level</th>
+                            <th>Kontak</th>
+                            <th>No. Rekening</th>
+                            <th>Bank</th>
+                            <th>Token</th>
+                            <th>Email</th>
+                            <th>Alamat</th>
+                            <th>Piutang</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
-                    <tbody id="cartBody">
-                        <tr><td colspan="5" style="text-align:center;">Keranjang kosong</td></tr>
+                    <tbody id="daftarCustomerBody">
+                        <tr><td colspan="11" style="text-align:center;">Memuat data...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Detail Transaksi -->
-        <div class="transaction-details">
-            <div class="detail-box">
-                <h4>Rincian Biaya</h4>
-                <div class="form-group">
-                    <label>Subtotal</label>
-                    <input type="text" id="subtotal" readonly value="Rp 0">
-                </div>
-                <div class="form-group">
-                    <label>Diskon (%)</label>
-                    <input type="number" id="diskonPersen" value="0" min="0" max="100">
-                </div>
-                <div class="form-group">
-                    <label>Diskon (Rp)</label>
-                    <input type="number" id="diskonRp" value="0" min="0">
-                </div>
-                <div class="form-group">
-                    <label>Ongkos Kirim</label>
-                    <input type="number" id="ongkir" value="0" min="0">
-                </div>
-                <div class="form-group">
-                    <label>Biaya Lain</label>
-                    <input type="number" id="biayaLain" value="0" min="0">
-                </div>
-                <div class="total-row grand-total">
-                    <span>Total</span>
-                    <span id="totalBayar">Rp 0</span>
-                </div>
-            </div>
-            <div class="detail-box">
-                <h4>Pembayaran</h4>
-                <div class="form-group">
-                    <label>Jumlah Dibayar</label>
-                    <input type="number" id="dibayar" value="0" min="0">
-                </div>
-                <div class="payment-info">
-                    <div class="total-row">
-                        <span>Kembalian</span>
-                        <span id="kembalian">Rp 0</span>
+        <!-- ========== SECTION TAMBAH SUPPLIER ========== -->
+        <div id="tambahSupplierSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Supplier Baru</h2>
+            <form id="formTambahSupplier">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Kode Supplier *</label>
+                        <input type="text" id="kodeSupplier" required>
                     </div>
-                    <div class="total-row" style="color:#dc3545;">
-                        <span>Utang</span>
-                        <span id="utang">Rp 0</span>
+                    <div class="form-group">
+                        <label>Nama Supplier *</label>
+                        <input type="text" id="namaSupplier" required>
                     </div>
                 </div>
-                <button class="btn-save" id="simpanTransaksi">Simpan Transaksi</button>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Kontak</label>
+                        <input type="text" id="kontakSupplier" placeholder="No. HP/Telepon">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="emailSupplier">
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>No. Rekening</label>
+                        <input type="text" id="noRekeningSupplier">
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Bank</label>
+                        <input type="text" id="bankSupplier">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Alamat</label>
+                    <textarea id="alamatSupplier" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn">Simpan Supplier</button>
+            </form>
+        </div>
+
+        <!-- ========== SECTION DAFTAR SUPPLIER ========== -->
+        <div id="daftarSupplierSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Supplier</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kode</th>
+                            <th>Nama</th>
+                            <th>Kontak</th>
+                            <th>Email</th>
+                            <th>No. Rekening</th>
+                            <th>Bank</th>
+                            <th>Alamat</th>
+                            <th>Utang</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daftarSupplierBody">
+                        <tr><td colspan="9" style="text-align:center;">Memuat data...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
 
-    <!-- Script biasa untuk sidebar -->
+    <!-- Script sidebar (non-module) -->
     <script>
         feather.replace();
 
+        // Sidebar
         const menuToggle = document.getElementById('menuToggle');
         const closeSidebar = document.getElementById('closeSidebar');
         const sidebar = document.getElementById('sidebar');
@@ -266,453 +283,365 @@
         closeSidebar.addEventListener('click', closeSidebarFunc);
         overlay.addEventListener('click', closeSidebarFunc);
 
-        // Toggle submenu purchase
-        const purchaseItem = document.getElementById('purchaseMenuItem');
-        const purchaseToggle = document.getElementById('purchaseMenuToggle');
-        if (purchaseToggle) {
-            purchaseToggle.addEventListener('click', (e) => {
+        // Toggle submenu relation
+        const relationItem = document.getElementById('relationMenuItem');
+        const relationToggle = document.getElementById('relationMenuToggle');
+        if (relationToggle) {
+            relationToggle.addEventListener('click', (e) => {
                 e.preventDefault();
-                purchaseItem.classList.toggle('open');
+                relationItem.classList.toggle('open');
             });
         }
+
+        window.showSection = function(sectionName) { };
     </script>
 
-    <!-- Script module untuk logika purchase (Firestore) -->
+    <!-- Script module utama (Firestore) -->
     <script type="module">
-        // ========== IMPOR FIREBASE (sesuai dengan firebase-config.js) ==========
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
-            collection, doc, getDocs, getDoc, query, where, 
-            serverTimestamp, runTransaction 
+            collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, 
+            onSnapshot, query, where, orderBy, serverTimestamp, 
+            enableIndexedDbPersistence, runTransaction, increment 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        console.log('Firebase berhasil dimuat');
+        // Aktifkan persistence
+        enableIndexedDbPersistence(dbCloud).catch((err) => {
+            if (err.code == 'failed-precondition') {
+                console.warn('Persistence gagal: multiple tabs open');
+            } else if (err.code == 'unimplemented') {
+                console.warn('Browser tidak mendukung persistence');
+            }
+        });
 
-        // ========== REFERENSI KOLEKSI ==========
-        const produkCol = collection(dbCloud, 'produk');
+        // Referensi koleksi
+        const customerCol = collection(dbCloud, 'customer');
         const supplierCol = collection(dbCloud, 'supplier');
-        const gudangCol = collection(dbCloud, 'gudang');
-        const konversiCol = collection(dbCloud, 'konversiUnit');
-        const purchaseCol = collection(dbCloud, 'purchase');
 
-        // ========== STATE KERANJANG ==========
-        let cart = [];
-
-        // ========== ELEMEN DOM ==========
-        const supplierSelect = document.getElementById('supplierSelect');
-        const warehouseSelect = document.getElementById('warehouseSelect');
-        const searchInput = document.getElementById('searchInput');
-        const searchBtn = document.getElementById('searchBtn');
-        const productListContainer = document.getElementById('productListContainer');
-        const cartBody = document.getElementById('cartBody');
-        const subtotalInput = document.getElementById('subtotal');
-        const diskonPersen = document.getElementById('diskonPersen');
-        const diskonRp = document.getElementById('diskonRp');
-        const ongkir = document.getElementById('ongkir');
-        const biayaLain = document.getElementById('biayaLain');
-        const totalBayarSpan = document.getElementById('totalBayar');
-        const dibayar = document.getElementById('dibayar');
-        const kembalianSpan = document.getElementById('kembalian');
-        const utangSpan = document.getElementById('utang');
-        const simpanBtn = document.getElementById('simpanTransaksi');
+        // Elemen DOM
         const loginBtn = document.getElementById('loginBtn');
-        const syncBtn = document.getElementById('syncBtn');
-        const resetBtn = document.getElementById('resetDbBtn');
 
-        // Sembunyikan tombol yang tidak diperlukan
-        if (syncBtn) syncBtn.style.display = 'none';
-        if (resetBtn) resetBtn.style.display = 'none';
+        // ========== NAVIGASI SECTION ==========
+        const sections = {
+            tambahCustomer: document.getElementById('tambahCustomerSection'),
+            daftarCustomer: document.getElementById('daftarCustomerSection'),
+            tambahSupplier: document.getElementById('tambahSupplierSection'),
+            daftarSupplier: document.getElementById('daftarSupplierSection')
+        };
+        const submenus = {
+            tambahCustomer: document.getElementById('submenuTambahCustomer'),
+            daftarCustomer: document.getElementById('submenuDaftarCustomer'),
+            tambahSupplier: document.getElementById('submenuTambahSupplier'),
+            daftarSupplier: document.getElementById('submenuDaftarSupplier')
+        };
 
-        // ========== LOAD DROPDOWNS ==========
-        async function loadSuppliers() {
-            try {
-                const q = query(supplierCol, where('deleted', '==', false));
-                const snapshot = await getDocs(q);
-                supplierSelect.innerHTML = '<option value="">-- Pilih Supplier --</option>' + 
-                    snapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().nama} (${doc.data().kode})</option>`).join('');
-            } catch (error) {
-                console.error('Gagal memuat supplier:', error);
-                alert('Gagal memuat data supplier: ' + error.message);
+        function showSection(sectionName) {
+            Object.values(sections).forEach(s => s && s.classList.remove('active'));
+            Object.values(submenus).forEach(s => s && s.classList.remove('active'));
+            if (sections[sectionName]) sections[sectionName].classList.add('active');
+            if (submenus[sectionName]) submenus[sectionName].classList.add('active');
+            if (window.innerWidth <= 768 && typeof closeSidebarFunc !== 'undefined') {
+                closeSidebarFunc();
             }
         }
 
-        async function loadWarehouses() {
-            try {
-                const q = query(gudangCol, where('deleted', '==', false));
-                const snapshot = await getDocs(q);
-                warehouseSelect.innerHTML = '<option value="">-- Pilih Gudang --</option>' + 
-                    snapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().nama}</option>`).join('');
-            } catch (error) {
-                console.error('Gagal memuat gudang:', error);
-                alert('Gagal memuat data gudang: ' + error.message);
+        // Pasang event listener submenu
+        for (let [key, el] of Object.entries(submenus)) {
+            if (el) {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showSection(key);
+                    // Jika section daftar, pastikan subscribe aktif
+                    if (key === 'daftarCustomer') subscribeDaftarCustomer();
+                    if (key === 'daftarSupplier') subscribeDaftarSupplier();
+                });
             }
         }
+        window.showSection = showSection;
 
-        // ========== RENDER DAFTAR PRODUK ==========
-        async function renderProductList(filter = '') {
-            try {
-                const q = query(produkCol, where('deleted', '==', false));
-                const snapshot = await getDocs(q);
-                let semuaProduk = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                if (filter.trim()) {
-                    const lower = filter.toLowerCase();
-                    semuaProduk = semuaProduk.filter(p => 
-                        (p.nama && p.nama.toLowerCase().includes(lower)) ||
-                        (p.kode && p.kode.toLowerCase().includes(lower)) ||
-                        (p.barcode && p.barcode.toLowerCase().includes(lower))
-                    );
-
-                    if (semuaProduk.length === 0) {
-                        // Cari berdasarkan barcode konversi
-                        const konvQuery = query(konversiCol, where('barcode', '>=', lower), where('barcode', '<=', lower + '\uf8ff'));
-                        const konvSnap = await getDocs(konvQuery);
-                        const produkIds = [...new Set(konvSnap.docs.map(d => d.data().produkId))];
-                        semuaProduk = semuaProduk.filter(p => produkIds.includes(p.id));
-                    }
-                }
-
-                if (semuaProduk.length === 0) {
-                    productListContainer.innerHTML = '<div style="grid-column:1/-1; text-align:center;">Tidak ada produk</div>';
-                    return;
-                }
-
-                productListContainer.innerHTML = semuaProduk.map(p => `
-                    <div class="product-card" data-id="${p.id}">
-                        <div class="nama">${p.nama}</div>
-                        <div class="kode">${p.kode || p.barcode || '-'}</div>
-                        <div class="harga">Harga Jual: Rp ${(p.hargaJual || 0).toLocaleString()}</div>
-                        <div class="qty-control">
-                            <button class="minus" data-id="${p.id}">-</button>
-                            <input type="number" class="qty" value="1" min="1" data-id="${p.id}">
-                            <button class="plus" data-id="${p.id}">+</button>
-                        </div>
-                    </div>
-                `).join('');
-                feather.replace();
-
-                // Event listener tombol +/- 
-                document.querySelectorAll('.product-card .minus').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const id = btn.dataset.id;
-                        const input = document.querySelector(`.product-card .qty[data-id="${id}"]`);
-                        let val = parseInt(input.value) || 1;
-                        if (val > 1) input.value = val - 1;
-                    });
-                });
-                document.querySelectorAll('.product-card .plus').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const id = btn.dataset.id;
-                        const input = document.querySelector(`.product-card .qty[data-id="${id}"]`);
-                        let val = parseInt(input.value) || 1;
-                        input.value = val + 1;
-                    });
-                });
-
-                // Klik kartu untuk tambah ke keranjang
-                document.querySelectorAll('.product-card').forEach(card => {
-                    card.addEventListener('click', async (e) => {
-                        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
-                        const id = card.dataset.id;
-                        const qtyInput = card.querySelector('.qty');
-                        const qty = parseInt(qtyInput.value) || 1;
-                        const hargaBeli = prompt('Masukkan harga beli per unit (Rp):', '0');
-                        if (hargaBeli === null) return;
-                        const harga = parseFloat(hargaBeli.replace(/[^0-9.-]+/g, ''));
-                        if (isNaN(harga) || harga <= 0) {
-                            alert('Harga beli harus angka positif');
-                            return;
-                        }
-                        await tambahKeCart(id, qty, harga);
-                    });
-                });
-            } catch (error) {
-                console.error('Gagal memuat produk:', error);
-                productListContainer.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:red;">Gagal memuat produk</div>';
-            }
-        }
-
-        // ========== TAMBAH KE KERANJANG ==========
-        async function tambahKeCart(produkId, qty, hargaBeli) {
-            try {
-                const produkRef = doc(produkCol, produkId);
-                const produkSnap = await getDoc(produkRef);
-                if (!produkSnap.exists()) {
-                    alert('Produk tidak ditemukan');
-                    return;
-                }
-                const produk = produkSnap.data();
-
-                const existing = cart.find(item => item.id === produkId);
-                if (existing) {
-                    existing.qty += qty;
+        // ========== SUBSCRIBE DAFTAR CUSTOMER ==========
+        let unsubCustomer = null;
+        function subscribeDaftarCustomer() {
+            if (unsubCustomer) unsubCustomer();
+            const q = query(customerCol, where('deleted', '==', false), orderBy('nama'));
+            unsubCustomer = onSnapshot(q, (snapshot) => {
+                const tbody = document.getElementById('daftarCustomerBody');
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Belum ada data</td></tr>';
                 } else {
-                    cart.push({
-                        id: produkId,
-                        nama: produk.nama,
-                        kode: produk.kode || produk.barcode || '-',
-                        hargaBeli: hargaBeli,
-                        qty: qty
-                    });
+                    tbody.innerHTML = snapshot.docs.map(doc => {
+                        const c = doc.data();
+                        return `<tr>
+                            <td>${c.kode || '-'}</td>
+                            <td>${c.nama}</td>
+                            <td>${c.level || '-'}</td>
+                            <td>${c.kontak || '-'}</td>
+                            <td>${c.noRekening || '-'}</td>
+                            <td>${c.bank || '-'}</td>
+                            <td>${c.token || '-'}</td>
+                            <td>${c.email || '-'}</td>
+                            <td>${c.alamat || '-'}</td>
+                            <td>${(c.outstanding || 0).toLocaleString()}</td>
+                            <td>
+                                <button class="btn-icon edit" onclick="editCustomer('${doc.id}')"><i data-feather="edit-2"></i></button>
+                                <button class="btn-icon delete" onclick="hapusCustomer('${doc.id}')"><i data-feather="trash-2"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join('');
                 }
-                renderCart();
-            } catch (error) {
-                console.error('Gagal menambah ke keranjang:', error);
-                alert('Gagal menambah produk: ' + error.message);
-            }
+                feather.replace();
+            }, (error) => {
+                console.error('Snapshot customer error:', error);
+                document.getElementById('daftarCustomerBody').innerHTML = `<tr><td colspan="11" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
         }
 
-        // ========== RENDER KERANJANG ==========
-        function renderCart() {
-            if (cart.length === 0) {
-                cartBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Keranjang kosong</td></tr>';
-                hitungTotal();
-                return;
-            }
-            cartBody.innerHTML = cart.map((item, index) => {
-                const subtotal = item.hargaBeli * item.qty;
-                return `
-                <tr>
-                    <td>${item.nama}<br><small>${item.kode}</small></td>
-                    <td>
-                        <input type="number" class="harga-beli" data-index="${index}" value="${item.hargaBeli}" min="0" step="100">
-                    </td>
-                    <td>
-                        <div class="qty-control">
-                            <button class="cart-minus" data-index="${index}">-</button>
-                            <input type="number" class="cart-qty" data-index="${index}" value="${item.qty}" min="1">
-                            <button class="cart-plus" data-index="${index}">+</button>
-                        </div>
-                    </td>
-                    <td>Rp ${subtotal.toLocaleString()}</td>
-                    <td><i data-feather="trash-2" class="remove" data-index="${index}" style="cursor:pointer;"></i></td>
-                </tr>
-            `}).join('');
-            feather.replace();
-
-            document.querySelectorAll('.harga-beli').forEach(input => {
-                input.addEventListener('change', (e) => {
-                    const index = e.target.dataset.index;
-                    let val = parseFloat(e.target.value);
-                    if (isNaN(val) || val < 0) val = 0;
-                    cart[index].hargaBeli = val;
-                    renderCart();
-                });
+        // ========== SUBSCRIBE DAFTAR SUPPLIER ==========
+        let unsubSupplier = null;
+        function subscribeDaftarSupplier() {
+            if (unsubSupplier) unsubSupplier();
+            const q = query(supplierCol, where('deleted', '==', false), orderBy('nama'));
+            unsubSupplier = onSnapshot(q, (snapshot) => {
+                const tbody = document.getElementById('daftarSupplierBody');
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Belum ada data</td></tr>';
+                } else {
+                    tbody.innerHTML = snapshot.docs.map(doc => {
+                        const s = doc.data();
+                        return `<tr>
+                            <td>${s.kode || '-'}</td>
+                            <td>${s.nama}</td>
+                            <td>${s.kontak || '-'}</td>
+                            <td>${s.email || '-'}</td>
+                            <td>${s.noRekening || '-'}</td>
+                            <td>${s.bank || '-'}</td>
+                            <td>${s.alamat || '-'}</td>
+                            <td>${(s.utang || 0).toLocaleString()}</td>
+                            <td>
+                                <button class="btn-icon edit" onclick="editSupplier('${doc.id}')"><i data-feather="edit-2"></i></button>
+                                <button class="btn-icon delete" onclick="hapusSupplier('${doc.id}')"><i data-feather="trash-2"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                feather.replace();
+            }, (error) => {
+                console.error('Snapshot supplier error:', error);
+                document.getElementById('daftarSupplierBody').innerHTML = `<tr><td colspan="9" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
             });
-
-            document.querySelectorAll('.cart-minus').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const index = btn.dataset.index;
-                    if (cart[index].qty > 1) {
-                        cart[index].qty--;
-                        renderCart();
-                    }
-                });
-            });
-            document.querySelectorAll('.cart-plus').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const index = btn.dataset.index;
-                    cart[index].qty++;
-                    renderCart();
-                });
-            });
-            document.querySelectorAll('.cart-qty').forEach(input => {
-                input.addEventListener('change', (e) => {
-                    const index = e.target.dataset.index;
-                    let val = parseInt(e.target.value);
-                    if (isNaN(val) || val < 1) val = 1;
-                    cart[index].qty = val;
-                    renderCart();
-                });
-            });
-            document.querySelectorAll('.remove').forEach(icon => {
-                icon.addEventListener('click', () => {
-                    const index = icon.dataset.index;
-                    cart.splice(index, 1);
-                    renderCart();
-                });
-            });
-            hitungTotal();
         }
 
-        // ========== HITUNG TOTAL ==========
-        function hitungTotal() {
-            let subtotal = cart.reduce((sum, item) => sum + (item.hargaBeli * item.qty), 0);
-            subtotalInput.value = `Rp ${subtotal.toLocaleString()}`;
-
-            let diskonRpVal = parseFloat(diskonRp.value) || 0;
-            let diskonPersenVal = parseFloat(diskonPersen.value) || 0;
-            let diskonDariPersen = subtotal * diskonPersenVal / 100;
-            let totalDiskon = diskonRpVal + diskonDariPersen;
-            let afterDiskon = subtotal - totalDiskon;
-            if (afterDiskon < 0) afterDiskon = 0;
-
-            let ongkirVal = parseFloat(ongkir.value) || 0;
-            let biayaVal = parseFloat(biayaLain.value) || 0;
-            let total = afterDiskon + ongkirVal + biayaVal;
-            totalBayarSpan.innerText = `Rp ${total.toLocaleString()}`;
-
-            let dibayarVal = parseFloat(dibayar.value) || 0;
-            let selisih = dibayarVal - total;
-            if (selisih >= 0) {
-                kembalianSpan.innerText = `Rp ${selisih.toLocaleString()}`;
-                utangSpan.innerText = 'Rp 0';
-            } else {
-                kembalianSpan.innerText = 'Rp 0';
-                utangSpan.innerText = `Rp ${Math.abs(selisih).toLocaleString()}`;
-            }
-        }
-
-        // Event listener input biaya
-        [diskonPersen, diskonRp, ongkir, biayaLain, dibayar].forEach(el => {
-            el.addEventListener('input', hitungTotal);
-        });
-
-        // Pencarian
-        searchBtn.addEventListener('click', () => {
-            renderProductList(searchInput.value);
-        });
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') renderProductList(searchInput.value);
-        });
-
-        // ========== SIMPAN TRANSAKSI ==========
-        simpanBtn.addEventListener('click', async () => {
-            if (!supplierSelect.value) {
-                alert('Pilih supplier terlebih dahulu');
+        // ========== TAMBAH CUSTOMER ==========
+        document.getElementById('formTambahCustomer').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                kode: document.getElementById('kodeCustomer').value.trim(),
+                nama: document.getElementById('namaCustomer').value.trim(),
+                level: document.getElementById('levelCustomer').value.trim(),
+                kontak: document.getElementById('kontakCustomer').value.trim(),
+                noRekening: document.getElementById('noRekeningCustomer').value.trim(),
+                bank: document.getElementById('bankCustomer').value.trim(),
+                token: document.getElementById('tokenCustomer').value.trim(),
+                email: document.getElementById('emailCustomer').value.trim(),
+                alamat: document.getElementById('alamatCustomer').value.trim(),
+                outstanding: 0, // default piutang
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                deleted: false
+            };
+            if (!data.kode || !data.nama) {
+                alert('Kode dan Nama Customer wajib diisi');
                 return;
             }
-            if (!warehouseSelect.value) {
-                alert('Pilih warehouse terlebih dahulu');
-                return;
-            }
-            if (cart.length === 0) {
-                alert('Keranjang masih kosong');
-                return;
-            }
-
-            let subtotal = cart.reduce((sum, item) => sum + (item.hargaBeli * item.qty), 0);
-            let diskonRpVal = parseFloat(diskonRp.value) || 0;
-            let diskonPersenVal = parseFloat(diskonPersen.value) || 0;
-            let diskonDariPersen = subtotal * diskonPersenVal / 100;
-            let totalDiskon = diskonRpVal + diskonDariPersen;
-            let afterDiskon = subtotal - totalDiskon;
-            if (afterDiskon < 0) afterDiskon = 0;
-            let ongkirVal = parseFloat(ongkir.value) || 0;
-            let biayaVal = parseFloat(biayaLain.value) || 0;
-            let total = afterDiskon + ongkirVal + biayaVal;
-            let dibayarVal = parseFloat(dibayar.value) || 0;
-            let utang = dibayarVal < total ? total - dibayarVal : 0;
-
             try {
-                await runTransaction(dbCloud, async (transaction) => {
-                    const purchaseData = {
-                        tanggal: new Date().toISOString(),
-                        supplierId: supplierSelect.value,
-                        warehouseId: warehouseSelect.value,
-                        items: cart.map(item => ({ 
-                            id: item.id,
-                            nama: item.nama,
-                            kode: item.kode,
-                            hargaBeli: item.hargaBeli,
-                            qty: item.qty 
-                        })),
-                        subtotal,
-                        diskonPersen: diskonPersenVal,
-                        diskonRp: diskonRpVal,
-                        ongkir: ongkirVal,
-                        biayaLain: biayaVal,
-                        total,
-                        dibayar: dibayarVal,
-                        utang,
-                        createdAt: serverTimestamp()
-                    };
-
-                    const purchaseRef = doc(purchaseCol);
-                    transaction.set(purchaseRef, purchaseData);
-
-                    for (let item of cart) {
-                        const produkRef = doc(produkCol, item.id);
-                        const produkSnap = await transaction.get(produkRef);
-                        if (!produkSnap.exists()) {
-                            throw new Error(`Produk ${item.nama} tidak ditemukan`);
-                        }
-                        const produk = produkSnap.data();
-                        const stokLama = produk.stokAwal || 0;
-                        const hargaDasarLama = produk.hargaDasar || 0;
-                        const qty = item.qty;
-                        const hargaBeli = item.hargaBeli;
-
-                        const totalNilaiLama = stokLama * hargaDasarLama;
-                        const totalNilaiBaru = qty * hargaBeli;
-                        const stokBaru = stokLama + qty;
-                        const hargaDasarBaru = stokBaru === 0 ? 0 : (totalNilaiLama + totalNilaiBaru) / stokBaru;
-
-                        transaction.update(produkRef, {
-                            stokAwal: stokBaru,
-                            hargaDasar: hargaDasarBaru,
-                            updatedAt: serverTimestamp()
-                        });
-                    }
-                });
-
-                alert('Transaksi berhasil disimpan' + (utang > 0 ? ` dengan utang Rp ${utang.toLocaleString()}` : ''));
-
-                cart = [];
-                renderCart();
-                supplierSelect.value = '';
-                warehouseSelect.value = '';
-                diskonPersen.value = 0;
-                diskonRp.value = 0;
-                ongkir.value = 0;
-                biayaLain.value = 0;
-                dibayar.value = 0;
-                hitungTotal();
+                await addDoc(customerCol, data);
+                alert('Customer berhasil ditambahkan');
+                e.target.reset();
+                // Jika sedang di daftar customer, snapshot akan update otomatis
             } catch (error) {
-                console.error('Gagal menyimpan transaksi:', error);
-                alert('Gagal menyimpan transaksi: ' + error.message);
+                console.error(error);
+                alert('Gagal menambah customer: ' + error.message);
             }
         });
+
+        // ========== TAMBAH SUPPLIER ==========
+        document.getElementById('formTambahSupplier').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                kode: document.getElementById('kodeSupplier').value.trim(),
+                nama: document.getElementById('namaSupplier').value.trim(),
+                kontak: document.getElementById('kontakSupplier').value.trim(),
+                email: document.getElementById('emailSupplier').value.trim(),
+                noRekening: document.getElementById('noRekeningSupplier').value.trim(),
+                bank: document.getElementById('bankSupplier').value.trim(),
+                alamat: document.getElementById('alamatSupplier').value.trim(),
+                utang: 0, // default utang
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                deleted: false
+            };
+            if (!data.kode || !data.nama) {
+                alert('Kode dan Nama Supplier wajib diisi');
+                return;
+            }
+            try {
+                await addDoc(supplierCol, data);
+                alert('Supplier berhasil ditambahkan');
+                e.target.reset();
+            } catch (error) {
+                console.error(error);
+                alert('Gagal menambah supplier: ' + error.message);
+            }
+        });
+
+        // ========== FUNGSI EDIT/HAPUS CUSTOMER ==========
+        window.editCustomer = async (id) => {
+            try {
+                const docRef = doc(customerCol, id);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    alert('Customer tidak ditemukan');
+                    return;
+                }
+                const cust = docSnap.data();
+
+                // Prompt sederhana untuk edit (bisa dikembangkan dengan form modal)
+                const kodeBaru = prompt('Edit Kode Customer', cust.kode || '');
+                if (kodeBaru === null) return;
+                const namaBaru = prompt('Edit Nama Customer', cust.nama || '');
+                if (namaBaru === null) return;
+                const levelBaru = prompt('Edit Level', cust.level || '');
+                const kontakBaru = prompt('Edit Kontak', cust.kontak || '');
+                const noRekBaru = prompt('Edit No. Rekening', cust.noRekening || '');
+                const bankBaru = prompt('Edit Bank', cust.bank || '');
+                const tokenBaru = prompt('Edit Token', cust.token || '');
+                const emailBaru = prompt('Edit Email', cust.email || '');
+                const alamatBaru = prompt('Edit Alamat', cust.alamat || '');
+
+                await setDoc(docRef, {
+                    kode: kodeBaru,
+                    nama: namaBaru,
+                    level: levelBaru,
+                    kontak: kontakBaru,
+                    noRekening: noRekBaru,
+                    bank: bankBaru,
+                    token: tokenBaru,
+                    email: emailBaru,
+                    alamat: alamatBaru,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            } catch (error) {
+                alert('Gagal edit: ' + error.message);
+            }
+        };
+
+        window.hapusCustomer = async (id) => {
+            if (!confirm('Yakin hapus customer?')) return;
+            try {
+                await setDoc(doc(customerCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal hapus: ' + error.message);
+            }
+        };
+
+        // ========== FUNGSI EDIT/HAPUS SUPPLIER ==========
+        window.editSupplier = async (id) => {
+            try {
+                const docRef = doc(supplierCol, id);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    alert('Supplier tidak ditemukan');
+                    return;
+                }
+                const supp = docSnap.data();
+
+                const kodeBaru = prompt('Edit Kode Supplier', supp.kode || '');
+                if (kodeBaru === null) return;
+                const namaBaru = prompt('Edit Nama Supplier', supp.nama || '');
+                if (namaBaru === null) return;
+                const kontakBaru = prompt('Edit Kontak', supp.kontak || '');
+                const emailBaru = prompt('Edit Email', supp.email || '');
+                const noRekBaru = prompt('Edit No. Rekening', supp.noRekening || '');
+                const bankBaru = prompt('Edit Bank', supp.bank || '');
+                const alamatBaru = prompt('Edit Alamat', supp.alamat || '');
+
+                await setDoc(docRef, {
+                    kode: kodeBaru,
+                    nama: namaBaru,
+                    kontak: kontakBaru,
+                    email: emailBaru,
+                    noRekening: noRekBaru,
+                    bank: bankBaru,
+                    alamat: alamatBaru,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            } catch (error) {
+                alert('Gagal edit: ' + error.message);
+            }
+        };
+
+        window.hapusSupplier = async (id) => {
+            if (!confirm('Yakin hapus supplier?')) return;
+            try {
+                await setDoc(doc(supplierCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal hapus: ' + error.message);
+            }
+        };
 
         // ========== AUTH ==========
         onAuthStateChanged(auth, (user) => {
-            try {
-                if (user) {
-                    loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
-                    console.log('Logged in as:', user.email);
-                } else {
-                    loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
-                    console.log('Logged out');
-                }
-                feather.replace();
-            } catch (error) {
-                console.error('Error di onAuthStateChanged:', error);
+            if (user) {
+                loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
+            } else {
+                loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            }
+            feather.replace();
+        });
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
+            } else {
+                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
             }
         });
 
-        loginBtn.addEventListener('click', async () => {
+        // ========== TOMBOL RESET (untuk development) ==========
+        document.getElementById('resetDbBtn').addEventListener('click', async () => {
+            if (!confirm('Hapus semua data customer dan supplier di Firestore?')) return;
             try {
-                const user = auth.currentUser;
-                if (user) {
-                    await signOut(auth);
-                    console.log('Logout berhasil');
-                } else {
-                    await signInWithPopup(auth, provider);
-                    console.log('Login berhasil');
-                }
+                const custSnap = await getDocs(customerCol);
+                const suppSnap = await getDocs(supplierCol);
+                const batch = writeBatch(dbCloud);
+                custSnap.docs.forEach(d => batch.delete(d.ref));
+                suppSnap.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+                alert('Semua data customer dan supplier telah dihapus.');
             } catch (error) {
-                console.error('Gagal login/logout:', error);
-                alert('Gagal: ' + error.message);
+                alert('Gagal reset: ' + error.message);
             }
+        });
+
+        // ========== TOMBOL SYNC (tidak diperlukan) ==========
+        document.getElementById('syncBtn').addEventListener('click', () => {
+            alert('Sinkronasi real-time aktif. Tidak perlu sync manual.');
         });
 
         // ========== INITIAL LOAD ==========
-        loadSuppliers();
-        loadWarehouses();
-        renderProductList();
+        // Subscribe daftar jika section aktif
+        if (sections.daftarCustomer.classList.contains('active')) subscribeDaftarCustomer();
+        if (sections.daftarSupplier.classList.contains('active')) subscribeDaftarSupplier();
+
+        // Tetap subscribe di awal agar data siap ketika pindah ke daftar
+        subscribeDaftarCustomer();
+        subscribeDaftarSupplier();
+
+        // Tampilkan section default jika tidak ada yang aktif
+        if (!document.querySelector('.content-section.active')) {
+            showSection('tambahCustomer');
+        }
     </script>
 </body>
 </html>
