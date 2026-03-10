@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDA POS - Setting</title>
+    <title>MUDA POS - Pengaturan</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
     <style>
@@ -39,20 +39,39 @@
         .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
         .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
         .overlay.active { display:block; }
-        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
+        .main-content { padding:1.5rem; max-width:800px; margin:0 auto; }
         .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
         .content-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; display:none; }
         .content-section.active { display:block; }
         .form-group { margin-bottom:1rem; }
-        .form-group label { display:block; margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
-        .form-group input, .form-group select, .form-group textarea { width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
-        .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
-        .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; margin-right:0.5rem; }
+        .form-group label { display:block; margin-bottom:0.3rem; font-weight:500; }
+        .form-group input, .form-group select { width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; }
+        .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; cursor:pointer; margin-right:0.5rem; }
         .btn:hover { background:#004d3b; }
         .btn-secondary { background:#6c757d; }
         .btn-secondary:hover { background:#5a6268; }
-        hr { margin:1.5rem 0; border:0; border-top:1px solid #e0e0e0; }
-        @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
+        .submenu-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 20px;
+            border: 1px solid #f0f0f0;
+        }
+        .submenu-tabs button {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .submenu-tabs button.active {
+            background: #006B54;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -74,7 +93,6 @@
             <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
             <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
             <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
-            <!-- Setting dengan submenu -->
             <li class="has-submenu" id="settingMenuItem">
                 <a href="#" class="menu-link" id="settingMenuToggle">
                     <i data-feather="settings"></i> Setting
@@ -99,77 +117,72 @@
         </div>
     </header>
 
-    <!-- Tombol Reset (untuk development) -->
+    <!-- Tombol Reset Darurat (untuk development) -->
     <button class="reset-btn" id="resetDbBtn" style="display:none;"><i data-feather="trash-2"></i> Reset</button>
 
     <!-- Halaman Setting -->
     <main class="main-content">
         <h1 class="page-title">Pengaturan</h1>
 
-        <!-- Section Config (Barcode Timbangan) -->
+        <!-- Tab navigasi internal -->
+        <div class="submenu-tabs">
+            <button id="tabConfig" class="active">Config</button>
+            <button id="tabPrinter">Printer & Struk</button>
+        </div>
+
+        <!-- Section Config -->
         <div id="configSection" class="content-section active">
-            <h2 style="margin-bottom:1.2rem;">Konfigurasi Barcode Timbangan</h2>
+            <h2 style="margin-bottom:1rem;">Konfigurasi Barcode Timbangan</h2>
             <form id="formBarcodeConfig">
                 <div class="form-group">
                     <label>Jumlah Digit Flex</label>
-                    <input type="number" id="flexLength" min="1" max="3" value="2" required>
-                    <small class="text-muted">Biasanya 2 digit.</small>
+                    <input type="number" id="flexLength" min="1" max="3" required>
                 </div>
                 <div class="form-group">
                     <label>Nilai Flex</label>
-                    <input type="text" id="flexValue" value="11" required>
-                    <small class="text-muted">Kode identifikasi produk timbangan, misal "11".</small>
+                    <input type="text" id="flexValue" maxlength="3" required>
                 </div>
                 <div class="form-group">
                     <label>Jumlah Digit Kode Produk</label>
-                    <input type="number" id="productLength" min="1" max="10" value="6" required>
+                    <input type="number" id="productLength" min="1" max="10" required>
                 </div>
                 <div class="form-group">
                     <label>Jumlah Digit Berat (gram)</label>
-                    <input type="number" id="weightLength" min="1" max="10" value="5" required>
-                    <small class="text-muted">Contoh: 5 digit berarti berat maksimal 99999 gram.</small>
+                    <input type="number" id="weightLength" min="1" max="5" required>
                 </div>
-                <button type="submit" class="btn">Simpan Konfigurasi</button>
+                <button type="submit" class="btn">Simpan</button>
             </form>
         </div>
 
         <!-- Section Printer & Struk -->
         <div id="printerSection" class="content-section">
-            <h2 style="margin-bottom:1.2rem;">Pengaturan Printer & Struk</h2>
-            <form id="formPrinterConfig">
+            <h2 style="margin-bottom:1rem;">Pengaturan Printer dan Struk</h2>
+            <form id="formPrinter">
                 <div class="form-group">
-                    <label>Nama Toko / Header Struk</label>
-                    <input type="text" id="storeName" value="TOKO MUDA" required>
+                    <label>Auto-connect printer saat halaman dimuat</label>
+                    <input type="checkbox" id="autoConnectPrinter"> Ya
                 </div>
                 <div class="form-group">
-                    <label>Alamat Toko (opsional)</label>
-                    <textarea id="storeAddress" rows="2"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Footer Struk</label>
-                    <input type="text" id="receiptFooter" value="Terima kasih">
-                </div>
-                <div class="form-group">
-                    <label>Ukuran Kertas (mm)</label>
-                    <select id="paperSize">
+                    <label>Lebar kertas struk (mm)</label>
+                    <select id="paperWidth">
                         <option value="58">58 mm</option>
                         <option value="80">80 mm</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Format Tanggal</label>
-                    <select id="dateFormat">
-                        <option value="dd-MM-yyyy">DD-MM-YYYY</option>
-                        <option value="yyyy-MM-dd">YYYY-MM-DD</option>
-                        <option value="dd/MM/yyyy">DD/MM/YYYY</option>
-                    </select>
+                    <label>Header struk (teks tambahan)</label>
+                    <textarea id="receiptHeader" rows="2" placeholder="Contoh: Terima kasih"></textarea>
                 </div>
-                <button type="submit" class="btn">Simpan Pengaturan Printer</button>
+                <div class="form-group">
+                    <label>Footer struk</label>
+                    <textarea id="receiptFooter" rows="2" placeholder="Contoh: Barang yang sudah dibeli tidak dapat dikembalikan"></textarea>
+                </div>
+                <button type="submit" class="btn">Simpan</button>
             </form>
         </div>
     </main>
 
-    <!-- Script sidebar (non-module) -->
+    <!-- Script sidebar -->
     <script>
         feather.replace();
 
@@ -193,125 +206,119 @@
                 settingItem.classList.toggle('open');
             });
         }
-
-        window.showSection = function(sectionName) { };
     </script>
 
-    <!-- Script module utama (Firestore) -->
+    <!-- Script module utama -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { collection, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         console.log('Setting page dimulai');
 
         // Referensi dokumen settings
-        const barcodeConfigRef = doc(dbCloud, 'settings', 'barcodeConfig');
-        const printerConfigRef = doc(dbCloud, 'settings', 'printerConfig');
+        const settingsDocRef = doc(dbCloud, 'settings', 'app');
 
         // Elemen DOM
+        const tabConfig = document.getElementById('tabConfig');
+        const tabPrinter = document.getElementById('tabPrinter');
         const configSection = document.getElementById('configSection');
         const printerSection = document.getElementById('printerSection');
-        const submenuConfig = document.getElementById('submenuConfig');
-        const submenuPrinter = document.getElementById('submenuPrinter');
+        const formBarcode = document.getElementById('formBarcodeConfig');
+        const formPrinter = document.getElementById('formPrinter');
         const loginBtn = document.getElementById('loginBtn');
+        const syncBtn = document.getElementById('syncBtn');
+        const resetBtn = document.getElementById('resetDbBtn');
 
-        // Form elements
+        // Input fields
         const flexLength = document.getElementById('flexLength');
         const flexValue = document.getElementById('flexValue');
         const productLength = document.getElementById('productLength');
         const weightLength = document.getElementById('weightLength');
-        const storeName = document.getElementById('storeName');
-        const storeAddress = document.getElementById('storeAddress');
+        const autoConnectPrinter = document.getElementById('autoConnectPrinter');
+        const paperWidth = document.getElementById('paperWidth');
+        const receiptHeader = document.getElementById('receiptHeader');
         const receiptFooter = document.getElementById('receiptFooter');
-        const paperSize = document.getElementById('paperSize');
-        const dateFormat = document.getElementById('dateFormat');
 
-        // ========== NAVIGASI SECTION ==========
-        function showSection(section) {
-            configSection.classList.remove('active');
-            printerSection.classList.remove('active');
-            submenuConfig.classList.remove('active');
-            submenuPrinter.classList.remove('active');
-            section.classList.add('active');
-            if (section === configSection) submenuConfig.classList.add('active');
-            else submenuPrinter.classList.add('active');
-            if (window.innerWidth <= 768 && typeof closeSidebarFunc !== 'undefined') {
-                closeSidebarFunc();
+        // Fungsi tab switching
+        function showTab(tab) {
+            if (tab === 'config') {
+                tabConfig.classList.add('active');
+                tabPrinter.classList.remove('active');
+                configSection.classList.add('active');
+                printerSection.classList.remove('active');
+            } else {
+                tabPrinter.classList.add('active');
+                tabConfig.classList.remove('active');
+                printerSection.classList.add('active');
+                configSection.classList.remove('active');
             }
         }
 
-        submenuConfig.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection(configSection);
-            loadBarcodeConfig();
-        });
-        submenuPrinter.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection(printerSection);
-            loadPrinterConfig();
-        });
+        tabConfig.addEventListener('click', () => showTab('config'));
+        tabPrinter.addEventListener('click', () => showTab('printer'));
 
-        // ========== LOAD KONFIGURASI BARCODE ==========
-        async function loadBarcodeConfig() {
+        // Muat data dari Firestore
+        async function loadSettings() {
             try {
-                const snap = await getDoc(barcodeConfigRef);
-                if (snap.exists()) {
-                    const data = snap.data();
-                    flexLength.value = data.flexLength || 2;
-                    flexValue.value = data.flexValue || '11';
-                    productLength.value = data.productLength || 6;
-                    weightLength.value = data.weightLength || 5;
+                const docSnap = await getDoc(settingsDocRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    // Barcode
+                    if (data.barcode) {
+                        flexLength.value = data.barcode.flexLength || 2;
+                        flexValue.value = data.barcode.flexValue || '11';
+                        productLength.value = data.barcode.productLength || 6;
+                        weightLength.value = data.barcode.weightLength || 5;
+                    } else {
+                        // Default
+                        flexLength.value = 2;
+                        flexValue.value = '11';
+                        productLength.value = 6;
+                        weightLength.value = 5;
+                    }
+                    // Printer
+                    if (data.printer) {
+                        autoConnectPrinter.checked = data.printer.autoConnect || false;
+                        paperWidth.value = data.printer.paperWidth || '58';
+                        receiptHeader.value = data.printer.receiptHeader || '';
+                        receiptFooter.value = data.printer.receiptFooter || '';
+                    }
                 } else {
-                    // default
+                    // Default values
                     flexLength.value = 2;
                     flexValue.value = '11';
                     productLength.value = 6;
                     weightLength.value = 5;
+                    autoConnectPrinter.checked = false;
+                    paperWidth.value = '58';
+                    receiptHeader.value = '';
+                    receiptFooter.value = '';
                 }
             } catch (error) {
-                console.error('Gagal memuat konfigurasi barcode:', error);
-                alert('Gagal memuat: ' + error.message);
+                console.error('Gagal memuat settings:', error);
+                alert('Gagal memuat pengaturan: ' + error.message);
             }
         }
 
-        // ========== LOAD KONFIGURASI PRINTER ==========
-        async function loadPrinterConfig() {
-            try {
-                const snap = await getDoc(printerConfigRef);
-                if (snap.exists()) {
-                    const data = snap.data();
-                    storeName.value = data.storeName || 'TOKO MUDA';
-                    storeAddress.value = data.storeAddress || '';
-                    receiptFooter.value = data.receiptFooter || 'Terima kasih';
-                    paperSize.value = data.paperSize || '58';
-                    dateFormat.value = data.dateFormat || 'dd-MM-yyyy';
-                } else {
-                    storeName.value = 'TOKO MUDA';
-                    storeAddress.value = '';
-                    receiptFooter.value = 'Terima kasih';
-                    paperSize.value = '58';
-                    dateFormat.value = 'dd-MM-yyyy';
-                }
-            } catch (error) {
-                console.error('Gagal memuat konfigurasi printer:', error);
-                alert('Gagal memuat: ' + error.message);
-            }
-        }
-
-        // ========== SIMPAN KONFIGURASI BARCODE ==========
-        document.getElementById('formBarcodeConfig').addEventListener('submit', async (e) => {
+        // Simpan barcode config
+        formBarcode.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const data = {
-                flexLength: parseInt(flexLength.value),
-                flexValue: flexValue.value.trim(),
-                productLength: parseInt(productLength.value),
-                weightLength: parseInt(weightLength.value),
-                updatedAt: serverTimestamp(),
-                updatedBy: auth.currentUser?.uid || null
-            };
             try {
-                await setDoc(barcodeConfigRef, data, { merge: true });
+                const barcodeData = {
+                    flexLength: parseInt(flexLength.value),
+                    flexValue: flexValue.value.trim(),
+                    productLength: parseInt(productLength.value),
+                    weightLength: parseInt(weightLength.value)
+                };
+                // Ambil data printer yang sudah ada
+                const docSnap = await getDoc(settingsDocRef);
+                const existing = docSnap.exists() ? docSnap.data() : {};
+                const newData = {
+                    ...existing,
+                    barcode: barcodeData
+                };
+                await setDoc(settingsDocRef, newData);
                 alert('Konfigurasi barcode berhasil disimpan');
             } catch (error) {
                 console.error(error);
@@ -319,20 +326,23 @@
             }
         });
 
-        // ========== SIMPAN KONFIGURASI PRINTER ==========
-        document.getElementById('formPrinterConfig').addEventListener('submit', async (e) => {
+        // Simpan printer config
+        formPrinter.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const data = {
-                storeName: storeName.value.trim(),
-                storeAddress: storeAddress.value.trim(),
-                receiptFooter: receiptFooter.value.trim(),
-                paperSize: paperSize.value,
-                dateFormat: dateFormat.value,
-                updatedAt: serverTimestamp(),
-                updatedBy: auth.currentUser?.uid || null
-            };
             try {
-                await setDoc(printerConfigRef, data, { merge: true });
+                const printerData = {
+                    autoConnect: autoConnectPrinter.checked,
+                    paperWidth: paperWidth.value,
+                    receiptHeader: receiptHeader.value,
+                    receiptFooter: receiptFooter.value
+                };
+                const docSnap = await getDoc(settingsDocRef);
+                const existing = docSnap.exists() ? docSnap.data() : {};
+                const newData = {
+                    ...existing,
+                    printer: printerData
+                };
+                await setDoc(settingsDocRef, newData);
                 alert('Pengaturan printer berhasil disimpan');
             } catch (error) {
                 console.error(error);
@@ -340,7 +350,7 @@
             }
         });
 
-        // ========== AUTH ==========
+        // Auth
         onAuthStateChanged(auth, (user) => {
             loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
             feather.replace();
@@ -354,17 +364,8 @@
             }
         });
 
-        // ========== INITIAL LOAD ==========
-        // Muat data untuk section aktif
-        if (configSection.classList.contains('active')) {
-            loadBarcodeConfig();
-        } else if (printerSection.classList.contains('active')) {
-            loadPrinterConfig();
-        } else {
-            // default
-            showSection(configSection);
-            loadBarcodeConfig();
-        }
+        // Initial load
+        loadSettings();
     </script>
 </body>
 </html>
