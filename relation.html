@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDA POS - Relation</title>
+    <title>MUDA POS - Relation (Firestore)</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- LocalForage -->
-    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <style>
         /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
@@ -84,7 +82,7 @@
             <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
             <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
             <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
-            <li><a href="warehouse.html" class="menu-link"><i data-feather="box"></i> Warehouse</a></li>
+            <!-- Warehouse sudah dihapus karena pindah ke masterdata -->
             <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
             <!-- Relation dengan submenu -->
             <li class="has-submenu" id="relationMenuItem">
@@ -115,8 +113,8 @@
         </div>
     </header>
 
-    <!-- Tombol Reset Darurat -->
-    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset DB</button>
+    <!-- Tombol Reset Darurat (ubah fungsinya) -->
+    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Firestore (DEV)</button>
 
     <!-- Halaman Relation -->
     <main class="main-content">
@@ -195,7 +193,7 @@
                         </tr>
                     </thead>
                     <tbody id="daftarCustomerBody">
-                        <tr><td colspan="11" style="text-align:center;">Belum ada data</td></tr>
+                        <tr><td colspan="11" style="text-align:center;">Memuat data...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -262,14 +260,14 @@
                         </tr>
                     </thead>
                     <tbody id="daftarSupplierBody">
-                        <tr><td colspan="9" style="text-align:center;">Belum ada data</td></tr>
+                        <tr><td colspan="9" style="text-align:center;">Memuat data...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </main>
 
-    <!-- Script biasa untuk sidebar (non-module) -->
+    <!-- Script sidebar (non-module) -->
     <script>
         feather.replace();
 
@@ -298,47 +296,33 @@
         window.showSection = function(sectionName) { };
     </script>
 
-    <!-- Script module untuk logika bisnis -->
+    <!-- Script module utama (Firestore) -->
     <script type="module">
-        import { auth, provider } from './js/firebase-config.js';
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { 
+            collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, 
+            onSnapshot, query, where, orderBy, serverTimestamp, 
+            enableIndexedDbPersistence, runTransaction, increment 
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Inisialisasi LocalForage untuk customer dan supplier
-        const customerStore = localforage.createInstance({ name: 'customer' });
-        const supplierStore = localforage.createInstance({ name: 'supplier' });
+        // Aktifkan persistence
+        enableIndexedDbPersistence(dbCloud).catch((err) => {
+            if (err.code == 'failed-precondition') {
+                console.warn('Persistence gagal: multiple tabs open');
+            } else if (err.code == 'unimplemented') {
+                console.warn('Browser tidak mendukung persistence');
+            }
+        });
 
-        // Fungsi bantu
-        function generateId() {
-            return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        }
-        async function getAll(store) {
-            let items = [];
-            await store.iterate((value, key) => {
-                items.push({ ...value, id: key });
-            });
-            return items;
-        }
-        async function getById(store, id) {
-            return await store.getItem(id);
-        }
-        async function addItem(store, data) {
-            const id = generateId();
-            await store.setItem(id, data);
-            return id;
-        }
-        async function updateItem(store, id, data) {
-            await store.setItem(id, data);
-        }
-        async function removeItem(store, id) {
-            await store.removeItem(id);
-        }
-
-        // Format Rupiah
-        function formatRupiah(angka) {
-            return 'Rp ' + angka.toLocaleString('id-ID');
-        }
+        // Referensi koleksi
+        const customerCol = collection(dbCloud, 'customer');
+        const supplierCol = collection(dbCloud, 'supplier');
 
         // Elemen DOM
+        const loginBtn = document.getElementById('loginBtn');
+
+        // ========== NAVIGASI SECTION ==========
         const sections = {
             tambahCustomer: document.getElementById('tambahCustomerSection'),
             daftarCustomer: document.getElementById('daftarCustomerSection'),
@@ -353,24 +337,103 @@
         };
 
         function showSection(sectionName) {
-            Object.values(sections).forEach(s => s.classList.remove('active'));
-            Object.values(submenus).forEach(s => s.classList.remove('active'));
+            Object.values(sections).forEach(s => s && s.classList.remove('active'));
+            Object.values(submenus).forEach(s => s && s.classList.remove('active'));
             if (sections[sectionName]) sections[sectionName].classList.add('active');
             if (submenus[sectionName]) submenus[sectionName].classList.add('active');
-            if (window.innerWidth <= 768) closeSidebarFunc();
+            if (window.innerWidth <= 768 && typeof closeSidebarFunc !== 'undefined') {
+                closeSidebarFunc();
+            }
         }
 
         // Pasang event listener submenu
-        submenus.tambahCustomer.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahCustomer'); });
-        submenus.daftarCustomer.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarCustomer'); loadDaftarCustomer(); });
-        submenus.tambahSupplier.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahSupplier'); });
-        submenus.daftarSupplier.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarSupplier'); loadDaftarSupplier(); });
-
+        for (let [key, el] of Object.entries(submenus)) {
+            if (el) {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showSection(key);
+                    // Jika section daftar, pastikan subscribe aktif
+                    if (key === 'daftarCustomer') subscribeDaftarCustomer();
+                    if (key === 'daftarSupplier') subscribeDaftarSupplier();
+                });
+            }
+        }
         window.showSection = showSection;
 
-        // ========== CUSTOMER ==========
-        const formTambahCustomer = document.getElementById('formTambahCustomer');
-        formTambahCustomer.addEventListener('submit', async (e) => {
+        // ========== SUBSCRIBE DAFTAR CUSTOMER ==========
+        let unsubCustomer = null;
+        function subscribeDaftarCustomer() {
+            if (unsubCustomer) unsubCustomer();
+            const q = query(customerCol, where('deleted', '==', false), orderBy('nama'));
+            unsubCustomer = onSnapshot(q, (snapshot) => {
+                const tbody = document.getElementById('daftarCustomerBody');
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Belum ada data</td></tr>';
+                } else {
+                    tbody.innerHTML = snapshot.docs.map(doc => {
+                        const c = doc.data();
+                        return `<tr>
+                            <td>${c.kode || '-'}</td>
+                            <td>${c.nama}</td>
+                            <td>${c.level || '-'}</td>
+                            <td>${c.kontak || '-'}</td>
+                            <td>${c.noRekening || '-'}</td>
+                            <td>${c.bank || '-'}</td>
+                            <td>${c.token || '-'}</td>
+                            <td>${c.email || '-'}</td>
+                            <td>${c.alamat || '-'}</td>
+                            <td>${(c.outstanding || 0).toLocaleString()}</td>
+                            <td>
+                                <button class="btn-icon edit" onclick="editCustomer('${doc.id}')"><i data-feather="edit-2"></i></button>
+                                <button class="btn-icon delete" onclick="hapusCustomer('${doc.id}')"><i data-feather="trash-2"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                feather.replace();
+            }, (error) => {
+                console.error('Snapshot customer error:', error);
+                document.getElementById('daftarCustomerBody').innerHTML = `<tr><td colspan="11" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
+        }
+
+        // ========== SUBSCRIBE DAFTAR SUPPLIER ==========
+        let unsubSupplier = null;
+        function subscribeDaftarSupplier() {
+            if (unsubSupplier) unsubSupplier();
+            const q = query(supplierCol, where('deleted', '==', false), orderBy('nama'));
+            unsubSupplier = onSnapshot(q, (snapshot) => {
+                const tbody = document.getElementById('daftarSupplierBody');
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Belum ada data</td></tr>';
+                } else {
+                    tbody.innerHTML = snapshot.docs.map(doc => {
+                        const s = doc.data();
+                        return `<tr>
+                            <td>${s.kode || '-'}</td>
+                            <td>${s.nama}</td>
+                            <td>${s.kontak || '-'}</td>
+                            <td>${s.email || '-'}</td>
+                            <td>${s.noRekening || '-'}</td>
+                            <td>${s.bank || '-'}</td>
+                            <td>${s.alamat || '-'}</td>
+                            <td>${(s.utang || 0).toLocaleString()}</td>
+                            <td>
+                                <button class="btn-icon edit" onclick="editSupplier('${doc.id}')"><i data-feather="edit-2"></i></button>
+                                <button class="btn-icon delete" onclick="hapusSupplier('${doc.id}')"><i data-feather="trash-2"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                feather.replace();
+            }, (error) => {
+                console.error('Snapshot supplier error:', error);
+                document.getElementById('daftarSupplierBody').innerHTML = `<tr><td colspan="9" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
+        }
+
+        // ========== TAMBAH CUSTOMER ==========
+        document.getElementById('formTambahCustomer').addEventListener('submit', async (e) => {
             e.preventDefault();
             const data = {
                 kode: document.getElementById('kodeCustomer').value.trim(),
@@ -382,80 +445,28 @@
                 token: document.getElementById('tokenCustomer').value.trim(),
                 email: document.getElementById('emailCustomer').value.trim(),
                 alamat: document.getElementById('alamatCustomer').value.trim(),
-                outstanding: 0, // ← tambahkan field piutang dengan default 0
-                synced: false,
-                idCloud: null
+                outstanding: 0, // default piutang
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                deleted: false
             };
             if (!data.kode || !data.nama) {
                 alert('Kode dan Nama Customer wajib diisi');
                 return;
             }
             try {
-                await addItem(customerStore, data);
+                await addDoc(customerCol, data);
                 alert('Customer berhasil ditambahkan');
-                formTambahCustomer.reset();
-                if (sections.daftarCustomer.classList.contains('active')) loadDaftarCustomer();
+                e.target.reset();
+                // Jika sedang di daftar customer, snapshot akan update otomatis
             } catch (error) {
-                alert('Gagal menyimpan: ' + error.message);
+                console.error(error);
+                alert('Gagal menambah customer: ' + error.message);
             }
         });
 
-        async function loadDaftarCustomer() {
-            try {
-                let list = await getAll(customerStore);
-                // Pastikan setiap customer memiliki properti outstanding
-                list = list.map(c => ({
-                    ...c,
-                    outstanding: c.outstanding !== undefined ? c.outstanding : 0
-                }));
-                const tbody = document.getElementById('daftarCustomerBody');
-                if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Belum ada data</td></tr>';
-                    return;
-                }
-                tbody.innerHTML = list.map(c => `
-                    <tr>
-                        <td>${c.kode || '-'}</td>
-                        <td>${c.nama} ${!c.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                        <td>${c.level || '-'}</td>
-                        <td>${c.kontak || '-'}</td>
-                        <td>${c.noRekening || '-'}</td>
-                        <td>${c.bank || '-'}</td>
-                        <td>${c.token || '-'}</td>
-                        <td>${c.email || '-'}</td>
-                        <td>${c.alamat || '-'}</td>
-                        <td>${formatRupiah(c.outstanding)}</td> <!-- Tampilkan piutang -->
-                        <td>
-                            <button class="btn-icon edit" onclick="editCustomer('${c.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusCustomer('${c.id}')"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>
-                `).join('');
-                feather.replace();
-            } catch (error) {
-                alert('Gagal memuat customer: ' + error.message);
-            }
-        }
-
-        window.editCustomer = async (id) => {
-            // Implementasi edit sederhana, bisa dikembangkan lebih lanjut
-            alert('Fungsi edit akan segera hadir');
-        };
-
-        window.hapusCustomer = async (id) => {
-            if (confirm('Yakin hapus customer ini?')) {
-                try {
-                    await removeItem(customerStore, id);
-                    loadDaftarCustomer();
-                } catch (error) {
-                    alert('Gagal hapus: ' + error.message);
-                }
-            }
-        };
-
-        // ========== SUPPLIER ==========
-        const formTambahSupplier = document.getElementById('formTambahSupplier');
-        formTambahSupplier.addEventListener('submit', async (e) => {
+        // ========== TAMBAH SUPPLIER ==========
+        document.getElementById('formTambahSupplier').addEventListener('submit', async (e) => {
             e.preventDefault();
             const data = {
                 kode: document.getElementById('kodeSupplier').value.trim(),
@@ -465,70 +476,121 @@
                 noRekening: document.getElementById('noRekeningSupplier').value.trim(),
                 bank: document.getElementById('bankSupplier').value.trim(),
                 alamat: document.getElementById('alamatSupplier').value.trim(),
-                synced: false,
-                idCloud: null
+                utang: 0, // default utang
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                deleted: false
             };
             if (!data.kode || !data.nama) {
                 alert('Kode dan Nama Supplier wajib diisi');
                 return;
             }
             try {
-                await addItem(supplierStore, data);
+                await addDoc(supplierCol, data);
                 alert('Supplier berhasil ditambahkan');
-                formTambahSupplier.reset();
-                if (sections.daftarSupplier.classList.contains('active')) loadDaftarSupplier();
+                e.target.reset();
             } catch (error) {
-                alert('Gagal menyimpan: ' + error.message);
+                console.error(error);
+                alert('Gagal menambah supplier: ' + error.message);
             }
         });
 
-        async function loadDaftarSupplier() {
+        // ========== FUNGSI EDIT/HAPUS CUSTOMER ==========
+        window.editCustomer = async (id) => {
             try {
-                const list = await getAll(supplierStore);
-                const tbody = document.getElementById('daftarSupplierBody');
-                if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Belum ada data</td></tr>';
+                const docRef = doc(customerCol, id);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    alert('Customer tidak ditemukan');
                     return;
                 }
-                tbody.innerHTML = list.map(s => `
-                    <tr>
-                        <td>${s.kode || '-'}</td>
-                        <td>${s.nama} ${!s.synced ? '<span style="color:orange;">(pending)</span>' : ''}</td>
-                        <td>${s.kontak || '-'}</td>
-                        <td>${s.email || '-'}</td>
-                        <td>${s.noRekening || '-'}</td>
-                        <td>${s.bank || '-'}</td>
-                        <td>${s.alamat || '-'}</td>
-                        <td>0</td> <!-- Utang placeholder, bisa ditambahkan nanti -->
-                        <td>
-                            <button class="btn-icon edit" onclick="editSupplier('${s.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusSupplier('${s.id}')"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>
-                `).join('');
-                feather.replace();
-            } catch (error) {
-                alert('Gagal memuat supplier: ' + error.message);
-            }
-        }
+                const cust = docSnap.data();
 
+                // Prompt sederhana untuk edit (bisa dikembangkan dengan form modal)
+                const kodeBaru = prompt('Edit Kode Customer', cust.kode || '');
+                if (kodeBaru === null) return;
+                const namaBaru = prompt('Edit Nama Customer', cust.nama || '');
+                if (namaBaru === null) return;
+                const levelBaru = prompt('Edit Level', cust.level || '');
+                const kontakBaru = prompt('Edit Kontak', cust.kontak || '');
+                const noRekBaru = prompt('Edit No. Rekening', cust.noRekening || '');
+                const bankBaru = prompt('Edit Bank', cust.bank || '');
+                const tokenBaru = prompt('Edit Token', cust.token || '');
+                const emailBaru = prompt('Edit Email', cust.email || '');
+                const alamatBaru = prompt('Edit Alamat', cust.alamat || '');
+
+                await setDoc(docRef, {
+                    kode: kodeBaru,
+                    nama: namaBaru,
+                    level: levelBaru,
+                    kontak: kontakBaru,
+                    noRekening: noRekBaru,
+                    bank: bankBaru,
+                    token: tokenBaru,
+                    email: emailBaru,
+                    alamat: alamatBaru,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            } catch (error) {
+                alert('Gagal edit: ' + error.message);
+            }
+        };
+
+        window.hapusCustomer = async (id) => {
+            if (!confirm('Yakin hapus customer?')) return;
+            try {
+                await setDoc(doc(customerCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal hapus: ' + error.message);
+            }
+        };
+
+        // ========== FUNGSI EDIT/HAPUS SUPPLIER ==========
         window.editSupplier = async (id) => {
-            alert('Fungsi edit akan segera hadir');
+            try {
+                const docRef = doc(supplierCol, id);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    alert('Supplier tidak ditemukan');
+                    return;
+                }
+                const supp = docSnap.data();
+
+                const kodeBaru = prompt('Edit Kode Supplier', supp.kode || '');
+                if (kodeBaru === null) return;
+                const namaBaru = prompt('Edit Nama Supplier', supp.nama || '');
+                if (namaBaru === null) return;
+                const kontakBaru = prompt('Edit Kontak', supp.kontak || '');
+                const emailBaru = prompt('Edit Email', supp.email || '');
+                const noRekBaru = prompt('Edit No. Rekening', supp.noRekening || '');
+                const bankBaru = prompt('Edit Bank', supp.bank || '');
+                const alamatBaru = prompt('Edit Alamat', supp.alamat || '');
+
+                await setDoc(docRef, {
+                    kode: kodeBaru,
+                    nama: namaBaru,
+                    kontak: kontakBaru,
+                    email: emailBaru,
+                    noRekening: noRekBaru,
+                    bank: bankBaru,
+                    alamat: alamatBaru,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            } catch (error) {
+                alert('Gagal edit: ' + error.message);
+            }
         };
 
         window.hapusSupplier = async (id) => {
-            if (confirm('Yakin hapus supplier ini?')) {
-                try {
-                    await removeItem(supplierStore, id);
-                    loadDaftarSupplier();
-                } catch (error) {
-                    alert('Gagal hapus: ' + error.message);
-                }
+            if (!confirm('Yakin hapus supplier?')) return;
+            try {
+                await setDoc(doc(supplierCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+            } catch (error) {
+                alert('Gagal hapus: ' + error.message);
             }
         };
 
         // ========== AUTH ==========
-        const loginBtn = document.getElementById('loginBtn');
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
@@ -546,28 +608,40 @@
             }
         });
 
-        // ========== RESET DB ==========
-        window.resetDatabase = async function() {
-            if (!confirm('PERINGATAN: Semua data customer dan supplier akan dihapus. Lanjutkan?')) return;
+        // ========== TOMBOL RESET (untuk development) ==========
+        document.getElementById('resetDbBtn').addEventListener('click', async () => {
+            if (!confirm('Hapus semua data customer dan supplier di Firestore?')) return;
             try {
-                await customerStore.clear();
-                await supplierStore.clear();
-                alert('Database direset. Halaman akan dimuat ulang.');
-                location.reload();
+                const custSnap = await getDocs(customerCol);
+                const suppSnap = await getDocs(supplierCol);
+                const batch = writeBatch(dbCloud);
+                custSnap.docs.forEach(d => batch.delete(d.ref));
+                suppSnap.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+                alert('Semua data customer dan supplier telah dihapus.');
             } catch (error) {
                 alert('Gagal reset: ' + error.message);
             }
-        };
-        document.getElementById('resetDbBtn').addEventListener('click', window.resetDatabase);
-
-        // ========== SYNC (PLACEHOLDER) ==========
-        document.getElementById('syncBtn').addEventListener('click', () => {
-            alert('Fungsi sinkronisasi akan segera tersedia');
         });
 
-        // Muat daftar jika sedang aktif
-        if (sections.daftarCustomer.classList.contains('active')) loadDaftarCustomer();
-        if (sections.daftarSupplier.classList.contains('active')) loadDaftarSupplier();
+        // ========== TOMBOL SYNC (tidak diperlukan) ==========
+        document.getElementById('syncBtn').addEventListener('click', () => {
+            alert('Sinkronasi real-time aktif. Tidak perlu sync manual.');
+        });
+
+        // ========== INITIAL LOAD ==========
+        // Subscribe daftar jika section aktif
+        if (sections.daftarCustomer.classList.contains('active')) subscribeDaftarCustomer();
+        if (sections.daftarSupplier.classList.contains('active')) subscribeDaftarSupplier();
+
+        // Tetap subscribe di awal agar data siap ketika pindah ke daftar
+        subscribeDaftarCustomer();
+        subscribeDaftarSupplier();
+
+        // Tampilkan section default jika tidak ada yang aktif
+        if (!document.querySelector('.content-section.active')) {
+            showSection('tambahCustomer');
+        }
     </script>
 </body>
 </html>
