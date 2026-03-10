@@ -1023,6 +1023,7 @@
         const qtyCol = collection(dbCloud, 'qtyBreak');
         const pendingCol = collection(dbCloud, 'pending'); // untuk draft transaksi
         const salesCol = collection(dbCloud, 'sales'); // untuk transaksi selesai (opsional)
+        const settingsDocRef = doc(dbCloud, 'settings', 'appSettings'); // MODIFIKASI: referensi settings
 
         // ========== DATA GLOBAL ==========
         let allProducts = [];
@@ -1032,23 +1033,17 @@
         let allUnits = [];
         let allQtyBreak = [];
         let pendingList = [];
+        let appSettings = null; // MODIFIKASI: menyimpan settings dari Firestore
 
         let selectedCustomer = null;
         let cartItems = [];
         let pendingCount = 0;
-        let printerPort = null;               // MODIFIKASI: tetap ada
-        let savedPortInfo = null;              // MODIFIKASI: untuk menyimpan info port
+        let printerPort = null;
+        let savedPortInfo = null;
         let pendingPayments = [];
         let pendingTotalPaid = 0;
         let lastTransactionData = null;
         let currentView = 'grid'; // default tampilan grid
-
-        const barcodeConfig = {
-            flexLength: 2,
-            flexValue: '11',
-            productLength: 6,
-            weightLength: 5
-        };
 
         // ========== ELEMEN DOM ==========
         const warehouseSelect = document.getElementById('warehouseSelect');
@@ -1123,6 +1118,57 @@
         // ========== FUNGSI FORMAT RUPIAH ==========
         function formatRupiah(angka) {
             return 'Rp ' + angka.toLocaleString('id-ID');
+        }
+
+        // ========== FUNGSI FORMAT TANGGAL (MODIFIKASI) ==========
+        function formatDate(date, format) {
+            const d = date.getDate().toString().padStart(2, '0');
+            const m = (date.getMonth() + 1).toString().padStart(2, '0');
+            const y = date.getFullYear();
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            switch (format) {
+                case 'DD/MM/YYYY': return `${d}/${m}/${y}`;
+                case 'MM/DD/YYYY': return `${m}/${d}/${y}`;
+                case 'YYYY-MM-DD': return `${y}-${m}-${d}`;
+                case 'DD MMM YYYY': return `${d} ${months[date.getMonth()]} ${y}`;
+                default: return `${d}/${m}/${y}`;
+            }
+        }
+
+        // ========== LOAD SETTINGS DARI FIRESTORE (MODIFIKASI) ==========
+        async function loadAppSettings() {
+            try {
+                const snap = await getDoc(settingsDocRef);
+                if (snap.exists()) {
+                    appSettings = snap.data();
+                } else {
+                    // Default jika belum ada
+                    appSettings = {
+                        barcodeConfig: { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 },
+                        printerConfig: {
+                            paperSize: '58mm',
+                            dateFormat: 'DD/MM/YYYY',
+                            printCashierName: false,
+                            headerText: 'TOKO MUDA',
+                            infoText: '',
+                            footerText: 'Terima Kasih'
+                        }
+                    };
+                }
+            } catch (error) {
+                console.error('Gagal memuat settings:', error);
+                appSettings = {
+                    barcodeConfig: { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 },
+                    printerConfig: {
+                        paperSize: '58mm',
+                        dateFormat: 'DD/MM/YYYY',
+                        printCashierName: false,
+                        headerText: 'TOKO MUDA',
+                        infoText: '',
+                        footerText: 'Terima Kasih'
+                    }
+                };
+            }
         }
 
         // ========== LOAD SEMUA DATA DARI FIRESTORE ==========
@@ -1418,7 +1464,7 @@
             });
         }
 
-        // ========== FUNGSI BARCODE ==========
+        // ========== FUNGSI BARCODE (MENGGUNAKAN SETTINGS) ==========
         function processBarcode() {
             const barcode = barcodeInput.value.trim();
             if (!barcode) return;
@@ -1449,17 +1495,20 @@
                 }
             }
 
+            // Gunakan konfigurasi dari settings
+            const config = appSettings?.barcodeConfig || { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 };
+
             if (barcode.length === 13) {
-                const flex = barcode.substr(0, barcodeConfig.flexLength);
-                if (flex !== barcodeConfig.flexValue) {
+                const flex = barcode.substr(0, config.flexLength);
+                if (flex !== config.flexValue) {
                     alert('Barcode tidak dikenal (flex tidak cocok)');
                     barcodeInput.value = '';
                     renderProducts();
                     return;
                 }
 
-                const productCode = barcode.substr(barcodeConfig.flexLength, barcodeConfig.productLength);
-                const weightStr = barcode.substr(barcodeConfig.flexLength + barcodeConfig.productLength, barcodeConfig.weightLength);
+                const productCode = barcode.substr(config.flexLength, config.productLength);
+                const weightStr = barcode.substr(config.flexLength + config.productLength, config.weightLength);
                 const weightGram = parseInt(weightStr, 10);
 
                 if (!isNaN(weightGram) && weightGram > 0) {
@@ -2187,9 +2236,8 @@
             }
         }
 
-        // ========== FUNGSI PRINTER + RECONNECT OTOMATIS (MODIFIKASI) ==========
+        // ========== FUNGSI PRINTER + RECONNECT OTOMATIS ==========
 
-        // MODIFIKASI: Simpan informasi port ke localStorage
         function savePrinterConnection(port) {
             try {
                 const info = port.getInfo();
@@ -2204,14 +2252,12 @@
             }
         }
 
-        // MODIFIKASI: Hapus informasi koneksi dari localStorage
         function clearPrinterConnection() {
             localStorage.removeItem('printerPortInfo');
             localStorage.removeItem('printerConnected');
             savedPortInfo = null;
         }
 
-        // MODIFIKASI: Fungsi reconnect otomatis saat halaman dimuat
         async function reconnectToPrinter() {
             if (!navigator.serial) {
                 console.log('Web Serial API tidak didukung');
@@ -2231,7 +2277,6 @@
                 const savedInfo = JSON.parse(savedInfoStr);
                 let targetPort = ports[0]; // fallback ke port pertama
 
-                // Cari port yang cocok berdasarkan vendorId & productId
                 for (const p of ports) {
                     const info = p.getInfo();
                     if (info.usbVendorId === savedInfo.vendorId && info.usbProductId === savedInfo.productId) {
@@ -2253,7 +2298,6 @@
             }
         }
 
-        // MODIFIKASI: Fungsi untuk memutuskan printer (dari dalam togglePrinter)
         async function disconnectPrinter() {
             if (printerPort) {
                 try {
@@ -2269,7 +2313,6 @@
             }
         }
 
-        // MODIFIKASI: Ubah togglePrinter agar menyimpan koneksi saat connect
         async function togglePrinter() {
             if (printerPort) {
                 await disconnectPrinter();
@@ -2285,7 +2328,7 @@
                 const port = await navigator.serial.requestPort();
                 await port.open({ baudRate: 9600 });
                 printerPort = port;
-                savePrinterConnection(port); // simpan info port
+                savePrinterConnection(port);
                 updatePrinterStatus(true);
                 alert('Printer terhubung');
             } catch (error) {
@@ -2308,6 +2351,7 @@
             }
         }
 
+        // ========== FUNGSI CETAK STRUK (MENGGUNAKAN SETTINGS) ==========
         async function doPrint(dataToPrint) {
             if (!printerPort) {
                 alert('Printer tidak terhubung');
@@ -2316,22 +2360,56 @@
             try {
                 const writer = printerPort.writable.getWriter();
                 const encoder = new TextEncoder();
+
+                const printerConfig = appSettings?.printerConfig || {
+                    paperSize: '58mm',
+                    dateFormat: 'DD/MM/YYYY',
+                    printCashierName: false,
+                    headerText: 'TOKO MUDA',
+                    infoText: '',
+                    footerText: 'Terima Kasih'
+                };
+
                 let receipt = '\n';
-                receipt += 'TOKO MUDA\n';
-                receipt += '===============\n';
-                receipt += `Tanggal: ${new Date().toLocaleString('id-ID')}\n`;
+                // Header
+                receipt += (printerConfig.headerText || 'TOKO MUDA') + '\n';
+                if (printerConfig.infoText) {
+                    receipt += printerConfig.infoText + '\n';
+                }
+                receipt += '='.repeat(32) + '\n';
+
+                // Tanggal dan nomor transaksi
+                const tgl = formatDate(new Date(), printerConfig.dateFormat);
+                receipt += `Tanggal: ${tgl}\n`;
                 receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
-                receipt += '---------------\n';
+
+                // Nama kasir jika diaktifkan
+                if (printerConfig.printCashierName) {
+                    const user = auth.currentUser;
+                    const kasir = user?.displayName || user?.email || '-';
+                    receipt += `Kasir  : ${kasir}\n`;
+                }
+
+                receipt += '-'.repeat(32) + '\n';
+
+                // Items
                 dataToPrint.items.forEach(item => {
-                    receipt += `${item.name}\n`;
-                    receipt += `${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}\n`;
+                    const line = `${item.name.substring(0,20)}`; // potong nama jika terlalu panjang
+                    receipt += line + '\n';
+                    const qtyPrice = `${item.qty} ${item.unit} x ${formatRupiah(item.price)}`;
+                    const subtotal = formatRupiah(item.subtotal);
+                    receipt += `${qtyPrice} = ${subtotal}\n`;
                 });
-                receipt += '---------------\n';
+
+                receipt += '-'.repeat(32) + '\n';
                 receipt += `Total    : ${formatRupiah(dataToPrint.total)}\n`;
                 receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
                 receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
-                receipt += '===============\n';
-                receipt += 'Terima kasih\n\n\n';
+                receipt += '='.repeat(32) + '\n';
+                if (printerConfig.footerText) {
+                    receipt += printerConfig.footerText + '\n';
+                }
+                receipt += '\n\n\n';
 
                 await writer.write(encoder.encode(receipt));
                 writer.releaseLock();
@@ -2393,11 +2471,11 @@
             }
         });
 
-        // ========== INITIAL LOAD + RECONNECT PRINTER ==========
+        // ========== INITIAL LOAD + RECONNECT PRINTER + SETTINGS ==========
         (async function init() {
-            await loadAllData();
-            // MODIFIKASI: Coba reconnect printer otomatis setelah data dimuat
-            await reconnectToPrinter();
+            await loadAllData();           // muat data master
+            await loadAppSettings();       // muat settings dari Firestore
+            await reconnectToPrinter();    // coba reconnect printer
         })();
     </script>
 </body>
