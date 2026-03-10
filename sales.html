@@ -2170,19 +2170,42 @@
                         transaction.update(custRef, { outstanding: newOutstanding, updatedAt: serverTimestamp() });
                     }
 
-                    // 4. Simpan transaksi ke koleksi sales (opsional)
-                    const salesData = {
-                        items: cartItems.map(item => ({
+                    // 4. Siapkan data item dengan harga pokok (MODIFIKASI)
+                    const itemsForSales = [];
+                    for (let i = 0; i < produkItems.length; i++) {
+                        const item = produkItems[i];
+                        const produkSnap = produkSnaps[i];
+                        const produkData = produkSnap.data();
+                        
+                        // Hitung harga pokok per unit
+                        let hargaPokok = produkData.hargaDasar || 0;
+                        if (item.konversiId) {
+                            const konv = allKonversi.find(k => k.id === item.konversiId && k.produkId === item.produkId);
+                            if (konv) {
+                                hargaPokok = (produkData.hargaDasar || 0) * konv.nilai;
+                            }
+                        }
+                        const subtotalPokok = hargaPokok * item.qty;
+                        
+                        itemsForSales.push({
                             produkId: item.produkId,
                             nama: item.nama,
                             qty: item.qty,
                             unit: item.unit,
                             hargaSatuan: item.hargaSatuan,
-                            subtotal: item.subtotal
-                        })),
-                        total: cartItems.reduce((sum, i) => sum + i.subtotal, 0),
+                            hargaPokok: hargaPokok,
+                            subtotal: item.subtotal,
+                            subtotalPokok: subtotalPokok
+                        });
+                    }
+
+                    // 5. Simpan transaksi ke koleksi sales
+                    const salesData = {
+                        items: itemsForSales,
+                        total: itemsForSales.reduce((sum, i) => sum + i.subtotal, 0),
+                        totalPokok: itemsForSales.reduce((sum, i) => sum + i.subtotalPokok, 0),
                         paidAmount: paidTotal,
-                        change: paidTotal - (cartItems.reduce((sum, i) => sum + i.subtotal, 0)),
+                        change: paidTotal - (itemsForSales.reduce((sum, i) => sum + i.subtotal, 0)),
                         customerId: selectedCustomer ? selectedCustomer.id : null,
                         customerName: selectedCustomer ? selectedCustomer.nama : null,
                         paymentMethods: pendingPayments, // array of {method, amount}
