@@ -7,43 +7,6 @@
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
     <!-- Firebase SDK -->
-    <script type="module">
-        // Import Firebase dan fungsi yang diperlukan
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { 
-            getFirestore, collection, doc, getDocs, setDoc, addDoc, deleteDoc, 
-            onSnapshot, query, where, orderBy, serverTimestamp, 
-            enableIndexedDbPersistence, runTransaction, increment,
-            writeBatch, getDoc 
-        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDVty30S6y_qc1eMs3kVctcIpLt6Suw4dA",
-            authDomain: "mudapos-e8a4a.firebaseapp.com",
-            projectId: "mudapos-e8a4a",
-            storageBucket: "mudapos-e8a4a.firebasestorage.app",
-            messagingSenderId: "864215339664",
-            appId: "1:864215339664:web:1a97898b85ca3c1cb3be15"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-
-        // Aktifkan offline persistence
-        enableIndexedDbPersistence(db).catch((err) => {
-            if (err.code == 'failed-precondition') {
-                console.warn('Persistence gagal: multiple tabs open');
-            } else if (err.code == 'unimplemented') {
-                console.warn('Browser tidak mendukung persistence');
-            }
-        });
-
-        // Ekspor untuk digunakan di seluruh modul
-        export { db, auth, provider, signInWithPopup, signOut, onAuthStateChanged };
-    </script>
     <style>
         /* ===== CSS SAMA PERSIS DENGAN VERSI SEBELUMNYA ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
@@ -334,8 +297,9 @@
         </div>
     </main>
 
-    <!-- Script sidebar (non-module) -->
+    <!-- Script untuk sidebar (non-module) -->
     <script>
+        // Inisialisasi Feather Icons untuk elemen statis
         feather.replace();
 
         // Sidebar
@@ -344,8 +308,14 @@
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('overlay');
 
-        function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
-        function closeSidebarFunc() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+        function openSidebar() {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+        }
+        function closeSidebarFunc() {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+        }
         menuToggle.addEventListener('click', openSidebar);
         closeSidebar.addEventListener('click', closeSidebarFunc);
         overlay.addEventListener('click', closeSidebarFunc);
@@ -354,19 +324,24 @@
         const masterdataItem = document.getElementById('masterdataMenuItem');
         const masterdataToggle = document.getElementById('masterdataMenuToggle');
         if (masterdataToggle) {
-            masterdataToggle.addEventListener('click', (e) => {
+            masterdataToggle.addEventListener('click', function(e) {
                 e.preventDefault();
                 masterdataItem.classList.toggle('open');
             });
         }
+
+        // Fungsi showSection akan di-override oleh module
+        window.showSection = function(sectionName) {
+            // Akan di-override
+        };
     </script>
 
     <!-- Script module utama (Firestore) -->
     <script type="module">
-        // Import dari firebase-config yang sudah di-include di atas
+        // Import dari firebase-config (yang sudah didefinisikan di atas)
         import { db, auth, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
         import { 
-            collection, doc, getDocs, setDoc, addDoc, deleteDoc, 
+            collection, doc, getDocs, setDoc, addDoc, 
             onSnapshot, query, where, orderBy, serverTimestamp, 
             writeBatch, getDoc
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
@@ -419,7 +394,7 @@
             Object.values(submenus).forEach(s => s && s.classList.remove('active'));
             if (sections[sectionName]) sections[sectionName].classList.add('active');
             if (submenus[sectionName]) submenus[sectionName].classList.add('active');
-            if (window.innerWidth <= 768 && typeof closeSidebarFunc === 'function') {
+            if (window.innerWidth <= 768 && typeof closeSidebarFunc !== 'undefined') {
                 closeSidebarFunc();
             }
         }
@@ -1092,6 +1067,11 @@
         subscribeDaftarUnit();
         subscribeDaftarGudang();
         subscribeDaftarProduk();
+
+        // Tampilkan section default jika tidak ada yang aktif (opsional)
+        if (!document.querySelector('.content-section.active')) {
+            showSection('tambahProduk');
+        }
     </script>
 </body>
 </html>
