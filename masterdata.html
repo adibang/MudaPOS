@@ -14,7 +14,7 @@
             getFirestore, collection, doc, getDocs, setDoc, addDoc, deleteDoc, 
             onSnapshot, query, where, orderBy, serverTimestamp, 
             enableIndexedDbPersistence, runTransaction, increment,
-            writeBatch 
+            writeBatch, getDoc 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
@@ -113,7 +113,7 @@
     <!-- Overlay -->
     <div class="overlay" id="overlay"></div>
 
-    <!-- Sidebar -->
+    <!-- Sidebar dengan submenu lengkap -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2>MUDA POS</h2>
@@ -133,6 +133,8 @@
                     <li><a id="submenuDaftarKategori"><i data-feather="list"></i> Daftar kategori</a></li>
                     <li><a id="submenuTambahUnit"><i data-feather="plus-circle"></i> Tambah unit</a></li>
                     <li><a id="submenuDaftarUnit"><i data-feather="list"></i> Daftar unit</a></li>
+                    <li><a id="submenuTambahGudang"><i data-feather="plus-circle"></i> Tambah gudang</a></li>
+                    <li><a id="submenuDaftarGudang"><i data-feather="list"></i> Daftar gudang</a></li>
                 </ul>
             </li>
             <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
@@ -152,13 +154,13 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <!-- Tombol Sync disembunyikan karena sudah real-time -->
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
 
-    <!-- Tombol Reset Darurat (diubah fungsinya) -->
-    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Data Lokal</button>
+    <!-- Tombol Reset Darurat (untuk development) -->
+    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Firestore</button>
 
     <!-- Main Content dengan semua section -->
     <main class="main-content">
@@ -366,7 +368,7 @@
         import { 
             collection, doc, getDocs, setDoc, addDoc, deleteDoc, 
             onSnapshot, query, where, orderBy, serverTimestamp, 
-            writeBatch 
+            writeBatch, getDoc
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // ========== REFERENSI KOLEKSI ==========
@@ -408,9 +410,8 @@
             daftarKategori: document.getElementById('submenuDaftarKategori'),
             tambahUnit: document.getElementById('submenuTambahUnit'),
             daftarUnit: document.getElementById('submenuDaftarUnit'),
-            // Tambahkan submenu gudang (jika ada di sidebar, saat ini belum, tapi kita siapkan)
-            tambahGudang: null,
-            daftarGudang: null
+            tambahGudang: document.getElementById('submenuTambahGudang'),
+            daftarGudang: document.getElementById('submenuDaftarGudang')
         };
 
         function showSection(sectionName) {
@@ -423,7 +424,7 @@
             }
         }
 
-        // Pasang event listener untuk submenu yang ada
+        // Pasang event listener untuk submenu
         if (submenus.tambahProduk) {
             submenus.tambahProduk.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahProduk'); });
         }
@@ -442,6 +443,12 @@
         if (submenus.daftarUnit) {
             submenus.daftarUnit.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarUnit'); });
         }
+        if (submenus.tambahGudang) {
+            submenus.tambahGudang.addEventListener('click', (e) => { e.preventDefault(); showSection('tambahGudang'); });
+        }
+        if (submenus.daftarGudang) {
+            submenus.daftarGudang.addEventListener('click', (e) => { e.preventDefault(); showSection('daftarGudang'); });
+        }
 
         window.showSection = showSection;
 
@@ -459,7 +466,6 @@
                 select.innerHTML = options;
             }, (error) => {
                 console.error('Gagal memuat kategori:', error);
-                alert('Gagal memuat kategori: ' + error.message);
             });
         }
 
@@ -476,7 +482,6 @@
                 select.innerHTML = options;
             }, (error) => {
                 console.error('Gagal memuat unit:', error);
-                alert('Gagal memuat unit: ' + error.message);
             });
         }
 
@@ -493,7 +498,6 @@
                 select.innerHTML = options;
             }, (error) => {
                 console.error('Gagal memuat gudang:', error);
-                alert('Gagal memuat gudang: ' + error.message);
             });
         }
 
@@ -597,7 +601,7 @@
                     return;
                 }
 
-                // Ambil data kategori dan unit untuk mapping (gunakan getDocs sederhana, karena snapshot produk sudah banyak)
+                // Ambil data kategori dan unit untuk mapping (gunakan getDocs sederhana)
                 const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
                 const kategoriMap = {};
                 kategoriSnap.forEach(doc => kategoriMap[doc.id] = doc.data().nama);
@@ -667,7 +671,6 @@
 
             // Isi dropdown unit untuk row ini
             const select = row.querySelector('.unitKonversi');
-            // Ambil data unit dari Firestore (gunakan query sederhana)
             (async () => {
                 const q = query(unitCol, where('deleted', '==', false), orderBy('nama'));
                 const snap = await getDocs(q);
@@ -743,7 +746,6 @@
                     });
                     alert('Kategori berhasil ditambahkan');
                     formTambahKategori.reset();
-                    // Tidak perlu reload, snapshot akan update otomatis
                 } catch (error) {
                     console.error(error);
                     alert('Gagal menambah kategori: ' + error.message);
@@ -807,7 +809,6 @@
                         nama: newName.trim(),
                         updatedAt: serverTimestamp()
                     }, { merge: true });
-                    // Snapshot akan update otomatis
                 } catch (error) {
                     alert('Gagal edit: ' + error.message);
                 }
@@ -875,7 +876,6 @@
         };
 
         window.editProduk = async (id) => {
-            // Ambil data produk
             const produkSnap = await getDoc(doc(db, 'produk', id));
             if (!produkSnap.exists()) {
                 alert('Produk tidak ditemukan');
@@ -883,7 +883,6 @@
             }
             const produk = produkSnap.data();
 
-            // Isi form
             document.getElementById('namaProduk').value = produk.nama || '';
             document.getElementById('kodeProduk').value = produk.kode || '';
             document.getElementById('barcodeProduk').value = produk.barcode || '';
@@ -900,7 +899,6 @@
 
             produkIdInput.value = id;
 
-            // Muat konversi
             konversiContainer.innerHTML = '';
             const konversiQuery = query(konversiCol, where('produkId', '==', id), where('deleted', '==', false));
             const konversiSnap = await getDocs(konversiQuery);
@@ -908,7 +906,6 @@
                 tambahKonversiRow({ ...doc.data(), id: doc.id });
             });
 
-            // Muat qty break
             qtyBreakContainer.innerHTML = '';
             const qtyQuery = query(qtyCol, where('produkId', '==', id), where('deleted', '==', false));
             const qtySnap = await getDocs(qtyQuery);
@@ -925,7 +922,6 @@
                 try {
                     const ref = doc(db, 'produk', id);
                     await setDoc(ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
-                    // Snapshot akan update otomatis
                 } catch (error) {
                     alert('Gagal hapus: ' + error.message);
                 }
@@ -965,11 +961,9 @@
                     const batch = writeBatch(db);
 
                     if (produkId) {
-                        // Update produk
                         const produkRef = doc(db, 'produk', produkId);
                         batch.set(produkRef, produkData, { merge: true });
 
-                        // Hapus konversi dan qty lama (soft delete)
                         const konversiQuery = query(konversiCol, where('produkId', '==', produkId));
                         const konversiSnap = await getDocs(konversiQuery);
                         konversiSnap.forEach(doc => {
@@ -982,7 +976,6 @@
                             batch.set(doc.ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                         });
                     } else {
-                        // Tambah produk baru
                         produkData.createdAt = serverTimestamp();
                         produkData.deleted = false;
                         const produkRef = doc(collection(db, 'produk'));
@@ -990,7 +983,6 @@
                         finalProdukId = produkRef.id;
                     }
 
-                    // Simpan konversi unit (baru)
                     const konversiRows = document.querySelectorAll('.konversi-row');
                     for (let row of konversiRows) {
                         const unitId = row.querySelector('.unitKonversi').value;
@@ -1013,7 +1005,6 @@
                         batch.set(konvRef, konvData);
                     }
 
-                    // Simpan qty break
                     const qtyRows = document.querySelectorAll('.qtybreak-row');
                     for (let row of qtyRows) {
                         const minQty = row.querySelector('.minQty').value;
@@ -1035,7 +1026,6 @@
 
                     alert(produkId ? 'Produk berhasil diperbarui' : 'Produk berhasil ditambahkan');
 
-                    // Reset form
                     formTambahProduk.reset();
                     konversiContainer.innerHTML = '';
                     qtyBreakContainer.innerHTML = '';
@@ -1076,9 +1066,7 @@
             }
         });
 
-        // ========== RESET DATABASE (HAPUS SEMUA DATA LOKAL?) ==========
-        // Karena kita pakai Firestore dengan persistence, reset data lokal tidak diperlukan.
-        // Namun kita bisa hapus semua data di Firestore untuk keperluan development.
+        // ========== RESET DATABASE (HAPUS SEMUA DATA FIRESTORE) ==========
         document.getElementById('resetDbBtn').addEventListener('click', async () => {
             if (!confirm('PERINGATAN: Ini akan menghapus SEMUA data di Firestore (produk, kategori, unit, gudang, konversi, qty). Lanjutkan?')) return;
             try {
@@ -1097,26 +1085,9 @@
         });
 
         // ========== INITIAL LOAD ==========
-        // Subscribe ke semua data yang diperlukan
-        unsubKategori = subscribeKategoriDropdown();
-        unsubUnit = subscribeUnitDropdown();
-        unsubGudang = subscribeGudangDropdown();
-        // Subscribe ke daftar jika section aktif
-        if (sections.daftarKategori.classList.contains('active')) {
-            subscribeDaftarKategori();
-        }
-        if (sections.daftarUnit.classList.contains('active')) {
-            subscribeDaftarUnit();
-        }
-        if (sections.daftarGudang.classList.contains('active')) {
-            subscribeDaftarGudang();
-        }
-        if (sections.daftarProduk.classList.contains('active')) {
-            subscribeDaftarProduk();
-        }
-
-        // Saat section berubah, kita bisa subscribe ulang jika diperlukan
-        // Untuk sederhana, kita subscribe semua daftar di awal
+        subscribeKategoriDropdown();
+        subscribeUnitDropdown();
+        subscribeGudangDropdown();
         subscribeDaftarKategori();
         subscribeDaftarUnit();
         subscribeDaftarGudang();
