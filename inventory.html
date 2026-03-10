@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUDA POS - Inventory</title>
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background:#f5f5f5; color:#333; font-size:14px; }
+        .text-primary { color:#006B54; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .btn-sync { background:transparent; border:1px solid #006B54; color:#006B54; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; margin-right:0.5rem; font-size:0.9rem; }
+        .btn-sync:hover { background:#e6f0ec; }
+        .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
+        .reset-btn:hover { background:#c82333; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
+        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
+        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
+        .sidebar-menu { list-style:none; }
+        .sidebar-menu li { margin-bottom:0.2rem; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
+        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
+        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
+        .has-submenu.open .submenu { display:block; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
+        .submenu a:hover { background:#e6f0ec; color:#006B54; }
+        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
+        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
+        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
+        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+        .filter-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #f0f0f0;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .search-box {
+            flex: 2;
+            min-width: 250px;
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 0 0.5rem;
+            height: 38px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 0.5rem;
+            border: none;
+            outline: none;
+            font-size: 0.95rem;
+            background: transparent;
+        }
+        .search-box i {
+            color: #999;
+            margin-right: 0.3rem;
+        }
+        .filter-select {
+            min-width: 150px;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            background: white;
+            height: 38px;
+        }
+        .table-responsive {
+            overflow-x: auto;
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid #f0f0f0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            min-width: 800px;
+        }
+        th, td {
+            padding: 0.6rem 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            white-space: nowrap;
+        }
+        th {
+            background: #f9f9f9;
+            font-weight: 600;
+            color: #006B54;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+        .badge {
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .badge-habis { background: #6c757d; color: white; }
+        .badge-bawah { background: #dc3545; color: white; }
+        .badge-restock { background: #ffc107; color: #333; }
+        .badge-aman { background: #28a745; color: white; }
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #006B54;
+            padding: 0.2rem;
+        }
+        .btn-icon.delete { color: #dc3545; }
+        @media (max-width:640px) {
+            .main-content { padding:0.8rem; }
+            .filter-section { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>MUDA POS</h2>
+            <button class="close-sidebar" id="closeSidebar"><i data-feather="x"></i></button>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
+            <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
+            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
+            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
+            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li class="has-submenu" id="inventoryMenuItem">
+                <a href="#" class="menu-link" id="inventoryMenuToggle">
+                    <i data-feather="layers"></i> Inventory
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a href="inventory.html" class="active"><i data-feather="list"></i> Stok Produk</a></li>
+                    <!-- nanti bisa ditambah menu lain, misal mutasi stok -->
+                </ul>
+            </li>
+            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
+            <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
+            <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
+        </ul>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
+        </div>
+        <div class="header-right" style="display:flex; align-items:center;">
+            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+        </div>
+    </header>
+
+    <!-- Tombol Reset Darurat (untuk development) -->
+    <button class="reset-btn" id="resetDbBtn" style="display:none;"><i data-feather="trash-2"></i> Reset DB</button>
+
+    <!-- Halaman Inventory -->
+    <main class="main-content">
+        <h1 class="page-title">Inventory (Stok Produk)</h1>
+
+        <!-- Filter dan Pencarian -->
+        <div class="filter-section">
+            <div class="search-box">
+                <i data-feather="search"></i>
+                <input type="text" id="searchInput" placeholder="Cari kode atau nama produk...">
+            </div>
+            <select id="statusFilter" class="filter-select">
+                <option value="all">Semua Status</option>
+                <option value="habis">Habis</option>
+                <option value="bawah">Di Bawah Minimal</option>
+                <option value="restock">Perlu Restock</option>
+                <option value="aman">Aman</option>
+            </select>
+        </div>
+
+        <!-- Tabel Stok -->
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kode</th>
+                        <th>Nama</th>
+                        <th>Stok</th>
+                        <th>Stok Minimal</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryBody">
+                    <tr><td colspan="6" style="text-align:center;">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Script sidebar -->
+    <script>
+        feather.replace();
+
+        const menuToggle = document.getElementById('menuToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+        function closeSidebarFunc() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+        menuToggle.addEventListener('click', openSidebar);
+        closeSidebar.addEventListener('click', closeSidebarFunc);
+        overlay.addEventListener('click', closeSidebarFunc);
+
+        // Toggle submenu inventory
+        const inventoryItem = document.getElementById('inventoryMenuItem');
+        const inventoryToggle = document.getElementById('inventoryMenuToggle');
+        if (inventoryToggle) {
+            inventoryToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                inventoryItem.classList.toggle('open');
+            });
+        }
+    </script>
+
+    <!-- Script module utama (Firestore) -->
+    <script type="module">
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
+        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { 
+            collection, query, where, orderBy, onSnapshot 
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        console.log('Inventory page dimulai');
+
+        // Referensi koleksi
+        const produkCol = collection(dbCloud, 'produk');
+
+        // Elemen DOM
+        const tbody = document.getElementById('inventoryBody');
+        const searchInput = document.getElementById('searchInput');
+        const statusFilter = document.getElementById('statusFilter');
+        const loginBtn = document.getElementById('loginBtn');
+        const syncBtn = document.getElementById('syncBtn');
+        const resetBtn = document.getElementById('resetDbBtn');
+
+        // Sembunyikan tombol yang tidak diperlukan
+        if (syncBtn) syncBtn.style.display = 'none';
+        if (resetBtn) resetBtn.style.display = 'none';
+
+        // Data produk (cache)
+        let allProducts = [];
+
+        // Fungsi untuk mendapatkan badge status
+        function getStatusBadge(stok, stokMinimal) {
+            if (stok <= 0) {
+                return '<span class="badge badge-habis">Habis</span>';
+            } else if (stok < stokMinimal) {
+                return '<span class="badge badge-bawah">Di Bawah Minimal</span>';
+            } else if (stok <= stokMinimal * 1.2) {
+                return '<span class="badge badge-restock">Perlu Restock</span>';
+            } else {
+                return '<span class="badge badge-aman">Aman</span>';
+            }
+        }
+
+        // Fungsi untuk mendapatkan kode status (untuk filter)
+        function getStatusCode(stok, stokMinimal) {
+            if (stok <= 0) return 'habis';
+            if (stok < stokMinimal) return 'bawah';
+            if (stok <= stokMinimal * 1.2) return 'restock';
+            return 'aman';
+        }
+
+        // Render tabel berdasarkan data yang sudah difilter dan diurutkan
+        function renderInventory() {
+            const keyword = searchInput.value.trim().toLowerCase();
+            const status = statusFilter.value;
+
+            // Filter berdasarkan keyword dan status
+            let filtered = allProducts.filter(p => {
+                // Filter keyword
+                const matchKeyword = keyword === '' || 
+                    (p.nama && p.nama.toLowerCase().includes(keyword)) ||
+                    (p.kode && p.kode.toLowerCase().includes(keyword)) ||
+                    (p.barcode && p.barcode.toLowerCase().includes(keyword));
+                if (!matchKeyword) return false;
+
+                // Filter status
+                if (status !== 'all') {
+                    const stok = p.stokAwal || 0;
+                    const min = p.stokMinimal || 0;
+                    const code = getStatusCode(stok, min);
+                    return code === status;
+                }
+                return true;
+            });
+
+            // Urutkan berdasarkan kritikalitas: selisih (stok - min) ascending
+            filtered.sort((a, b) => {
+                const selisihA = (a.stokAwal || 0) - (a.stokMinimal || 0);
+                const selisihB = (b.stokAwal || 0) - (b.stokMinimal || 0);
+                return selisihA - selisihB; // yang paling kecil (negatif) duluan
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada produk</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(p => {
+                const stok = p.stokAwal || 0;
+                const min = p.stokMinimal || 0;
+                const statusBadge = getStatusBadge(stok, min);
+                return `
+                <tr>
+                    <td>${p.kode || '-'}</td>
+                    <td>${p.nama || '-'}</td>
+                    <td>${stok}</td>
+                    <td>${min}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn-icon view" onclick="viewProduct('${p.id}')" title="Lihat Detail"><i data-feather="eye"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+            feather.replace();
+        }
+
+        // Fungsi global untuk melihat detail produk (sementara alert)
+        window.viewProduct = (id) => {
+            const produk = allProducts.find(p => p.id === id);
+            if (produk) {
+                alert(`Detail Produk:\nKode: ${produk.kode || '-'}\nNama: ${produk.nama}\nStok: ${produk.stokAwal || 0}\nStok Minimal: ${produk.stokMinimal || 0}\nHarga Jual: Rp ${(produk.hargaJual || 0).toLocaleString()}`);
+            } else {
+                alert('Produk tidak ditemukan');
+            }
+        };
+
+        // Subscribe ke koleksi produk (real-time)
+        let unsubProduk = null;
+        function subscribeProduk() {
+            if (unsubProduk) unsubProduk();
+            // Ambil semua produk yang tidak dihapus
+            const q = query(produkCol, where('deleted', '==', false));
+            unsubProduk = onSnapshot(q, (snapshot) => {
+                allProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderInventory();
+            }, (error) => {
+                console.error('Gagal memuat produk:', error);
+                tbody.innerHTML = `<tr><td colspan="6" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            });
+        }
+
+        // Event listener untuk pencarian dan filter
+        searchInput.addEventListener('input', renderInventory);
+        statusFilter.addEventListener('change', renderInventory);
+
+        // ========== AUTH ==========
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
+            } else {
+                loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            }
+            feather.replace();
+        });
+
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
+            } else {
+                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
+            }
+        });
+
+        // Mulai subscribe
+        subscribeProduk();
+    </script>
+</body>
+</html>
