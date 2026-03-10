@@ -39,18 +39,11 @@
         .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
         .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
         .overlay.active { display:block; }
-        .main-content { padding:1.5rem; max-width:800px; margin:0 auto; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
         .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
-        .content-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; display:none; }
-        .content-section.active { display:block; }
-        .form-group { margin-bottom:1rem; }
-        .form-group label { display:block; margin-bottom:0.3rem; font-weight:500; }
-        .form-group input, .form-group select { width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; }
-        .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; cursor:pointer; margin-right:0.5rem; }
-        .btn:hover { background:#004d3b; }
-        .btn-secondary { background:#6c757d; }
-        .btn-secondary:hover { background:#5a6268; }
-        .submenu-tabs {
+
+        /* ===== TAB NAVIGASI ===== */
+        .settings-tabs {
             display: flex;
             gap: 0.5rem;
             margin-bottom: 1.5rem;
@@ -58,19 +51,96 @@
             padding: 0.5rem;
             border-radius: 20px;
             border: 1px solid #f0f0f0;
+            width: fit-content;
         }
-        .submenu-tabs button {
-            flex: 1;
-            background: transparent;
+        .tab-btn {
+            padding: 0.6rem 1.5rem;
             border: none;
-            padding: 0.5rem;
+            background: transparent;
             border-radius: 20px;
-            cursor: pointer;
             font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        .submenu-tabs button.active {
+        .tab-btn.active {
             background: #006B54;
             color: white;
+        }
+
+        /* ===== KARTU SETTING ===== */
+        .settings-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid #f0f0f0;
+        }
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 500;
+            color: #006B54;
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #006B54;
+            box-shadow: 0 0 0 3px rgba(0,107,84,0.1);
+        }
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .form-row .form-group {
+            flex: 1 1 200px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #006B54;
+        }
+        .btn-save {
+            background: #006B54;
+            color: white;
+            border: none;
+            padding: 0.7rem 2rem;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            margin-top: 1rem;
+        }
+        .btn-save:hover {
+            background: #004d3b;
+        }
+        .info-text {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.3rem;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 1.5rem 0;
         }
     </style>
 </head>
@@ -87,22 +157,22 @@
         <ul class="sidebar-menu">
             <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
             <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
-            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
+            <li class="has-submenu" id="salesMenuItem">
+                <a href="#" class="menu-link" id="salesMenuToggle">
+                    <i data-feather="shopping-cart"></i> Sales
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a href="sales.html" id="submenuSales"><i data-feather="shopping-cart"></i> Sales</a></li>
+                    <li><a href="sales-list.html" id="submenuDaftarSales"><i data-feather="list"></i> Daftar Sales</a></li>
+                </ul>
+            </li>
             <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
             <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
             <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
             <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
             <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
-            <li class="has-submenu" id="settingMenuItem">
-                <a href="#" class="menu-link" id="settingMenuToggle">
-                    <i data-feather="settings"></i> Setting
-                    <i data-feather="chevron-down" class="arrow"></i>
-                </a>
-                <ul class="submenu">
-                    <li><a id="submenuConfig"><i data-feather="sliders"></i> Config</a></li>
-                    <li><a id="submenuPrinter"><i data-feather="printer"></i> Printer & Struk</a></li>
-                </ul>
-            </li>
+            <li><a href="setting.html" class="menu-link active"><i data-feather="settings"></i> Setting</a></li>
         </ul>
     </aside>
 
@@ -117,68 +187,91 @@
         </div>
     </header>
 
-    <!-- Tombol Reset Darurat (untuk development) -->
-    <button class="reset-btn" id="resetDbBtn" style="display:none;"><i data-feather="trash-2"></i> Reset</button>
-
-    <!-- Halaman Setting -->
+    <!-- Konten Utama -->
     <main class="main-content">
         <h1 class="page-title">Pengaturan</h1>
 
-        <!-- Tab navigasi internal -->
-        <div class="submenu-tabs">
-            <button id="tabConfig" class="active">Config</button>
-            <button id="tabPrinter">Printer & Struk</button>
+        <!-- Tab Navigation -->
+        <div class="settings-tabs">
+            <button class="tab-btn active" id="tabBarcode">Config Barcode</button>
+            <button class="tab-btn" id="tabPrinter">Printer & Struk</button>
         </div>
 
-        <!-- Section Config -->
-        <div id="configSection" class="content-section active">
-            <h2 style="margin-bottom:1rem;">Konfigurasi Barcode Timbangan</h2>
-            <form id="formBarcodeConfig">
+        <!-- Panel Barcode Config -->
+        <div id="panelBarcode" class="settings-card" style="display: block;">
+            <h3 style="color:#006B54; margin-bottom:1.2rem;">Konfigurasi Barcode Timbangan</h3>
+            <div class="form-row">
                 <div class="form-group">
-                    <label>Jumlah Digit Flex</label>
-                    <input type="number" id="flexLength" min="1" max="3" required>
+                    <label>Panjang Digit FLEX</label>
+                    <input type="number" id="flexLength" class="form-control" min="1" max="5" value="2">
+                    <div class="info-text">Jumlah digit untuk kode FLEX (contoh: 2)</div>
                 </div>
                 <div class="form-group">
-                    <label>Nilai Flex</label>
-                    <input type="text" id="flexValue" maxlength="3" required>
+                    <label>Nilai FLEX</label>
+                    <input type="text" id="flexValue" class="form-control" maxlength="5" value="11">
+                    <div class="info-text">Kode FLEX yang digunakan (misal: 11)</div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Panjang Digit Produk</label>
+                    <input type="number" id="productLength" class="form-control" min="1" max="5" value="6">
                 </div>
                 <div class="form-group">
-                    <label>Jumlah Digit Kode Produk</label>
-                    <input type="number" id="productLength" min="1" max="10" required>
+                    <label>Panjang Digit Berat</label>
+                    <input type="number" id="weightLength" class="form-control" min="1" max="5" value="5">
                 </div>
-                <div class="form-group">
-                    <label>Jumlah Digit Berat (gram)</label>
-                    <input type="number" id="weightLength" min="1" max="5" required>
-                </div>
-                <button type="submit" class="btn">Simpan</button>
-            </form>
+            </div>
+            <div class="info-text" style="background:#f9f9f9; padding:0.8rem; border-radius:10px;">
+                Total digit barcode: <span id="totalDigits">13</span> (harus 13)
+            </div>
+            <button class="btn-save" id="saveBarcodeConfig"><i data-feather="save"></i> Simpan Konfigurasi Barcode</button>
         </div>
 
-        <!-- Section Printer & Struk -->
-        <div id="printerSection" class="content-section">
-            <h2 style="margin-bottom:1rem;">Pengaturan Printer dan Struk</h2>
-            <form id="formPrinter">
-                <div class="form-group">
-                    <label>Auto-connect printer saat halaman dimuat</label>
-                    <input type="checkbox" id="autoConnectPrinter"> Ya
-                </div>
-                <div class="form-group">
-                    <label>Lebar kertas struk (mm)</label>
-                    <select id="paperWidth">
-                        <option value="58">58 mm</option>
-                        <option value="80">80 mm</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Header struk (teks tambahan)</label>
-                    <textarea id="receiptHeader" rows="2" placeholder="Contoh: Terima kasih"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Footer struk</label>
-                    <textarea id="receiptFooter" rows="2" placeholder="Contoh: Barang yang sudah dibeli tidak dapat dikembalikan"></textarea>
-                </div>
-                <button type="submit" class="btn">Simpan</button>
-            </form>
+        <!-- Panel Printer & Struk -->
+        <div id="panelPrinter" class="settings-card" style="display: none;">
+            <h3 style="color:#006B54; margin-bottom:1.2rem;">Pengaturan Printer & Struk</h3>
+            
+            <div class="form-group">
+                <label>Ukuran Kertas</label>
+                <select id="paperSize" class="form-control">
+                    <option value="58mm">58 mm (struk kecil)</option>
+                    <option value="80mm">80 mm (struk standar)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Format Tanggal pada Struk</label>
+                <select id="dateFormat" class="form-control">
+                    <option value="DD/MM/YYYY">DD/MM/YYYY (31/12/2025)</option>
+                    <option value="MM/DD/YYYY">MM/DD/YYYY (12/31/2025)</option>
+                    <option value="YYYY-MM-DD">YYYY-MM-DD (2025-12-31)</option>
+                    <option value="DD MMM YYYY">DD MMM YYYY (31 Des 2025)</option>
+                </select>
+            </div>
+
+            <div class="checkbox-group form-group">
+                <input type="checkbox" id="printCashierName">
+                <label for="printCashierName" style="margin-bottom:0;">Cetak Nama Kasir di Struk</label>
+            </div>
+
+            <div class="form-group">
+                <label>Header Struk (baris pertama)</label>
+                <input type="text" id="headerText" class="form-control" placeholder="Contoh: TOKO MUDA">
+            </div>
+
+            <div class="form-group">
+                <label>Informasi Tambahan (di bawah header)</label>
+                <textarea id="infoText" class="form-control" rows="2" placeholder="Alamat, telepon, dll."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Footer Struk (baris terakhir)</label>
+                <input type="text" id="footerText" class="form-control" placeholder="Contoh: Terima Kasih">
+            </div>
+
+            <hr>
+            <button class="btn-save" id="savePrinterConfig"><i data-feather="save"></i> Simpan Pengaturan Printer</button>
         </div>
     </main>
 
@@ -186,6 +279,7 @@
     <script>
         feather.replace();
 
+        // Sidebar
         const menuToggle = document.getElementById('menuToggle');
         const closeSidebar = document.getElementById('closeSidebar');
         const sidebar = document.getElementById('sidebar');
@@ -197,160 +291,197 @@
         closeSidebar.addEventListener('click', closeSidebarFunc);
         overlay.addEventListener('click', closeSidebarFunc);
 
-        // Toggle submenu setting
-        const settingItem = document.getElementById('settingMenuItem');
-        const settingToggle = document.getElementById('settingMenuToggle');
-        if (settingToggle) {
-            settingToggle.addEventListener('click', (e) => {
+        // Toggle submenu sales
+        const salesItem = document.getElementById('salesMenuItem');
+        const salesToggle = document.getElementById('salesMenuToggle');
+        if (salesToggle) {
+            salesToggle.addEventListener('click', (e) => {
                 e.preventDefault();
-                settingItem.classList.toggle('open');
+                salesItem.classList.toggle('open');
             });
         }
+
+        // Set active menu
+        document.querySelectorAll('.sidebar-menu .menu-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === 'setting.html') link.classList.add('active');
+        });
     </script>
 
-    <!-- Script module utama -->
+    <!-- Script module utama (Firestore) -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        console.log('Setting page dimulai');
-
         // Referensi dokumen settings
-        const settingsDocRef = doc(dbCloud, 'settings', 'app');
+        const settingsDocRef = doc(dbCloud, 'settings', 'appSettings');
 
         // Elemen DOM
-        const tabConfig = document.getElementById('tabConfig');
+        const tabBarcode = document.getElementById('tabBarcode');
         const tabPrinter = document.getElementById('tabPrinter');
-        const configSection = document.getElementById('configSection');
-        const printerSection = document.getElementById('printerSection');
-        const formBarcode = document.getElementById('formBarcodeConfig');
-        const formPrinter = document.getElementById('formPrinter');
-        const loginBtn = document.getElementById('loginBtn');
-        const syncBtn = document.getElementById('syncBtn');
-        const resetBtn = document.getElementById('resetDbBtn');
+        const panelBarcode = document.getElementById('panelBarcode');
+        const panelPrinter = document.getElementById('panelPrinter');
 
-        // Input fields
+        // Input Barcode
         const flexLength = document.getElementById('flexLength');
         const flexValue = document.getElementById('flexValue');
         const productLength = document.getElementById('productLength');
         const weightLength = document.getElementById('weightLength');
-        const autoConnectPrinter = document.getElementById('autoConnectPrinter');
-        const paperWidth = document.getElementById('paperWidth');
-        const receiptHeader = document.getElementById('receiptHeader');
-        const receiptFooter = document.getElementById('receiptFooter');
+        const totalDigitsSpan = document.getElementById('totalDigits');
 
-        // Fungsi tab switching
-        function showTab(tab) {
-            if (tab === 'config') {
-                tabConfig.classList.add('active');
-                tabPrinter.classList.remove('active');
-                configSection.classList.add('active');
-                printerSection.classList.remove('active');
+        // Input Printer
+        const paperSize = document.getElementById('paperSize');
+        const dateFormat = document.getElementById('dateFormat');
+        const printCashierName = document.getElementById('printCashierName');
+        const headerText = document.getElementById('headerText');
+        const infoText = document.getElementById('infoText');
+        const footerText = document.getElementById('footerText');
+
+        const saveBarcodeBtn = document.getElementById('saveBarcodeConfig');
+        const savePrinterBtn = document.getElementById('savePrinterConfig');
+
+        // Login/logout elements
+        const loginBtn = document.getElementById('loginBtn');
+        const syncBtn = document.getElementById('syncBtn');
+
+        // ========== TAB NAVIGASI ==========
+        tabBarcode.addEventListener('click', () => {
+            tabBarcode.classList.add('active');
+            tabPrinter.classList.remove('active');
+            panelBarcode.style.display = 'block';
+            panelPrinter.style.display = 'none';
+        });
+        tabPrinter.addEventListener('click', () => {
+            tabPrinter.classList.add('active');
+            tabBarcode.classList.remove('active');
+            panelPrinter.style.display = 'block';
+            panelBarcode.style.display = 'none';
+        });
+
+        // ========== HITUNG TOTAL DIGIT ==========
+        function updateTotalDigits() {
+            const flex = parseInt(flexLength.value) || 2;
+            const prod = parseInt(productLength.value) || 6;
+            const weight = parseInt(weightLength.value) || 5;
+            const total = flex + prod + weight;
+            totalDigitsSpan.textContent = total;
+            if (total !== 13) {
+                totalDigitsSpan.style.color = '#dc3545';
             } else {
-                tabPrinter.classList.add('active');
-                tabConfig.classList.remove('active');
-                printerSection.classList.add('active');
-                configSection.classList.remove('active');
+                totalDigitsSpan.style.color = '#006B54';
             }
         }
+        [flexLength, productLength, weightLength].forEach(el => {
+            el.addEventListener('input', updateTotalDigits);
+        });
+        updateTotalDigits();
 
-        tabConfig.addEventListener('click', () => showTab('config'));
-        tabPrinter.addEventListener('click', () => showTab('printer'));
-
-        // Muat data dari Firestore
+        // ========== LOAD DATA DARI FIRESTORE ==========
         async function loadSettings() {
             try {
                 const docSnap = await getDoc(settingsDocRef);
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    // Barcode
-                    if (data.barcode) {
-                        flexLength.value = data.barcode.flexLength || 2;
-                        flexValue.value = data.barcode.flexValue || '11';
-                        productLength.value = data.barcode.productLength || 6;
-                        weightLength.value = data.barcode.weightLength || 5;
-                    } else {
-                        // Default
-                        flexLength.value = 2;
-                        flexValue.value = '11';
-                        productLength.value = 6;
-                        weightLength.value = 5;
+                    
+                    // Barcode config
+                    if (data.barcodeConfig) {
+                        flexLength.value = data.barcodeConfig.flexLength || 2;
+                        flexValue.value = data.barcodeConfig.flexValue || '11';
+                        productLength.value = data.barcodeConfig.productLength || 6;
+                        weightLength.value = data.barcodeConfig.weightLength || 5;
                     }
-                    // Printer
-                    if (data.printer) {
-                        autoConnectPrinter.checked = data.printer.autoConnect || false;
-                        paperWidth.value = data.printer.paperWidth || '58';
-                        receiptHeader.value = data.printer.receiptHeader || '';
-                        receiptFooter.value = data.printer.receiptFooter || '';
+                    
+                    // Printer config
+                    if (data.printerConfig) {
+                        paperSize.value = data.printerConfig.paperSize || '58mm';
+                        dateFormat.value = data.printerConfig.dateFormat || 'DD/MM/YYYY';
+                        printCashierName.checked = data.printerConfig.printCashierName || false;
+                        headerText.value = data.printerConfig.headerText || '';
+                        infoText.value = data.printerConfig.infoText || '';
+                        footerText.value = data.printerConfig.footerText || '';
                     }
                 } else {
-                    // Default values
-                    flexLength.value = 2;
-                    flexValue.value = '11';
-                    productLength.value = 6;
-                    weightLength.value = 5;
-                    autoConnectPrinter.checked = false;
-                    paperWidth.value = '58';
-                    receiptHeader.value = '';
-                    receiptFooter.value = '';
+                    // Jika belum ada, gunakan default
+                    console.log('Dokumen settings belum ada, akan dibuat saat simpan.');
                 }
+                updateTotalDigits();
             } catch (error) {
-                console.error('Gagal memuat settings:', error);
+                console.error('Gagal load settings:', error);
                 alert('Gagal memuat pengaturan: ' + error.message);
             }
         }
 
-        // Simpan barcode config
-        formBarcode.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // ========== SIMPAN KONFIGURASI BARCODE ==========
+        async function saveBarcodeConfig() {
             try {
-                const barcodeData = {
-                    flexLength: parseInt(flexLength.value),
-                    flexValue: flexValue.value.trim(),
-                    productLength: parseInt(productLength.value),
-                    weightLength: parseInt(weightLength.value)
-                };
-                // Ambil data printer yang sudah ada
+                // Validasi total digit harus 13
+                const flex = parseInt(flexLength.value) || 2;
+                const prod = parseInt(productLength.value) || 6;
+                const weight = parseInt(weightLength.value) || 5;
+                if (flex + prod + weight !== 13) {
+                    alert('Total digit harus 13!');
+                    return;
+                }
+
+                // Ambil data printer yang sudah ada (jika ada)
                 const docSnap = await getDoc(settingsDocRef);
-                const existing = docSnap.exists() ? docSnap.data() : {};
-                const newData = {
-                    ...existing,
-                    barcode: barcodeData
-                };
-                await setDoc(settingsDocRef, newData);
-                alert('Konfigurasi barcode berhasil disimpan');
+                let printerConfig = {};
+                if (docSnap.exists() && docSnap.data().printerConfig) {
+                    printerConfig = docSnap.data().printerConfig;
+                }
+
+                // Simpan ke Firestore
+                await setDoc(settingsDocRef, {
+                    barcodeConfig: {
+                        flexLength: flex,
+                        flexValue: flexValue.value.trim() || '11',
+                        productLength: prod,
+                        weightLength: weight
+                    },
+                    printerConfig: printerConfig
+                }, { merge: true });
+
+                alert('Konfigurasi barcode berhasil disimpan!');
             } catch (error) {
-                console.error(error);
+                console.error('Gagal simpan barcode:', error);
                 alert('Gagal menyimpan: ' + error.message);
             }
-        });
+        }
 
-        // Simpan printer config
-        formPrinter.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // ========== SIMPAN KONFIGURASI PRINTER ==========
+        async function savePrinterConfig() {
             try {
-                const printerData = {
-                    autoConnect: autoConnectPrinter.checked,
-                    paperWidth: paperWidth.value,
-                    receiptHeader: receiptHeader.value,
-                    receiptFooter: receiptFooter.value
-                };
+                // Ambil data barcode yang sudah ada
                 const docSnap = await getDoc(settingsDocRef);
-                const existing = docSnap.exists() ? docSnap.data() : {};
-                const newData = {
-                    ...existing,
-                    printer: printerData
-                };
-                await setDoc(settingsDocRef, newData);
-                alert('Pengaturan printer berhasil disimpan');
+                let barcodeConfig = {};
+                if (docSnap.exists() && docSnap.data().barcodeConfig) {
+                    barcodeConfig = docSnap.data().barcodeConfig;
+                }
+
+                await setDoc(settingsDocRef, {
+                    barcodeConfig: barcodeConfig,
+                    printerConfig: {
+                        paperSize: paperSize.value,
+                        dateFormat: dateFormat.value,
+                        printCashierName: printCashierName.checked,
+                        headerText: headerText.value.trim(),
+                        infoText: infoText.value.trim(),
+                        footerText: footerText.value.trim()
+                    }
+                }, { merge: true });
+
+                alert('Pengaturan printer berhasil disimpan!');
             } catch (error) {
-                console.error(error);
+                console.error('Gagal simpan printer:', error);
                 alert('Gagal menyimpan: ' + error.message);
             }
-        });
+        }
 
-        // Auth
+        saveBarcodeBtn.addEventListener('click', saveBarcodeConfig);
+        savePrinterBtn.addEventListener('click', savePrinterConfig);
+
+        // ========== AUTH ==========
         onAuthStateChanged(auth, (user) => {
             loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
             feather.replace();
@@ -364,7 +495,10 @@
             }
         });
 
-        // Initial load
+        // Sembunyikan tombol sync
+        if (syncBtn) syncBtn.style.display = 'none';
+
+        // Inisialisasi: load data
         loadSettings();
     </script>
 </body>
