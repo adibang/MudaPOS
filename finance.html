@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>MUDA POS - Finance</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
@@ -71,6 +71,7 @@
             color: #999;
             font-weight: normal;
         }
+        /* Tab bar untuk layar besar */
         .finance-tabs {
             display: flex;
             gap: 0.5rem;
@@ -80,7 +81,25 @@
             border-radius: 20px;
             border: 1px solid #f0f0f0;
             width: fit-content;
-            flex-wrap: wrap;
+        }
+        /* Tombol menu mobile (hanya muncul di layar kecil) */
+        .mobile-tab-menu {
+            display: none;
+            margin-bottom: 1rem;
+        }
+        .mobile-tab-menu button {
+            width: 100%;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 0.8rem 1rem;
+            font-size: 1rem;
+            color: #006B54;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
         }
         .tab-btn {
             padding: 0.6rem 1.5rem;
@@ -96,6 +115,64 @@
             background: #006B54;
             color: white;
         }
+        /* Drawer (modal) untuk tab di mobile */
+        .tab-drawer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            border-radius: 20px 20px 0 0;
+            padding: 1.5rem;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .tab-drawer.open {
+            transform: translateY(0);
+        }
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            color: #006B54;
+            font-weight: 600;
+        }
+        .drawer-item {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .drawer-item:last-child {
+            border-bottom: none;
+        }
+        .drawer-item.active {
+            background: #e6f0ec;
+            color: #006B54;
+            font-weight: 500;
+            border-radius: 10px;
+        }
+        .drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 999;
+            display: none;
+        }
+        .drawer-overlay.active {
+            display: block;
+        }
+
         .table-responsive {
             overflow-x: auto;
             background: white;
@@ -231,13 +308,15 @@
             outline: none;
             border-color: #006B54;
         }
-        .profit-positive {
-            color: #006B54;
-            font-weight: 600;
-        }
-        .profit-negative {
-            color: #dc3545;
-            font-weight: 600;
+
+        /* Responsif: sembunyikan tab bar di layar kecil, tampilkan tombol menu */
+        @media (max-width: 768px) {
+            .finance-tabs {
+                display: none;
+            }
+            .mobile-tab-menu {
+                display: block;
+            }
         }
     </style>
 </head>
@@ -308,13 +387,38 @@
             </div>
         </div>
 
-        <!-- Tab Navigation -->
+        <!-- Mobile Tab Menu -->
+        <div class="mobile-tab-menu">
+            <button id="mobileTabMenuBtn"><i data-feather="menu"></i> Pilih Laporan</button>
+        </div>
+
+        <!-- Tab Navigation untuk layar besar -->
         <div class="finance-tabs">
             <button class="tab-btn active" id="tabCash">Kas & Transaksi</button>
             <button class="tab-btn" id="tabReceivable">Piutang</button>
             <button class="tab-btn" id="tabPayable">Hutang</button>
             <button class="tab-btn" id="tabProfitLoss">Laba Rugi</button>
-            <button class="tab-btn" id="tabProfitPerTransaction">Laba per Transaksi</button> <!-- MODIFIKASI -->
+        </div>
+
+        <!-- Drawer untuk mobile -->
+        <div class="drawer-overlay" id="drawerOverlay"></div>
+        <div class="tab-drawer" id="tabDrawer">
+            <div class="drawer-header">
+                <span>Pilih Laporan</span>
+                <i data-feather="x" id="closeDrawer" style="cursor:pointer;"></i>
+            </div>
+            <div class="drawer-item" data-tab="cash">
+                <i data-feather="dollar-sign"></i> Kas & Transaksi
+            </div>
+            <div class="drawer-item" data-tab="receivable">
+                <i data-feather="users"></i> Piutang
+            </div>
+            <div class="drawer-item" data-tab="payable">
+                <i data-feather="truck"></i> Hutang
+            </div>
+            <div class="drawer-item" data-tab="profitloss">
+                <i data-feather="bar-chart-2"></i> Laba Rugi
+            </div>
         </div>
 
         <!-- Panel Kas & Transaksi -->
@@ -421,34 +525,6 @@
                         <tr><td style="font-weight:600;">Laba Kotor</td><td id="grossProfit">Rp 0</td></tr>
                         <tr><td>Total Pengeluaran</td><td id="totalExpense">Rp 0</td></tr>
                         <tr><td style="font-weight:600; color:#006B54;">Laba Bersih</td><td id="netProfitDetail">Rp 0</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- MODIFIKASI: Panel Laba per Transaksi -->
-        <div id="panelProfitPerTransaction" style="display: none;">
-            <div class="filter-bar">
-                <input type="date" id="startDatePPT">
-                <span>s/d</span>
-                <input type="date" id="endDatePPT">
-                <button class="btn" id="filterPPTBtn">Tampilkan</button>
-            </div>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Tanggal</th>
-                            <th>No. Transaksi</th>
-                            <th>Customer</th>
-                            <th>Total</th>
-                            <th>Total Pokok</th>
-                            <th>Laba</th>
-                            <th>Margin</th>
-                        </tr>
-                    </thead>
-                    <tbody id="profitPerTransactionBody">
-                        <tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -593,50 +669,86 @@
         const syncBtn = document.getElementById('syncBtn');
         if (syncBtn) syncBtn.style.display = 'none';
 
-        // Tab navigasi
+        // Tab navigasi (desktop)
         const tabCash = document.getElementById('tabCash');
         const tabReceivable = document.getElementById('tabReceivable');
         const tabPayable = document.getElementById('tabPayable');
         const tabProfitLoss = document.getElementById('tabProfitLoss');
-        const tabProfitPerTransaction = document.getElementById('tabProfitPerTransaction'); // MODIFIKASI
         const panelCash = document.getElementById('panelCash');
         const panelReceivable = document.getElementById('panelReceivable');
         const panelPayable = document.getElementById('panelPayable');
         const panelProfitLoss = document.getElementById('panelProfitLoss');
-        const panelProfitPerTransaction = document.getElementById('panelProfitPerTransaction'); // MODIFIKASI
 
-        // Fungsi ganti tab
+        // Elemen drawer mobile
+        const mobileTabMenuBtn = document.getElementById('mobileTabMenuBtn');
+        const tabDrawer = document.getElementById('tabDrawer');
+        const drawerOverlay = document.getElementById('drawerOverlay');
+        const closeDrawer = document.getElementById('closeDrawer');
+        const drawerItems = document.querySelectorAll('.drawer-item');
+
+        // Fungsi ganti tab (sama untuk desktop dan mobile)
         function showTab(tab) {
-            [tabCash, tabReceivable, tabPayable, tabProfitLoss, tabProfitPerTransaction].forEach(t => t.classList.remove('active'));
-            [panelCash, panelReceivable, panelPayable, panelProfitLoss, panelProfitPerTransaction].forEach(p => p.style.display = 'none');
+            // Update class active pada tab desktop
+            [tabCash, tabReceivable, tabPayable, tabProfitLoss].forEach(t => t.classList.remove('active'));
+            // Update class active pada drawer item
+            drawerItems.forEach(item => item.classList.remove('active'));
+
+            // Sembunyikan semua panel
+            [panelCash, panelReceivable, panelPayable, panelProfitLoss].forEach(p => p.style.display = 'none');
+
             if (tab === 'cash') {
                 tabCash.classList.add('active');
+                document.querySelector('.drawer-item[data-tab="cash"]').classList.add('active');
                 panelCash.style.display = 'block';
                 loadCashTransactions();
             } else if (tab === 'receivable') {
                 tabReceivable.classList.add('active');
+                document.querySelector('.drawer-item[data-tab="receivable"]').classList.add('active');
                 panelReceivable.style.display = 'block';
                 loadReceivables();
             } else if (tab === 'payable') {
                 tabPayable.classList.add('active');
+                document.querySelector('.drawer-item[data-tab="payable"]').classList.add('active');
                 panelPayable.style.display = 'block';
                 loadPayables();
             } else if (tab === 'profitloss') {
                 tabProfitLoss.classList.add('active');
+                document.querySelector('.drawer-item[data-tab="profitloss"]').classList.add('active');
                 panelProfitLoss.style.display = 'block';
                 loadProfitLoss();
-            } else if (tab === 'profitpertransaction') { // MODIFIKASI
-                tabProfitPerTransaction.classList.add('active');
-                panelProfitPerTransaction.style.display = 'block';
-                loadProfitPerTransaction();
             }
+
+            // Tutup drawer setelah pilih tab (untuk mobile)
+            closeDrawerFunc();
         }
 
+        // Event listener tab desktop
         tabCash.addEventListener('click', () => showTab('cash'));
         tabReceivable.addEventListener('click', () => showTab('receivable'));
         tabPayable.addEventListener('click', () => showTab('payable'));
         tabProfitLoss.addEventListener('click', () => showTab('profitloss'));
-        tabProfitPerTransaction.addEventListener('click', () => showTab('profitpertransaction')); // MODIFIKASI
+
+        // Fungsi buka/tutup drawer
+        function openDrawer() {
+            tabDrawer.classList.add('open');
+            drawerOverlay.classList.add('active');
+        }
+        function closeDrawerFunc() {
+            tabDrawer.classList.remove('open');
+            drawerOverlay.classList.remove('active');
+        }
+
+        mobileTabMenuBtn.addEventListener('click', openDrawer);
+        closeDrawer.addEventListener('click', closeDrawerFunc);
+        drawerOverlay.addEventListener('click', closeDrawerFunc);
+
+        // Event listener drawer items
+        drawerItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const tab = item.dataset.tab;
+                showTab(tab);
+            });
+        });
 
         // ========== DASHBOARD CARDS ==========
         async function loadDashboard() {
@@ -841,7 +953,7 @@
             }
         }
 
-        // ========== LABA RUGI (DENGAN HPP AKURAT) ==========
+        // ========== LABA RUGI ==========
         async function loadProfitLoss() {
             const startDate = document.getElementById('startDatePL').value;
             const endDate = document.getElementById('endDatePL').value;
@@ -898,77 +1010,6 @@
             } catch (error) {
                 console.error('Error load profit loss:', error);
                 alert('Gagal memuat laba rugi: ' + error.message);
-            }
-        }
-
-        // ========== MODIFIKASI: LABA PER TRANSAKSI ==========
-        async function loadProfitPerTransaction() {
-            const startDate = document.getElementById('startDatePPT').value;
-            const endDate = document.getElementById('endDatePPT').value;
-            let start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-            let end = endDate ? new Date(endDate) : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59);
-            if (!startDate) document.getElementById('startDatePPT').valueAsDate = start;
-            if (!endDate) document.getElementById('endDatePPT').valueAsDate = end;
-
-            const tbody = document.getElementById('profitPerTransactionBody');
-            try {
-                const salesSnap = await getDocs(query(salesCol,
-                    where('createdAt', '>=', Timestamp.fromDate(start)),
-                    where('createdAt', '<=', Timestamp.fromDate(end)),
-                    orderBy('createdAt', 'desc')
-                ));
-                if (salesSnap.empty) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada data transaksi</td></tr>';
-                    return;
-                }
-
-                let html = '';
-                for (const doc of salesSnap.docs) {
-                    const sale = doc.data();
-                    const tanggal = sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleDateString('id-ID') : '-';
-                    const noTransaksi = sale.transactionNumber || doc.id.slice(-6);
-                    const customer = sale.customerName || 'Umum';
-                    const total = sale.total || 0;
-                    
-                    // Hitung laba
-                    let totalPokok = 0;
-                    let laba = 'N/A';
-                    let margin = 'N/A';
-                    
-                    if (sale.totalPokok !== undefined) {
-                        totalPokok = sale.totalPokok;
-                        laba = total - totalPokok;
-                        margin = total > 0 ? ((laba / total) * 100).toFixed(2) + '%' : '0%';
-                    } else if (sale.items && Array.isArray(sale.items)) {
-                        // Jumlah dari subtotalPokok items
-                        sale.items.forEach(item => {
-                            totalPokok += item.subtotalPokok || 0;
-                        });
-                        laba = total - totalPokok;
-                        margin = total > 0 ? ((laba / total) * 100).toFixed(2) + '%' : '0%';
-                    } else {
-                        // Data lama, tidak bisa hitung laba
-                        totalPokok = null;
-                        laba = 'N/A';
-                        margin = 'N/A';
-                    }
-
-                    const labaClass = laba !== 'N/A' ? (laba >= 0 ? 'profit-positive' : 'profit-negative') : '';
-                    html += `<tr>
-                        <td>${tanggal}</td>
-                        <td>${noTransaksi}</td>
-                        <td>${customer}</td>
-                        <td>Rp ${total.toLocaleString()}</td>
-                        <td>${totalPokok !== null ? 'Rp ' + totalPokok.toLocaleString() : 'N/A'}</td>
-                        <td class="${labaClass}">${laba !== 'N/A' ? 'Rp ' + laba.toLocaleString() : 'N/A'}</td>
-                        <td>${margin}</td>
-                    </tr>`;
-                }
-                tbody.innerHTML = html;
-                feather.replace();
-            } catch (error) {
-                console.error('Error load profit per transaction:', error);
-                tbody.innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
             }
         }
 
@@ -1033,7 +1074,6 @@
         // ========== FILTER ==========
         document.getElementById('filterCashBtn').addEventListener('click', loadCashTransactions);
         document.getElementById('filterPLBtn').addEventListener('click', loadProfitLoss);
-        document.getElementById('filterPPTBtn').addEventListener('click', loadProfitPerTransaction); // MODIFIKASI
 
         // ========== AUTH ==========
         onAuthStateChanged(auth, (user) => {
