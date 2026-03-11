@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUDA POS - Retur Pembelian</title>
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background:#f5f5f5; color:#333; font-size:14px; }
+        .text-primary { color:#006B54; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .btn-sync { background:transparent; border:1px solid #006B54; color:#006B54; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; margin-right:0.5rem; font-size:0.9rem; }
+        .btn-sync:hover { background:#e6f0ec; }
+        .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
+        .reset-btn:hover { background:#c82333; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
+        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
+        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
+        .sidebar-menu { list-style:none; }
+        .sidebar-menu li { margin-bottom:0.2rem; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
+        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
+        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
+        .has-submenu.open .submenu { display:block; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
+        .submenu a:hover { background:#e6f0ec; color:#006B54; }
+        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
+        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
+        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
+        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+        .content-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; }
+        .table-responsive { overflow-x:auto; margin-top:1rem; }
+        table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:800px; }
+        th, td { padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
+        th { background:#f9f9f9; font-weight:600; color:#006B54; }
+        tr:hover { background:#f5f5f5; }
+        .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; }
+        .btn-icon.delete { color:#dc3545; }
+        .btn-add { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:0.4rem; text-decoration:none; margin-bottom:1rem; }
+        .btn-add:hover { background:#004d3b; }
+        .search-box { margin-bottom:1rem; display:flex; gap:0.5rem; align-items:center; }
+        .search-box input { flex:1; padding:0.6rem 1rem; border:1px solid #ddd; border-radius:20px; font-size:0.95rem; }
+        .search-box button { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:20px; cursor:pointer; display:flex; align-items:center; gap:0.3rem; }
+        .search-box button:hover { background:#004d3b; }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 700px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 1.5rem;
+            position: relative;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .modal-header h3 { color: #006B54; }
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+        }
+        .modal-search { margin-bottom: 1rem; }
+        .modal-search input { width: 100%; padding: 0.5rem; border:1px solid #ddd; border-radius:20px; }
+        .modal-table { width:100%; border-collapse:collapse; }
+        .modal-table th { text-align:left; padding:0.5rem; background:#f9f9f9; }
+        .modal-table td { padding:0.5rem; border-bottom:1px solid #eee; }
+        .modal-table tr { cursor:pointer; }
+        .modal-table tr:hover { background:#f5f5f5; }
+        .items-table { width:100%; border-collapse:collapse; margin-top:1rem; }
+        .items-table th { background:#f0f5f3; color:#006B54; padding:0.5rem; text-align:left; }
+        .items-table td { padding:0.5rem; border-bottom:1px solid #e0e0e0; }
+        .detail-row { display:flex; margin-bottom:0.5rem; }
+        .detail-label { font-weight:600; width:120px; color:#444; }
+        .detail-value { flex:1; }
+        .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; }
+        .btn-outline:hover { background:#e6f0ec; }
+        @media (max-width:640px) { .main-content { padding:0.8rem; } }
+    </style>
+</head>
+<body>
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>MUDA POS</h2>
+            <button class="close-sidebar" id="closeSidebar"><i data-feather="x"></i></button>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
+            <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
+            <li class="has-submenu" id="salesMenuItem">
+                <a href="#" class="menu-link" id="salesMenuToggle">
+                    <i data-feather="shopping-cart"></i> Sales
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a href="sales.html"><i data-feather="shopping-cart"></i> Sales</a></li>
+                    <li><a href="sales-list.html"><i data-feather="list"></i> Daftar Sales</a></li>
+                    <li><a href="sales-returns.html"><i data-feather="rotate-ccw"></i> Retur Penjualan</a></li>
+                </ul>
+            </li>
+            <li class="has-submenu" id="purchaseMenuItem">
+                <a href="#" class="menu-link" id="purchaseMenuToggle">
+                    <i data-feather="truck"></i> Purchase
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a href="purchase.html"><i data-feather="shopping-cart"></i> Transaksi Pembelian</a></li>
+                    <li><a href="purchase-list.html"><i data-feather="list"></i> Daftar Pembelian</a></li>
+                    <li><a href="purchase-returns.html" class="active"><i data-feather="rotate-ccw"></i> Retur Pembelian</a></li>
+                </ul>
+            </li>
+            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
+            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
+            <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
+            <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
+        </ul>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
+        </div>
+        <div class="header-right" style="display:flex; align-items:center;">
+            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+        </div>
+    </header>
+
+    <!-- Konten Utama -->
+    <main class="main-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h1 class="page-title" style="margin-bottom:0;">Retur Pembelian</h1>
+            <button class="btn-add" id="btnBuatRetur"><i data-feather="plus-circle"></i> Buat Retur Baru</button>
+        </div>
+
+        <div class="content-section">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>No. Transaksi Asal</th>
+                            <th>Supplier</th>
+                            <th>Total Retur</th>
+                            <th>Alasan</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="returListBody">
+                        <tr><td colspan="6" style="text-align:center;">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL CARI TRANSAKSI UNTUK RETUR -->
+    <div class="modal" id="modalCariTransaksi">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cari Transaksi Pembelian</h3>
+                <button class="close-modal" id="closeCariTransaksi">&times;</button>
+            </div>
+            <div class="modal-search">
+                <input type="text" id="searchTransaksi" placeholder="Cari nama supplier...">
+            </div>
+            <div class="modal-body" style="max-height: 300px; overflow-y: auto;">
+                <table class="modal-table">
+                    <thead><tr><th>Tanggal</th><th>Supplier</th><th>Total</th><th>Aksi</th></tr></thead>
+                    <tbody id="daftarTransaksiBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL RETUR -->
+    <div class="modal" id="modalRetur">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Retur Pembelian</h3>
+                <button class="close-modal" id="closeRetur">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="returInfo"></div>
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Produk</th>
+                            <th>Qty Dibeli</th>
+                            <th>Harga Beli</th>
+                            <th>Qty Retur</th>
+                            <th>Subtotal Retur</th>
+                        </tr>
+                    </thead>
+                    <tbody id="returItemsBody"></tbody>
+                </table>
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Alasan Retur</label>
+                    <textarea id="alasanRetur" rows="2" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px;"></textarea>
+                </div>
+                <div style="text-align:right; margin-top:1rem;">
+                    <strong>Total Retur: Rp <span id="totalRetur">0</span></strong>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button class="btn-outline" id="batalRetur">Batal</button>
+                    <button class="btn" id="simpanRetur">Simpan Retur</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script sidebar (non-module) -->
+    <script>
+        feather.replace();
+
+        const menuToggle = document.getElementById('menuToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+        function closeSidebarFunc() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+        menuToggle.addEventListener('click', openSidebar);
+        closeSidebar.addEventListener('click', closeSidebarFunc);
+        overlay.addEventListener('click', closeSidebarFunc);
+
+        // Toggle submenu sales & purchase
+        const salesItem = document.getElementById('salesMenuItem');
+        const salesToggle = document.getElementById('salesMenuToggle');
+        if (salesToggle) {
+            salesToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                salesItem.classList.toggle('open');
+            });
+        }
+        const purchaseItem = document.getElementById('purchaseMenuItem');
+        const purchaseToggle = document.getElementById('purchaseMenuToggle');
+        if (purchaseToggle) {
+            purchaseToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                purchaseItem.classList.toggle('open');
+            });
+        }
+    </script>
+
+    <!-- Script module -->
+    <script type="module">
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
+        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { 
+            collection, doc, getDocs, getDoc, query, orderBy, serverTimestamp, 
+            runTransaction, Timestamp, where, addDoc, deleteDoc 
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // Referensi koleksi
+        const returPembelianCol = collection(dbCloud, 'returPembelian');
+        const purchaseCol = collection(dbCloud, 'purchase');
+        const produkCol = collection(dbCloud, 'produk');
+        const supplierCol = collection(dbCloud, 'supplier');
+        const financeTransCol = collection(dbCloud, 'financeTransactions');
+
+        // Elemen DOM
+        const loginBtn = document.getElementById('loginBtn');
+        const returListBody = document.getElementById('returListBody');
+        const btnBuatRetur = document.getElementById('btnBuatRetur');
+        const modalCari = document.getElementById('modalCariTransaksi');
+        const closeCari = document.getElementById('closeCariTransaksi');
+        const searchTransaksi = document.getElementById('searchTransaksi');
+        const daftarTransaksiBody = document.getElementById('daftarTransaksiBody');
+        const modalRetur = document.getElementById('modalRetur');
+        const closeRetur = document.getElementById('closeRetur');
+        const batalRetur = document.getElementById('batalRetur');
+        const returInfo = document.getElementById('returInfo');
+        const returItemsBody = document.getElementById('returItemsBody');
+        const alasanRetur = document.getElementById('alasanRetur');
+        const totalReturSpan = document.getElementById('totalRetur');
+        const simpanRetur = document.getElementById('simpanRetur');
+
+        let selectedPurchase = null;
+        let returItems = [];
+
+        // Format tanggal
+        function formatDate(timestamp) {
+            if (!timestamp) return '-';
+            try {
+                const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+                return date.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+            } catch {
+                return '-';
+            }
+        }
+
+        // Load daftar retur
+        async function loadReturList() {
+            try {
+                const q = query(returPembelianCol, orderBy('tanggal', 'desc'));
+                const snap = await getDocs(q);
+                if (snap.empty) {
+                    returListBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Belum ada retur</td></tr>';
+                } else {
+                    let html = '';
+                    snap.docs.forEach(doc => {
+                        const r = doc.data();
+                        html += `
+                            <tr>
+                                <td>${formatDate(r.tanggal)}</td>
+                                <td>${r.purchaseId ? r.purchaseId.slice(-6) : '-'}</td>
+                                <td>${r.supplierName || '-'}</td>
+                                <td>Rp ${(r.total || 0).toLocaleString()}</td>
+                                <td>${r.alasan || '-'}</td>
+                                <td>
+                                    <button class="btn-icon view" onclick="viewRetur('${doc.id}')"><i data-feather="eye"></i></button>
+                                    <button class="btn-icon delete" onclick="hapusRetur('${doc.id}')"><i data-feather="trash-2"></i></button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    returListBody.innerHTML = html;
+                    feather.replace();
+                }
+            } catch (error) {
+                console.error(error);
+                returListBody.innerHTML = `<tr><td colspan="6" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            }
+        }
+
+        window.viewRetur = async (id) => {
+            alert('Fitur detail retur belum diimplementasikan');
+        };
+
+        window.hapusRetur = async (id) => {
+            if (!confirm('Hapus retur ini?')) return;
+            try {
+                await deleteDoc(doc(returPembelianCol, id));
+                loadReturList();
+            } catch (error) {
+                alert('Gagal hapus: ' + error.message);
+            }
+        };
+
+        // Tombol buat retur
+        btnBuatRetur.addEventListener('click', () => {
+            loadDaftarTransaksi();
+            modalCari.classList.add('active');
+        });
+
+        closeCari.addEventListener('click', () => modalCari.classList.remove('active'));
+
+        // Load daftar transaksi pembelian untuk dipilih
+        async function loadDaftarTransaksi(keyword = '') {
+            try {
+                const q = query(purchaseCol, orderBy('tanggal', 'desc'));
+                const snap = await getDocs(q);
+                let purchases = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (keyword.trim()) {
+                    const lower = keyword.toLowerCase();
+                    // Karena purchase mungkin tidak punya nama supplier langsung, kita perlu fetch supplier
+                    // Untuk sederhana, kita filter di sisi client setelah ambil data supplier nanti.
+                }
+                // Tampilkan semua, karena kita belum punya nama supplier di sini
+                if (purchases.length === 0) {
+                    daftarTransaksiBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Tidak ada transaksi</td></tr>';
+                } else {
+                    // Kita perlu nama supplier, fetch satu per satu? Bisa pakai Promise.all
+                    const rows = await Promise.all(purchases.map(async p => {
+                        let supplierName = '-';
+                        if (p.supplierId) {
+                            const suppSnap = await getDoc(doc(supplierCol, p.supplierId));
+                            if (suppSnap.exists()) supplierName = suppSnap.data().nama;
+                        }
+                        // Filter berdasarkan keyword jika ada
+                        if (keyword.trim() && !supplierName.toLowerCase().includes(keyword.toLowerCase())) {
+                            return null;
+                        }
+                        return `
+                            <tr data-id="${p.id}">
+                                <td>${formatDate(p.tanggal)}</td>
+                                <td>${supplierName}</td>
+                                <td>Rp ${(p.total || 0).toLocaleString()}</td>
+                                <td><button class="btn pilih-transaksi" style="padding:0.2rem 0.5rem;">Pilih</button></td>
+                            </tr>
+                        `;
+                    }));
+                    const filteredRows = rows.filter(r => r !== null).join('');
+                    if (filteredRows) {
+                        daftarTransaksiBody.innerHTML = filteredRows;
+                    } else {
+                        daftarTransaksiBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Tidak ada transaksi</td></tr>';
+                    }
+                    feather.replace();
+                }
+            } catch (error) {
+                console.error(error);
+                daftarTransaksiBody.innerHTML = `<tr><td colspan="4" style="color:red;">Gagal memuat</td></tr>`;
+            }
+        }
+
+        searchTransaksi.addEventListener('input', () => {
+            loadDaftarTransaksi(searchTransaksi.value);
+        });
+
+        daftarTransaksiBody.addEventListener('click', (e) => {
+            const btn = e.target.closest('.pilih-transaksi');
+            if (!btn) return;
+            const row = btn.closest('tr');
+            const id = row.dataset.id;
+            pilihTransaksi(id);
+        });
+
+        async function pilihTransaksi(id) {
+            try {
+                const snap = await getDoc(doc(purchaseCol, id));
+                if (!snap.exists()) throw new Error('Transaksi tidak ditemukan');
+                selectedPurchase = { id: snap.id, ...snap.data() };
+                // Ambil nama supplier
+                if (selectedPurchase.supplierId) {
+                    const suppSnap = await getDoc(doc(supplierCol, selectedPurchase.supplierId));
+                    if (suppSnap.exists()) {
+                        selectedPurchase.supplierName = suppSnap.data().nama;
+                    }
+                }
+                returItems = (selectedPurchase.items || []).map(item => ({
+                    ...item,
+                    returQty: 0,
+                    subtotalRetur: 0
+                }));
+                renderReturModal();
+                modalCari.classList.remove('active');
+                modalRetur.classList.add('active');
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        function renderReturModal() {
+            const p = selectedPurchase;
+            returInfo.innerHTML = `
+                <div class="detail-row">
+                    <span class="detail-label">Supplier:</span>
+                    <span class="detail-value">${p.supplierName || '-'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Tanggal:</span>
+                    <span class="detail-value">${formatDate(p.tanggal)}</span>
+                </div>
+            `;
+            let html = '';
+            returItems.forEach((item, idx) => {
+                html += `
+                    <tr data-index="${idx}">
+                        <td>${item.nama || 'Produk'}</td>
+                        <td>${item.qty}</td>
+                        <td>Rp ${(item.hargaBeli || 0).toLocaleString()}</td>
+                        <td><input type="number" class="retur-qty" value="0" min="0" max="${item.qty}" step="1" data-index="${idx}"></td>
+                        <td class="subtotal-retur">Rp 0</td>
+                    </tr>
+                `;
+            });
+            returItemsBody.innerHTML = html;
+            updateTotalRetur();
+
+            document.querySelectorAll('.retur-qty').forEach(input => {
+                input.addEventListener('input', function() {
+                    const idx = this.dataset.index;
+                    let val = parseInt(this.value);
+                    if (isNaN(val) || val < 0) val = 0;
+                    const max = parseInt(this.max);
+                    if (val > max) val = max;
+                    this.value = val;
+                    returItems[idx].returQty = val;
+                    returItems[idx].subtotalRetur = val * (returItems[idx].hargaBeli || 0);
+                    const subtotalCell = this.closest('tr').querySelector('.subtotal-retur');
+                    subtotalCell.textContent = 'Rp ' + returItems[idx].subtotalRetur.toLocaleString();
+                    updateTotalRetur();
+                });
+            });
+        }
+
+        function updateTotalRetur() {
+            const total = returItems.reduce((sum, item) => sum + item.subtotalRetur, 0);
+            totalReturSpan.textContent = total.toLocaleString();
+        }
+
+        function closeReturModal() {
+            modalRetur.classList.remove('active');
+            selectedPurchase = null;
+            returItems = [];
+        }
+        closeRetur.addEventListener('click', closeReturModal);
+        batalRetur.addEventListener('click', closeReturModal);
+
+        simpanRetur.addEventListener('click', async () => {
+            const itemsRetur = returItems.filter(item => item.returQty > 0);
+            if (itemsRetur.length === 0) {
+                alert('Pilih item yang akan diretur');
+                return;
+            }
+            const alasan = alasanRetur.value.trim();
+            if (!alasan) {
+                alert('Isi alasan retur');
+                return;
+            }
+            const total = itemsRetur.reduce((sum, item) => sum + item.subtotalRetur, 0);
+            const p = selectedPurchase;
+
+            try {
+                await runTransaction(dbCloud, async (transaction) => {
+                    // 1. Simpan retur
+                    const returData = {
+                        purchaseId: p.id,
+                        tanggal: Timestamp.now(),
+                        supplierId: p.supplierId,
+                        supplierName: p.supplierName,
+                        items: itemsRetur.map(item => ({
+                            produkId: item.produkId || item.id, // sesuaikan field id
+                            nama: item.nama,
+                            qty: item.returQty,
+                            hargaBeli: item.hargaBeli,
+                            subtotal: item.subtotalRetur
+                        })),
+                        total: total,
+                        alasan: alasan,
+                        createdAt: serverTimestamp()
+                    };
+                    const returRef = doc(returPembelianCol);
+                    transaction.set(returRef, returData);
+
+                    // 2. Update stok produk (kurangi, karena barang keluar)
+                    for (let item of itemsRetur) {
+                        const produkId = item.produkId || item.id;
+                        const produkRef = doc(produkCol, produkId);
+                        const produkSnap = await transaction.get(produkRef);
+                        if (!produkSnap.exists()) throw new Error(`Produk ${item.nama} tidak ditemukan`);
+                        const stokLama = produkSnap.data().stokAwal || 0;
+                        transaction.update(produkRef, { stokAwal: stokLama - item.returQty });
+                    }
+
+                    // 3. Update transaksi asal
+                    const purchaseRef = doc(purchaseCol, p.id);
+                    const purchaseSnap = await transaction.get(purchaseRef);
+                    if (!purchaseSnap.exists()) throw new Error('Transaksi asal tidak ditemukan');
+                    const dataPurchase = purchaseSnap.data();
+                    const totalBaru = dataPurchase.total - total;
+                    const dibayar = dataPurchase.dibayar || 0;
+                    let outstandingBaru = totalBaru - dibayar;
+                    if (outstandingBaru < 0) outstandingBaru = 0;
+                    const totalReturSebelum = dataPurchase.totalRetur || 0;
+                    transaction.update(purchaseRef, {
+                        total: totalBaru,
+                        outstanding: outstandingBaru,
+                        totalRetur: totalReturSebelum + total
+                    });
+
+                    // 4. Jika dibayar > totalBaru (kelebihan bayar), supplier harus mengembalikan uang
+                    if (dibayar > totalBaru) {
+                        const kembalian = dibayar - totalBaru;
+                        const kasRef = doc(financeTransCol);
+                        transaction.set(kasRef, {
+                            date: Timestamp.now(),
+                            description: `Retur pembelian - ${p.supplierName}`,
+                            category: 'Retur',
+                            type: 'income', // uang masuk dari supplier
+                            amount: kembalian,
+                            method: 'Tunai',
+                            reference: returRef.id,
+                            createdAt: serverTimestamp()
+                        });
+                        transaction.update(purchaseRef, { dibayar: totalBaru });
+                    }
+                });
+
+                alert('Retur berhasil disimpan');
+                closeReturModal();
+                loadReturList();
+            } catch (error) {
+                console.error(error);
+                alert('Gagal: ' + error.message);
+            }
+        });
+
+        // Auth
+        onAuthStateChanged(auth, (user) => {
+            loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            feather.replace();
+        });
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
+            } else {
+                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
+            }
+        });
+
+        // Init
+        loadReturList();
+    </script>
+</body>
+</html>
