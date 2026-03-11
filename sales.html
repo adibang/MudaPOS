@@ -171,6 +171,27 @@
             font-size: 0.9rem;
             cursor: pointer;
         }
+        .btn-return {
+            background: #6c757d;      /* warna abu-abu */
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            text-decoration: none;    /* untuk elemen <a> */
+        }
+        .btn-return:hover {
+            background: #5a6268;      /* lebih gelap saat hover */
+        }
+        .btn-return i {
+            width: 18px;
+            height: 18px;
+        }
         #btnPiutang { background:#ccc; color:#333; }
         #btnPiutang.active { background:#dc3545; color:white; }
         #btnPending { background:#006B54; color:white; }
@@ -766,7 +787,7 @@
             </div>
             <!-- Baris ketiga: tombol aksi -->
             <div class="toolbar-row" style="justify-content: flex-end;">
-                <a href="sales-returns.html" class="btn" style="background:#6c757d;"><i data-feather="rotate-ccw"></i> Retur</a>
+                <a href="sales-returns.html" class="btn" style="background:#6c757d;"><i data-feather="rotate-ccw"></i></a>
                 <button id="btnPiutang"><i data-feather="alert-triangle"></i></button>
                 <button id="btnPending"><i data-feather="clock"></i></button>
                 <button id="btnPayment"><i data-feather="credit-card"></i> Check Out</button>
