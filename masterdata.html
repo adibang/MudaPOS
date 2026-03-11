@@ -48,6 +48,21 @@
         .form-group label { margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
         .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
         .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
+        .btn-select {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            text-align: left;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+        .btn-select:hover {
+            border-color: #006B54;
+        }
         .subform-section { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e0e0e0; }
         .subform-title { font-size:1.1rem; font-weight:600; color:#006B54; margin-bottom:0.8rem; }
         .konversi-row, .qtybreak-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:0.6rem; align-items:center; background:#fafafa; padding:0.8rem; border-radius:8px; margin-bottom:0.6rem; }
@@ -72,6 +87,69 @@
         /* Search bar */
         .search-bar { display:flex; gap:0.5rem; margin-bottom:1rem; }
         .search-bar input { flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:6px; }
+
+        /* Modal styles (sama seperti halaman lain) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 1.5rem;
+            position: relative;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .modal-header h3 { color: #006B54; }
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+        }
+        .modal-search {
+            margin-bottom: 1rem;
+        }
+        .modal-search input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+        }
+        .modal-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .modal-table th {
+            text-align: left;
+            padding: 0.5rem;
+            background: #f9f9f9;
+        }
+        .modal-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        .modal-table tr { cursor: pointer; }
+        .modal-table tr:hover { background: #f5f5f5; }
     </style>
 </head>
 <body>
@@ -156,9 +234,16 @@
                         <label>Barcode</label>
                         <input type="text" id="barcodeProduk">
                     </div>
+                    <!-- MODIFIKASI: Kategori menggunakan tombol pilih modal -->
                     <div class="form-group">
                         <label>Kategori *</label>
-                        <select id="kategoriProduk" required><option value="">Pilih Kategori</option></select>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button type="button" id="btnPilihKategori" class="btn-select" style="flex:1;">
+                                <span id="selectedKategoriText">Pilih Kategori</span>
+                                <i data-feather="chevron-down" width="16"></i>
+                            </button>
+                            <input type="hidden" id="kategoriProduk" name="kategoriProduk" required>
+                        </div>
                     </div>
                 </div>
                 <div class="form-grid">
@@ -332,6 +417,25 @@
         </div>
     </main>
 
+    <!-- MODAL PILIH KATEGORI (BARU) -->
+    <div class="modal" id="modalPilihKategori">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Pilih Kategori</h3>
+                <button class="close-modal" id="closeModalKategori">&times;</button>
+            </div>
+            <div class="modal-search">
+                <input type="text" id="searchKategoriModal" placeholder="Cari nama kategori...">
+            </div>
+            <div class="modal-body" style="max-height: 300px; overflow-y: auto;">
+                <table class="modal-table">
+                    <thead><tr><th>Nama Kategori</th></tr></thead>
+                    <tbody id="kategoriModalBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Script sidebar (non-module) -->
     <script>
         feather.replace();
@@ -393,6 +497,15 @@
         const qtyBreakContainer = document.getElementById('qtyBreakContainer');
         const loginBtn = document.getElementById('loginBtn');
 
+        // Elemen untuk kategori modal
+        const btnPilihKategori = document.getElementById('btnPilihKategori');
+        const selectedKategoriText = document.getElementById('selectedKategoriText');
+        const kategoriProdukInput = document.getElementById('kategoriProduk');
+        const modalKategori = document.getElementById('modalPilihKategori');
+        const closeModalKategori = document.getElementById('closeModalKategori');
+        const searchKategoriModal = document.getElementById('searchKategoriModal');
+        const kategoriModalBody = document.getElementById('kategoriModalBody');
+
         // Navigasi section
         const sections = {
             tambahProduk: document.getElementById('tambahProdukSection'),
@@ -452,19 +565,16 @@
         let searchProdukTerm = '';
         let searchKategoriTerm = '';
 
-        // ========== LOAD DROPDOWNS ==========
+        // ========== LOAD DROPDOWNS (unit dan gudang saja, kategori sudah pakai modal) ==========
         async function loadDropdowns() {
             try {
-                const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
-                const kategoriSelect = document.getElementById('kategoriProduk');
-                kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
-                    kategoriSnap.docs.map(d => `<option value="${d.id}">${d.data().nama}</option>`).join('');
-
+                // Unit
                 const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
                 const unitSelect = document.getElementById('unit');
                 unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
                     unitSnap.docs.map(d => `<option value="${d.id}">${d.data().nama}</option>`).join('');
 
+                // Gudang
                 const gudangSnap = await getDocs(query(gudangCol, where('deleted', '==', false)));
                 const gudangSelect = document.getElementById('gudang');
                 gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
@@ -473,6 +583,65 @@
                 console.error('loadDropdowns error:', error);
             }
         }
+
+        // ========== SUBSCRIBE KATEGORI UNTUK MODAL ==========
+        let unsubKategoriModal = null;
+        function subscribeKategoriModal() {
+            if (unsubKategoriModal) unsubKategoriModal();
+            const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
+            unsubKategoriModal = onSnapshot(q, (snapshot) => {
+                allKategori = snapshot.docs.map(doc => ({ id: doc.id, nama: doc.data().nama }));
+                renderKategoriModal();
+            }, (error) => {
+                console.error('Snapshot kategori modal error:', error);
+            });
+        }
+
+        function renderKategoriModal() {
+            const keyword = searchKategoriModal ? searchKategoriModal.value.toLowerCase() : '';
+            let filtered = allKategori;
+            if (keyword) {
+                filtered = allKategori.filter(k => k.nama.toLowerCase().includes(keyword));
+            }
+            if (filtered.length === 0) {
+                kategoriModalBody.innerHTML = '<tr><td style="text-align:center;">Tidak ada kategori</td></tr>';
+            } else {
+                kategoriModalBody.innerHTML = filtered.map(k => 
+                    `<tr data-id="${k.id}" data-nama="${k.nama}"><td>${k.nama}</td></tr>`
+                ).join('');
+            }
+            feather.replace();
+        }
+
+        // Event listener untuk modal kategori
+        btnPilihKategori.addEventListener('click', () => {
+            modalKategori.classList.add('active');
+            renderKategoriModal(); // filter ulang
+        });
+
+        closeModalKategori.addEventListener('click', () => {
+            modalKategori.classList.remove('active');
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modalKategori) {
+                modalKategori.classList.remove('active');
+            }
+        });
+
+        searchKategoriModal.addEventListener('input', renderKategoriModal);
+
+        kategoriModalBody.addEventListener('click', (e) => {
+            const row = e.target.closest('tr');
+            if (!row) return;
+            const id = row.dataset.id;
+            const nama = row.dataset.nama;
+            if (id && nama) {
+                kategoriProdukInput.value = id;
+                selectedKategoriText.textContent = nama;
+                modalKategori.classList.remove('active');
+            }
+        });
 
         // ========== SUBSCRIBE KONVERSI (untuk pencarian barcode satuan) ==========
         let unsubKonversi = null;
@@ -487,7 +656,7 @@
             });
         }
 
-        // ========== SUBSCRIBE DAFTAR KATEGORI ==========
+        // ========== SUBSCRIBE DAFTAR KATEGORI (untuk halaman daftar kategori) ==========
         let unsubKategori = null;
         function subscribeDaftarKategori() {
             if (unsubKategori) unsubKategori();
@@ -769,7 +938,7 @@
                 });
                 alert('Kategori berhasil ditambahkan');
                 e.target.reset();
-                loadDropdowns();
+                loadDropdowns(); // tidak perlu, tapi tetap
             } catch (error) {
                 console.error(error);
                 alert('Gagal menambah kategori: ' + error.message);
@@ -915,7 +1084,16 @@
                 document.getElementById('namaProduk').value = produk.nama || '';
                 document.getElementById('kodeProduk').value = produk.kode || '';
                 document.getElementById('barcodeProduk').value = produk.barcode || '';
-                document.getElementById('kategoriProduk').value = produk.kategoriId || '';
+                // Set kategori
+                if (produk.kategoriId) {
+                    kategoriProdukInput.value = produk.kategoriId;
+                    // Ambil nama kategori dari allKategori atau fetch
+                    const kat = allKategori.find(k => k.id === produk.kategoriId);
+                    selectedKategoriText.textContent = kat ? kat.nama : 'Pilih Kategori';
+                } else {
+                    kategoriProdukInput.value = '';
+                    selectedKategoriText.textContent = 'Pilih Kategori';
+                }
                 document.getElementById('hargaDasar').value = produk.hargaDasar || '';
                 document.getElementById('hargaJual').value = produk.hargaJual || '';
                 document.getElementById('berat').value = produk.berat || '';
@@ -970,11 +1148,16 @@
         document.getElementById('formTambahProduk').addEventListener('submit', async (e) => {
             e.preventDefault();
             const produkId = produkIdInput.value;
+            const kategoriId = kategoriProdukInput.value;
+            if (!kategoriId) {
+                alert('Pilih kategori terlebih dahulu');
+                return;
+            }
             const produkData = {
                 nama: document.getElementById('namaProduk').value,
                 kode: document.getElementById('kodeProduk').value,
                 barcode: document.getElementById('barcodeProduk').value,
-                kategoriId: document.getElementById('kategoriProduk').value,
+                kategoriId: kategoriId,
                 hargaDasar: parseFloat(document.getElementById('hargaDasar').value),
                 hargaJual: parseFloat(document.getElementById('hargaJual').value),
                 berat: document.getElementById('berat').value ? parseFloat(document.getElementById('berat').value) : null,
@@ -1054,6 +1237,9 @@
                 qtyBreakContainer.innerHTML = '';
                 produkIdInput.value = '';
                 formProdukTitle.innerText = 'Tambah Produk Baru';
+                // Reset kategori
+                kategoriProdukInput.value = '';
+                selectedKategoriText.textContent = 'Pilih Kategori';
 
                 showSection('daftarProduk');
             } catch (error) {
@@ -1068,6 +1254,8 @@
             formProdukTitle.innerText = 'Tambah Produk Baru';
             konversiContainer.innerHTML = '';
             qtyBreakContainer.innerHTML = '';
+            kategoriProdukInput.value = '';
+            selectedKategoriText.textContent = 'Pilih Kategori';
         });
 
         // ========== AUTH ==========
@@ -1103,6 +1291,7 @@
         subscribeDaftarGudang();
         subscribeDaftarProduk();
         subscribeKonversi(); // untuk pencarian barcode satuan
+        subscribeKategoriModal(); // untuk modal pilih kategori
 
         // Jika ada section yang aktif saat load, pastikan subscribe untuk daftar
         if (sections.daftarProduk.classList.contains('active')) subscribeDaftarProduk();
