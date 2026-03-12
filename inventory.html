@@ -253,7 +253,7 @@
         <div class="filter-bar">
             <div class="search-box">
                 <i data-feather="search"></i>
-                <input type="text" id="searchInput" placeholder="Cari nama atau kode produk...">
+                <input type="text" id="searchInput" placeholder="Cari kode, nama, atau barcode produk...">
             </div>
             <select id="sortSelect" class="sort-select">
                 <option value="nama">Urut: Nama (A-Z)</option>
@@ -396,7 +396,7 @@
         </div>
     </div>
 
-    <!-- Script sidebar -->
+    <!-- Script sidebar (non-module) -->
     <script>
         feather.replace();
 
@@ -414,141 +414,208 @@
 
     <!-- Script module utama -->
     <script type="module">
-    import { auth, provider, dbCloud } from './js/firebase-config.js';
-    import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-    import { 
-        collection, query, where, orderBy, onSnapshot,
-        doc, runTransaction, serverTimestamp 
-    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
+        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { 
+            collection, query, where, orderBy, limit, startAfter, getDocs,
+            doc, runTransaction, serverTimestamp, onSnapshot
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    console.log('Inventory page dengan client‑side filter');
+        console.log('Inventory dengan server‑side pagination');
 
-    // Referensi koleksi
-    const produkCol = collection(dbCloud, 'produk');
-    const unitCol = collection(dbCloud, 'unit');
-    const konversiCol = collection(dbCloud, 'konversiUnit');
-    const stockMovementCol = collection(dbCloud, 'stockMovements');
+        // Referensi koleksi
+        const produkCol = collection(dbCloud, 'produk');
+        const unitCol = collection(dbCloud, 'unit');
+        const stockMovementCol = collection(dbCloud, 'stockMovements');
 
-    // Elemen DOM
-    const inventoryBody = document.getElementById('inventoryBody');
-    const searchInput = document.getElementById('searchInput');
-    const sortSelect = document.getElementById('sortSelect');
-    const applyFilterBtn = document.getElementById('applyFilterBtn');
-    const prevPageBtn = document.getElementById('prevPage');
-    const nextPageBtn = document.getElementById('nextPage');
-    const pageInfo = document.getElementById('pageInfo');
-    const loginBtn = document.getElementById('loginBtn');
+        // Elemen DOM
+        const inventoryBody = document.getElementById('inventoryBody');
+        const searchInput = document.getElementById('searchInput');
+        const sortSelect = document.getElementById('sortSelect');
+        const applyFilterBtn = document.getElementById('applyFilterBtn');
+        const prevPageBtn = document.getElementById('prevPage');
+        const nextPageBtn = document.getElementById('nextPage');
+        const pageInfo = document.getElementById('pageInfo');
+        const loginBtn = document.getElementById('loginBtn');
 
-    // State data & filter
-    let allProduk = [];               // semua produk (dari snapshot)
-    let allKonversi = [];             // semua konversi (dari snapshot)
-    let unitMap = {};                 // mapping id unit -> nama unit
-    let filteredProduk = [];           // hasil filter + sort
-    let currentPage = 1;
-    const itemsPerPage = 10;
-    let searchTerm = '';
-    let sortBy = 'nama';               // default sorting
+        // State pagination
+        let lastVisible = null;          // snapshot dokumen terakhir halaman saat ini
+        let firstVisible = null;         // snapshot dokumen pertama halaman saat ini
+        let pageSnapshots = [];           // menyimpan snapshot tiap halaman (untuk navigasi prev)
+        let currentPageIndex = 0;         // indeks halaman saat ini di pageSnapshots
+        const pageSize = 10;
+        let currentSearchTerm = '';
+        let currentSort = 'nama';
 
-    // ========== FORMAT STATUS ==========
-    function getStatusBadge(stok, minStok) {
-        if (stok <= 0) return '<span class="badge badge-danger">Habis</span>';
-        if (stok <= minStok * 0.5) return '<span class="badge badge-danger">Kritis</span>';
-        if (stok <= minStok) return '<span class="badge badge-warning">Menipis</span>';
-        return '<span class="badge badge-success">Aman</span>';
-    }
+        // Data unit (real‑time)
+        let unitMap = {};
 
-    // ========== SUBSCRIBE PRODUK ==========
-    const produkQuery = query(produkCol, where('deleted', '==', false));
-    onSnapshot(produkQuery, (snapshot) => {
-        allProduk = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-        applyFilterAndRender();
-    }, (error) => {
-        console.error('Snapshot produk error:', error);
-        inventoryBody.innerHTML = `<tr><td colspan="6" style="color:red;">Gagal memuat produk: ${error.message}</td></tr>`;
-    });
-
-    // ========== SUBSCRIBE KONVERSI (untuk barcode satuan) ==========
-    const konversiQuery = query(konversiCol, where('deleted', '==', false));
-    onSnapshot(konversiQuery, (snapshot) => {
-        allKonversi = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-        applyFilterAndRender();
-    }, (error) => {
-        console.error('Snapshot konversi error:', error);
-    });
-
-    // ========== SUBSCRIBE UNIT ==========
-    const unitQuery = query(unitCol, where('deleted', '==', false));
-    onSnapshot(unitQuery, (snapshot) => {
-        unitMap = {};
-        snapshot.docs.forEach(doc => {
-            unitMap[doc.id] = doc.data().nama;
-        });
-        applyFilterAndRender(); // untuk memperbarui tampilan unit
-    }, (error) => {
-        console.error('Snapshot unit error:', error);
-    });
-
-    // ========== FILTER & SORT ==========
-    function applyFilterAndRender() {
-        // Filter berdasarkan teks pencarian
-        let filtered = allProduk;
-        if (searchTerm.trim()) {
-            const term = searchTerm.toLowerCase();
-            filtered = allProduk.filter(produk => {
-                // Cari di field produk
-                if (produk.kode && produk.kode.toLowerCase().includes(term)) return true;
-                if (produk.nama && produk.nama.toLowerCase().includes(term)) return true;
-                if (produk.barcode && produk.barcode.toLowerCase().includes(term)) return true;
-                // Cari di barcode konversi milik produk ini
-                const konversiProduk = allKonversi.filter(k => k.produkId === produk.id);
-                return konversiProduk.some(k => k.barcode && k.barcode.toLowerCase().includes(term));
+        // Subscribe unit (hanya sedikit, jadi real‑time aman)
+        const unitQuery = query(unitCol, where('deleted', '==', false));
+        onSnapshot(unitQuery, (snapshot) => {
+            unitMap = {};
+            snapshot.docs.forEach(doc => {
+                unitMap[doc.id] = doc.data().nama;
             });
+            // Jika tabel sudah terisi, refresh tampilan (panggil render dengan data yang ada)
+            // Namun kita tidak menyimpan data produk, jadi tidak perlu otomatis refresh.
+        }, (error) => {
+            console.error('Gagal memuat unit:', error);
+        });
+
+        // ========== FORMAT STATUS ==========
+        function getStatusBadge(stok, minStok) {
+            if (stok <= 0) return '<span class="badge badge-danger">Habis</span>';
+            if (stok <= minStok * 0.5) return '<span class="badge badge-danger">Kritis</span>';
+            if (stok <= minStok) return '<span class="badge badge-warning">Menipis</span>';
+            return '<span class="badge badge-success">Aman</span>';
         }
 
-        // Sorting
-        switch (sortBy) {
-            case 'stokAsc':
-                filtered.sort((a, b) => (a.stokAwal || 0) - (b.stokAwal || 0) || a.nama.localeCompare(b.nama));
-                break;
-            case 'stokDesc':
-                filtered.sort((a, b) => (b.stokAwal || 0) - (a.stokAwal || 0) || a.nama.localeCompare(b.nama));
-                break;
-            case 'status':
-                // Stok kecil (kritis) tampil lebih dulu
-                filtered.sort((a, b) => (a.stokAwal || 0) - (b.stokAwal || 0) || a.nama.localeCompare(b.nama));
-                break;
-            default: // 'nama'
-                filtered.sort((a, b) => a.nama.localeCompare(b.nama));
-                break;
+        // ========== MEMBANGUN QUERY DASAR (tanpa startAfter) ==========
+        function buildBaseQuery() {
+            let baseQuery = query(produkCol, where('deleted', '==', false));
+
+            // Sorting
+            if (currentSort === 'stokAsc') {
+                baseQuery = query(baseQuery, orderBy('stokAwal'), orderBy('nama_lower'));
+            } else if (currentSort === 'stokDesc') {
+                baseQuery = query(baseQuery, orderBy('stokAwal', 'desc'), orderBy('nama_lower'));
+            } else {
+                // default 'nama' atau 'status' (status diurutkan berdasarkan stok kecil dulu)
+                baseQuery = query(baseQuery, orderBy('nama_lower'));
+            }
+            return baseQuery;
         }
 
-        filteredProduk = filtered;
-        currentPage = 1; // reset ke halaman pertama setiap filter/sort berubah
-        renderTable();
-    }
+        // ========== FUNGSI UNTUK MENJALANKAN QUERY PENCARIAN ==========
+        async function executeSearchQuery(direction = 'next') {
+            const searchTerm = currentSearchTerm.toLowerCase().trim();
+            const baseQuery = buildBaseQuery();
 
-    // ========== RENDER HALAMAN ==========
-    function renderTable() {
-        const start = (currentPage - 1) * itemsPerPage;
-        const end = start + itemsPerPage;
-        const pageData = filteredProduk.slice(start, end);
-        const totalPages = Math.ceil(filteredProduk.length / itemsPerPage) || 1;
+            if (!searchTerm) {
+                // Tanpa pencarian: query biasa dengan limit dan startAfter
+                let q = query(baseQuery, limit(pageSize));
+                if (direction === 'next' && lastVisible) {
+                    q = query(q, startAfter(lastVisible));
+                } else if (direction === 'prev' && currentPageIndex > 0) {
+                    // Untuk prev, kita akan gunakan snapshot yang sudah disimpan
+                    // Di sini kita kembalikan objek khusus
+                    return { type: 'normal', useSnapshot: true };
+                }
+                return { type: 'normal', query: q };
+            } else {
+                // Dengan pencarian: tiga query paralel untuk field berbeda
+                const fields = ['nama_lower', 'kode_lower', 'barcode_lower'];
+                const queries = fields.map(field => {
+                    return query(
+                        baseQuery,
+                        where(field, '>=', searchTerm),
+                        where(field, '<=', searchTerm + '\uf8ff'),
+                        limit(pageSize)
+                    );
+                });
+                return { type: 'search', queries };
+            }
+        }
 
-        if (pageData.length === 0) {
-            inventoryBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada produk</td></tr>';
-        } else {
+        // ========== LOAD HALAMAN ==========
+        async function loadPage(direction = 'next') {
+            try {
+                const exec = await executeSearchQuery(direction);
+
+                // Kasus khusus: prev dengan snapshot tersimpan
+                if (exec.type === 'normal' && exec.useSnapshot) {
+                    // Ambil snapshot dari halaman sebelumnya
+                    const prevSnapshot = pageSnapshots[currentPageIndex - 1];
+                    if (prevSnapshot) {
+                        renderProduk(prevSnapshot.docs);
+                        currentPageIndex--;
+                        lastVisible = prevSnapshot.docs[prevSnapshot.docs.length - 1];
+                        firstVisible = prevSnapshot.docs[0];
+                        pageInfo.textContent = `Halaman ${currentPageIndex + 1}`;
+                        prevPageBtn.disabled = currentPageIndex === 0;
+                        nextPageBtn.disabled = prevSnapshot.docs.length < pageSize;
+                    }
+                    return;
+                }
+
+                let docs = [];
+                if (exec.type === 'normal') {
+                    const snapshot = await getDocs(exec.query);
+                    docs = snapshot.docs;
+                    // Simpan snapshot untuk navigasi
+                    if (direction === 'next') {
+                        pageSnapshots.push(snapshot);
+                        currentPageIndex = pageSnapshots.length - 1;
+                    } else if (direction === 'prev') {
+                        // Tidak digunakan karena sudah ditangani di atas
+                    }
+                    lastVisible = docs[docs.length - 1];
+                    firstVisible = docs[0];
+                } else {
+                    // Mode pencarian: jalankan tiga query paralel
+                    const snapshots = await Promise.all(exec.queries.map(q => getDocs(q)));
+                    // Gabungkan dokumen, hilangkan duplikat berdasarkan id
+                    const docsMap = new Map();
+                    snapshots.forEach(snap => {
+                        snap.docs.forEach(doc => {
+                            if (!docsMap.has(doc.id)) {
+                                docsMap.set(doc.id, doc);
+                            }
+                        });
+                    });
+                    docs = Array.from(docsMap.values());
+                    // Urutkan sesuai baseQuery (field orderBy pertama = nama_lower)
+                    docs.sort((a, b) => {
+                        const aVal = a.get('nama_lower') || '';
+                        const bVal = b.get('nama_lower') || '';
+                        return aVal.localeCompare(bVal);
+                    });
+                    // Batasi sesuai pageSize
+                    docs = docs.slice(0, pageSize);
+
+                    // Reset snapshot karena pencarian tidak mendukung navigasi
+                    pageSnapshots = [];
+                    currentPageIndex = 0;
+                    lastVisible = null;
+                    firstVisible = null;
+                }
+
+                if (docs.length === 0) {
+                    inventoryBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada produk</td></tr>';
+                } else {
+                    renderProduk(docs);
+                }
+
+                // Update tombol pagination
+                if (exec.type === 'search') {
+                    // Pada mode pencarian, nonaktifkan prev/next (hanya halaman pertama)
+                    prevPageBtn.disabled = true;
+                    nextPageBtn.disabled = true;
+                    pageInfo.textContent = 'Halaman 1 (pencarian)';
+                } else {
+                    prevPageBtn.disabled = currentPageIndex === 0;
+                    // Next tersedia jika jumlah dokumen == pageSize (masih mungkin ada halaman berikutnya)
+                    nextPageBtn.disabled = docs.length < pageSize;
+                    pageInfo.textContent = `Halaman ${currentPageIndex + 1}`;
+                }
+            } catch (error) {
+                console.error('Gagal memuat inventory:', error);
+                inventoryBody.innerHTML = `<tr><td colspan="6" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            }
+        }
+
+        // ========== RENDER PRODUK ==========
+        function renderProduk(docs) {
             let html = '';
-            pageData.forEach(p => {
+            docs.forEach(doc => {
+                const p = doc.data();
                 const stok = p.stokAwal || 0;
                 const minStok = p.stokMinimal || 0;
                 const status = getStatusBadge(stok, minStok);
                 const unit = unitMap[p.unitId] || '';
+                // Escape nama untuk modal (hindari kutipan mengganggu)
+                const namaEscape = p.nama.replace(/'/g, "\\'");
                 html += `
                 <tr>
                     <td>${p.kode || '-'}</td>
@@ -557,9 +624,9 @@
                     <td>${minStok} ${unit}</td>
                     <td>${status}</td>
                     <td>
-                        <button class="btn-icon" onclick="openAddModal('${p.id}', '${p.nama}', ${stok})" title="Tambah Stok"><i data-feather="plus-circle"></i></button>
-                        <button class="btn-icon" onclick="openReduceModal('${p.id}', '${p.nama}', ${stok})" title="Kurangi Stok"><i data-feather="minus-circle"></i></button>
-                        <button class="btn-icon" onclick="openOpnameModal('${p.id}', '${p.nama}', ${stok})" title="Stok Opname"><i data-feather="rotate-cw"></i></button>
+                        <button class="btn-icon" onclick="openAddModal('${doc.id}', '${namaEscape}', ${stok})" title="Tambah Stok"><i data-feather="plus-circle"></i></button>
+                        <button class="btn-icon" onclick="openReduceModal('${doc.id}', '${namaEscape}', ${stok})" title="Kurangi Stok"><i data-feather="minus-circle"></i></button>
+                        <button class="btn-icon" onclick="openOpnameModal('${doc.id}', '${namaEscape}', ${stok})" title="Stok Opname"><i data-feather="rotate-cw"></i></button>
                     </td>
                 </tr>`;
             });
@@ -567,207 +634,217 @@
             feather.replace();
         }
 
-        // Update pagination info
-        pageInfo.textContent = `Halaman ${currentPage} dari ${totalPages}`;
-        prevPageBtn.disabled = currentPage === 1;
-        nextPageBtn.disabled = currentPage === totalPages;
-    }
+        // ========== EVENT LISTENER ==========
+        applyFilterBtn.addEventListener('click', () => {
+            currentSearchTerm = searchInput.value;
+            currentSort = sortSelect.value;
+            // Reset pagination
+            pageSnapshots = [];
+            currentPageIndex = 0;
+            lastVisible = null;
+            firstVisible = null;
+            loadPage('next');
+        });
 
-    // ========== EVENT LISTENER FILTER ==========
-    applyFilterBtn.addEventListener('click', () => {
-        searchTerm = searchInput.value;
-        sortBy = sortSelect.value;
-        applyFilterAndRender();
-    });
+        prevPageBtn.addEventListener('click', () => {
+            loadPage('prev');
+        });
 
-    // ========== PAGINATION ==========
-    prevPageBtn.addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            renderTable();
-        }
-    });
+        nextPageBtn.addEventListener('click', () => {
+            loadPage('next');
+        });
 
-    nextPageBtn.addEventListener('click', () => {
-        const totalPages = Math.ceil(filteredProduk.length / itemsPerPage);
-        if (currentPage < totalPages) {
-            currentPage++;
-            renderTable();
-        }
-    });
+        // ========== FUNGSI MODAL ==========
+        window.openAddModal = (productId, productName, currentStock) => {
+            document.getElementById('addProductId').value = productId;
+            document.getElementById('addProductName').value = productName;
+            document.getElementById('addCurrentStock').value = currentStock;
+            document.getElementById('addQuantity').value = '';
+            document.getElementById('addReason').value = '';
+            document.getElementById('modalAddStock').classList.add('active');
+        };
+        window.openReduceModal = (productId, productName, currentStock) => {
+            document.getElementById('reduceProductId').value = productId;
+            document.getElementById('reduceProductName').value = productName;
+            document.getElementById('reduceCurrentStock').value = currentStock;
+            document.getElementById('reduceQuantity').value = '';
+            document.getElementById('reduceReason').value = '';
+            document.getElementById('modalReduceStock').classList.add('active');
+        };
+        window.openOpnameModal = (productId, productName, currentStock) => {
+            document.getElementById('opnameProductId').value = productId;
+            document.getElementById('opnameProductName').value = productName;
+            document.getElementById('opnameCurrentStock').value = currentStock;
+            document.getElementById('opnameNewStock').value = currentStock;
+            document.getElementById('opnameReason').value = '';
+            document.getElementById('modalOpname').classList.add('active');
+        };
+        window.closeModal = (modalId) => {
+            document.getElementById(modalId).classList.remove('active');
+        };
 
-    // ========== FUNGSI MODAL (sama seperti sebelumnya) ==========
-    window.openAddModal = (productId, productName, currentStock) => {
-        document.getElementById('addProductId').value = productId;
-        document.getElementById('addProductName').value = productName;
-        document.getElementById('addCurrentStock').value = currentStock;
-        document.getElementById('addQuantity').value = '';
-        document.getElementById('addReason').value = '';
-        document.getElementById('modalAddStock').classList.add('active');
-    };
-    window.openReduceModal = (productId, productName, currentStock) => {
-        document.getElementById('reduceProductId').value = productId;
-        document.getElementById('reduceProductName').value = productName;
-        document.getElementById('reduceCurrentStock').value = currentStock;
-        document.getElementById('reduceQuantity').value = '';
-        document.getElementById('reduceReason').value = '';
-        document.getElementById('modalReduceStock').classList.add('active');
-    };
-    window.openOpnameModal = (productId, productName, currentStock) => {
-        document.getElementById('opnameProductId').value = productId;
-        document.getElementById('opnameProductName').value = productName;
-        document.getElementById('opnameCurrentStock').value = currentStock;
-        document.getElementById('opnameNewStock').value = currentStock;
-        document.getElementById('opnameReason').value = '';
-        document.getElementById('modalOpname').classList.add('active');
-    };
-    window.closeModal = (modalId) => {
-        document.getElementById(modalId).classList.remove('active');
-    };
+        // ========== FUNGSI SIMPAN TAMBAH STOK ==========
+        document.getElementById('saveAddStock').addEventListener('click', async () => {
+            const productId = document.getElementById('addProductId').value;
+            const qty = parseInt(document.getElementById('addQuantity').value);
+            const reason = document.getElementById('addReason').value;
+            if (!qty || qty <= 0) {
+                alert('Jumlah harus diisi dan positif');
+                return;
+            }
+            try {
+                await runTransaction(dbCloud, async (transaction) => {
+                    const produkRef = doc(produkCol, productId);
+                    const produkSnap = await transaction.get(produkRef);
+                    if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
+                    const produk = produkSnap.data();
+                    const newStock = (produk.stokAwal || 0) + qty;
 
-    // ========== FUNGSI SIMPAN (tambah/kurang/opname) ==========
-    // (kode berikut sama persis dengan yang lama, hanya mengandalkan snapshot untuk refresh)
-    document.getElementById('saveAddStock').addEventListener('click', async () => {
-        const productId = document.getElementById('addProductId').value;
-        const qty = parseInt(document.getElementById('addQuantity').value);
-        const reason = document.getElementById('addReason').value;
-        if (!qty || qty <= 0) {
-            alert('Jumlah harus diisi dan positif');
-            return;
-        }
-        try {
-            await runTransaction(dbCloud, async (transaction) => {
-                const produkRef = doc(produkCol, productId);
-                const produkSnap = await transaction.get(produkRef);
-                if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
-                const produk = produkSnap.data();
-                const newStock = (produk.stokAwal || 0) + qty;
+                    transaction.update(produkRef, { 
+                        stokAwal: newStock, 
+                        updatedAt: serverTimestamp() 
+                    });
 
-                transaction.update(produkRef, { 
-                    stokAwal: newStock, 
-                    updatedAt: serverTimestamp() 
+                    const movementRef = doc(stockMovementCol);
+                    transaction.set(movementRef, {
+                        produkId: productId,
+                        type: 'add',
+                        quantity: qty,
+                        previousStock: produk.stokAwal || 0,
+                        newStock: newStock,
+                        reason: reason || '',
+                        createdAt: serverTimestamp(),
+                        userId: auth.currentUser?.uid || null
+                    });
                 });
+                alert('Stok berhasil ditambahkan');
+                closeModal('modalAddStock');
+                // Reload halaman saat ini untuk menampilkan stok terbaru
+                loadPage('next');
+            } catch (error) {
+                console.error(error);
+                alert('Gagal menambah stok: ' + error.message);
+            }
+        });
 
-                const movementRef = doc(stockMovementCol);
-                transaction.set(movementRef, {
-                    produkId: productId,
-                    type: 'add',
-                    quantity: qty,
-                    previousStock: produk.stokAwal || 0,
-                    newStock: newStock,
-                    reason: reason || '',
-                    createdAt: serverTimestamp(),
-                    userId: auth.currentUser?.uid || null
+        // ========== FUNGSI SIMPAN KURANGI STOK ==========
+        document.getElementById('saveReduceStock').addEventListener('click', async () => {
+            const productId = document.getElementById('reduceProductId').value;
+            const qty = parseInt(document.getElementById('reduceQuantity').value);
+            const reason = document.getElementById('reduceReason').value;
+            if (!qty || qty <= 0) {
+                alert('Jumlah harus diisi dan positif');
+                return;
+            }
+            try {
+                await runTransaction(dbCloud, async (transaction) => {
+                    const produkRef = doc(produkCol, productId);
+                    const produkSnap = await transaction.get(produkRef);
+                    if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
+                    const produk = produkSnap.data();
+                    const currentStock = produk.stokAwal || 0;
+                    if (currentStock < qty) {
+                        throw new Error('Stok tidak mencukupi');
+                    }
+                    const newStock = currentStock - qty;
+
+                    transaction.update(produkRef, { 
+                        stokAwal: newStock, 
+                        updatedAt: serverTimestamp() 
+                    });
+
+                    const movementRef = doc(stockMovementCol);
+                    transaction.set(movementRef, {
+                        produkId: productId,
+                        type: 'reduce',
+                        quantity: qty,
+                        previousStock: currentStock,
+                        newStock: newStock,
+                        reason: reason || '',
+                        createdAt: serverTimestamp(),
+                        userId: auth.currentUser?.uid || null
+                    });
                 });
-            });
-            alert('Stok berhasil ditambahkan');
-            closeModal('modalAddStock');
-            // Tidak perlu panggil load manual karena snapshot akan memperbarui otomatis
-        } catch (error) {
-            console.error(error);
-            alert('Gagal menambah stok: ' + error.message);
-        }
-    });
+                alert('Stok berhasil dikurangi');
+                closeModal('modalReduceStock');
+                loadPage('next');
+            } catch (error) {
+                console.error(error);
+                alert('Gagal mengurangi stok: ' + error.message);
+            }
+        });
 
-    document.getElementById('saveReduceStock').addEventListener('click', async () => {
-        const productId = document.getElementById('reduceProductId').value;
-        const qty = parseInt(document.getElementById('reduceQuantity').value);
-        const reason = document.getElementById('reduceReason').value;
-        if (!qty || qty <= 0) {
-            alert('Jumlah harus diisi dan positif');
-            return;
-        }
-        try {
-            await runTransaction(dbCloud, async (transaction) => {
-                const produkRef = doc(produkCol, productId);
-                const produkSnap = await transaction.get(produkRef);
-                if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
-                const produk = produkSnap.data();
-                const currentStock = produk.stokAwal || 0;
-                if (currentStock < qty) {
-                    throw new Error('Stok tidak mencukupi');
-                }
-                const newStock = currentStock - qty;
+        // ========== FUNGSI SIMPAN OPNAME ==========
+        document.getElementById('saveOpname').addEventListener('click', async () => {
+            const productId = document.getElementById('opnameProductId').value;
+            const newStock = parseInt(document.getElementById('opnameNewStock').value);
+            const reason = document.getElementById('opnameReason').value;
+            if (isNaN(newStock) || newStock < 0) {
+                alert('Stok baru harus diisi dan tidak negatif');
+                return;
+            }
+            try {
+                await runTransaction(dbCloud, async (transaction) => {
+                    const produkRef = doc(produkCol, productId);
+                    const produkSnap = await transaction.get(produkRef);
+                    if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
+                    const produk = produkSnap.data();
+                    const oldStock = produk.stokAwal || 0;
 
-                transaction.update(produkRef, { 
-                    stokAwal: newStock, 
-                    updatedAt: serverTimestamp() 
+                    transaction.update(produkRef, { 
+                        stokAwal: newStock, 
+                        updatedAt: serverTimestamp() 
+                    });
+
+                    const movementRef = doc(stockMovementCol);
+                    transaction.set(movementRef, {
+                        produkId: productId,
+                        type: 'opname',
+                        quantity: newStock - oldStock,
+                        previousStock: oldStock,
+                        newStock: newStock,
+                        reason: reason || '',
+                        createdAt: serverTimestamp(),
+                        userId: auth.currentUser?.uid || null
+                    });
                 });
+                alert('Stok opname berhasil');
+                closeModal('modalOpname');
+                loadPage('next');
+            } catch (error) {
+                console.error(error);
+                alert('Gagal melakukan opname: ' + error.message);
+            }
+        });
 
-                const movementRef = doc(stockMovementCol);
-                transaction.set(movementRef, {
-                    produkId: productId,
-                    type: 'reduce',
-                    quantity: qty,
-                    previousStock: currentStock,
-                    newStock: newStock,
-                    reason: reason || '',
-                    createdAt: serverTimestamp(),
-                    userId: auth.currentUser?.uid || null
-                });
-            });
-            alert('Stok berhasil dikurangi');
-            closeModal('modalReduceStock');
-        } catch (error) {
-            console.error(error);
-            alert('Gagal mengurangi stok: ' + error.message);
-        }
-    });
+        // ========== AUTH ==========
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
+            } else {
+                loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            }
+            feather.replace();
+        });
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
+            } else {
+                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
+            }
+        });
 
-    document.getElementById('saveOpname').addEventListener('click', async () => {
-        const productId = document.getElementById('opnameProductId').value;
-        const newStock = parseInt(document.getElementById('opnameNewStock').value);
-        const reason = document.getElementById('opnameReason').value;
-        if (newStock < 0) {
-            alert('Stok baru tidak boleh negatif');
-            return;
-        }
-        try {
-            await runTransaction(dbCloud, async (transaction) => {
-                const produkRef = doc(produkCol, productId);
-                const produkSnap = await transaction.get(produkRef);
-                if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
-                const produk = produkSnap.data();
-                const oldStock = produk.stokAwal || 0;
+        // ========== TOMBOL SYNC DAN RESET (non-fungsi) ==========
+        document.getElementById('syncBtn').addEventListener('click', () => {
+            alert('Sinkronasi real-time aktif. Tidak perlu sync manual.');
+        });
+        document.getElementById('resetDbBtn').addEventListener('click', () => {
+            alert('Data tersimpan di cloud, reset lokal tidak diperlukan.');
+        });
 
-                transaction.update(produkRef, { 
-                    stokAwal: newStock, 
-                    updatedAt: serverTimestamp() 
-                });
-
-                const movementRef = doc(stockMovementCol);
-                transaction.set(movementRef, {
-                    produkId: productId,
-                    type: 'opname',
-                    quantity: newStock - oldStock,
-                    previousStock: oldStock,
-                    newStock: newStock,
-                    reason: reason || '',
-                    createdAt: serverTimestamp(),
-                    userId: auth.currentUser?.uid || null
-                });
-            });
-            alert('Stok opname berhasil');
-            closeModal('modalOpname');
-        } catch (error) {
-            console.error(error);
-            alert('Gagal melakukan opname: ' + error.message);
-        }
-    });
-
-    // ========== AUTH ==========
-    onAuthStateChanged(auth, (user) => {
-        loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
-        feather.replace();
-    });
-    loginBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (user) {
-            try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
-        } else {
-            try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
-        }
-    });
-</script>
+        // ========== INITIAL LOAD ==========
+        loadPage('next');
+    </script>
 </body>
 </html>
