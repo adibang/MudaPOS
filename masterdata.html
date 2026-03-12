@@ -294,6 +294,46 @@
             font-size: 0.9rem;
             cursor: pointer;
         }
+
+        /* ===== PERBAIKAN TAMPILAN MOBILE UNTUK FORM PRODUK ===== */
+        @media (max-width: 640px) {
+            .form-grid {
+                grid-template-columns: 1fr; /* tumpuk vertikal */
+                gap: 0.8rem;
+            }
+            .field-select {
+                flex-wrap: wrap;
+            }
+            .field-select button {
+                width: 100%;
+                margin-top: 0.3rem;
+            }
+            .konversi-row, .qtybreak-row {
+                grid-template-columns: 1fr 1fr; /* 2 kolom */
+            }
+            .konversi-row .remove-row, .qtybreak-row .remove-row {
+                justify-self: center;
+                grid-column: span 2;
+                margin-top: 0.3rem;
+            }
+            /* Tombol aksi form (simpan/reset) ditumpuk */
+            div[style*="margin-top:1.5rem"] {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            div[style*="margin-top:1.5rem"] button {
+                width: 100%;
+                margin-right: 0;
+            }
+            /* Kurangi padding section */
+            .content-section {
+                padding: 1rem;
+            }
+            .page-title {
+                font-size: 1.4rem;
+            }
+        }
     </style>
 </head>
 <body>
