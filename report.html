@@ -20,12 +20,12 @@
         .btn-sync:hover { background:#e6f0ec; }
         .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
         .reset-btn:hover { background:#c82333; }
-        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; display:flex; flex-direction:column; }
         .sidebar.open { transform:translateX(0); }
         .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
         .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
         .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
-        .sidebar-menu { list-style:none; }
+        .sidebar-menu { list-style:none; flex:1; }
         .sidebar-menu li { margin-bottom:0.2rem; }
         .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
         .sidebar-menu .menu-link:hover { background:#f0f5f3; }
@@ -202,15 +202,34 @@
             margin-top: 10px;
             display: none;
         }
-        .logout-btn-small {
-            background: transparent;
-            border: 1px solid #006B54;
+
+        /* ===== FOOTER SIDEBAR UNTUK LOCAL USER INFO ===== */
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+        .local-user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 0.5rem 0.8rem;
+            border-radius: 8px;
+        }
+        .local-user-info span {
+            font-weight: 600;
             color: #006B54;
-            padding: 4px 8px;
-            border-radius: 15px;
-            margin-left: 10px;
+            font-size: 0.9rem;
+        }
+        .local-logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 1rem;
+            font-size: 0.9rem;
             cursor: pointer;
-            font-size: 0.8rem;
         }
     </style>
 </head>
@@ -244,6 +263,13 @@
             <li><a href="report.html" class="menu-link active"><i data-feather="bar-chart-2"></i> Report</a></li>
             <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
         </ul>
+        <!-- Footer Sidebar: info user lokal dan tombol logout -->
+        <div class="sidebar-footer">
+            <div class="local-user-info" id="localUserInfo" style="display: none;">
+                <span id="user-name-display"></span>
+                <button class="local-logout-btn" id="localLogoutBtn">Logout Lokal</button>
+            </div>
+        </div>
     </aside>
 
     <!-- Header -->
@@ -253,7 +279,6 @@
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
             <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
-            <span id="user-name-display" style="margin-right:10px; font-weight:600; color:#006B54;"></span>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
@@ -408,6 +433,8 @@
         // ========== ELEMEN DOM ==========
         const loginBtn = document.getElementById('loginBtn');
         const userNameDisplay = document.getElementById('user-name-display');
+        const localLogoutBtn = document.getElementById('localLogoutBtn');
+        const localUserInfo = document.getElementById('localUserInfo');
         const mainContent = document.getElementById('mainContent');
         const loginModal = document.getElementById('loginModal');
         const loginSubmit = document.getElementById('loginSubmit');
@@ -437,15 +464,28 @@
             mainContent.style.display = 'block';
         }
 
+        function updateLocalUI() {
+            if (localUser) {
+                userNameDisplay.textContent = localUser.name;
+                localLogoutBtn.style.display = 'inline-block';
+                localUserInfo.style.display = 'flex';
+                hideLoginModal();
+            } else {
+                userNameDisplay.textContent = '';
+                localLogoutBtn.style.display = 'none';
+                localUserInfo.style.display = 'none';
+                showLoginModal();
+            }
+        }
+
         // Cek sesi lokal
         const savedSession = sessionStorage.getItem('localUser');
         if (savedSession) {
             localUser = JSON.parse(savedSession);
-            userNameDisplay.textContent = localUser.name;
-            hideLoginModal();
+            updateLocalUI();
             initReportPage();
         } else {
-            showLoginModal();
+            updateLocalUI();
         }
 
         loginSubmit.addEventListener('click', async () => {
@@ -455,8 +495,7 @@
             if (user) {
                 sessionStorage.setItem('localUser', JSON.stringify(user));
                 localUser = user;
-                userNameDisplay.textContent = user.name;
-                hideLoginModal();
+                updateLocalUI();
                 initReportPage();
             } else {
                 loginError.style.display = 'block';
@@ -464,19 +503,11 @@
         });
 
         // Fungsi logout lokal
-        function logoutLocal() {
+        localLogoutBtn.addEventListener('click', () => {
             sessionStorage.removeItem('localUser');
             localUser = null;
-            userNameDisplay.textContent = '';
-            showLoginModal();
-        }
-
-        // Tambahkan tombol logout di samping username (opsional)
-        const logoutLocalBtn = document.createElement('button');
-        logoutLocalBtn.className = 'logout-btn-small';
-        logoutLocalBtn.textContent = 'Logout Lokal';
-        logoutLocalBtn.onclick = logoutLocal;
-        userNameDisplay.parentNode.insertBefore(logoutLocalBtn, userNameDisplay.nextSibling);
+            updateLocalUI();
+        });
 
         // ========== FUNGSI LAPORAN (SAMA SEPERTI SEBELUMNYA) ==========
         async function initReportPage() {
