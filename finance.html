@@ -25,7 +25,7 @@
         .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
         .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
         .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
-        .sidebar-menu { list-style:none; margin-bottom:1rem; }
+        .sidebar-menu { list-style:none; flex:1; }
         .sidebar-menu li { margin-bottom:0.2rem; }
         .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
         .sidebar-menu .menu-link:hover { background:#f0f5f3; }
@@ -356,22 +356,33 @@
             display: none;
         }
 
-        /* ===== TOMBOL LOGOUT DI SIDEBAR ===== */
-        .sidebar-logout {
-            padding: 0.8rem 0;
+        /* ===== FOOTER SIDEBAR UNTUK LOCAL USER INFO ===== */
+        .sidebar-footer {
             margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
         }
-        .sidebar-logout .menu-link.logout-sidebar {
+        .local-user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 0.5rem 0.8rem;
+            border-radius: 8px;
+        }
+        .local-user-info span {
+            font-weight: 600;
+            color: #006B54;
+            font-size: 0.9rem;
+        }
+        .local-logout-btn {
             background: #dc3545;
             color: white;
-            border-radius: 8px;
-            justify-content: center;
-        }
-        .sidebar-logout .menu-link.logout-sidebar i {
-            color: white;
-        }
-        .sidebar-logout .menu-link.logout-sidebar:hover {
-            background: #c82333;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 1rem;
+            font-size: 0.9rem;
+            cursor: pointer;
         }
 
         /* Responsif: sembunyikan tab bar di layar kecil, tampilkan tombol menu */
@@ -415,11 +426,12 @@
             <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
             <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
         </ul>
-        <!-- Area untuk logout lokal di bagian paling bawah sidebar -->
-        <div class="sidebar-logout">
-            <a href="#" class="menu-link logout-sidebar" id="sidebarLogoutBtn" style="display:none;">
-                <i data-feather="log-out"></i> Logout Lokal
-            </a>
+        <!-- Footer Sidebar: info user lokal dan tombol logout -->
+        <div class="sidebar-footer">
+            <div class="local-user-info" id="localUserInfo" style="display: none;">
+                <span id="local-user-name"></span>
+                <button class="local-logout-btn" id="localLogoutBtn">Logout Lokal</button>
+            </div>
         </div>
     </aside>
 
@@ -430,9 +442,7 @@
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
             <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
-            <span id="local-user-name" style="margin-right:10px; font-weight:600; color:#006B54;"></span>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
-            <!-- Tombol logout lokal sudah dipindah ke sidebar, tidak ada di sini -->
         </div>
     </header>
 
@@ -804,14 +814,15 @@
             });
         }
 
-        // Elemen DOM untuk login lokal
+        // Elemen DOM untuk login lokal (sekarang berada di sidebar)
         const loginModal = document.getElementById('loginModal');
         const loginUsername = document.getElementById('loginUsername');
         const loginPassword = document.getElementById('loginPassword');
         const loginSubmit = document.getElementById('loginSubmit');
         const loginError = document.getElementById('loginError');
         const localUserNameSpan = document.getElementById('local-user-name');
-        const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn'); // Tombol logout di sidebar
+        const localLogoutBtn = document.getElementById('localLogoutBtn');
+        const localUserInfo = document.getElementById('localUserInfo');
         const mainContent = document.getElementById('mainContent');
 
         // Cek sesi lokal
@@ -820,12 +831,14 @@
         if (savedLocalSession) {
             localUser = JSON.parse(savedLocalSession);
             localUserNameSpan.textContent = localUser.name;
-            sidebarLogoutBtn.style.display = 'block'; // Tampilkan tombol logout di sidebar
+            localLogoutBtn.style.display = 'inline-block';
+            localUserInfo.style.display = 'flex';
             mainContent.style.display = 'block';
             loginModal.style.display = 'none';
         } else {
             mainContent.style.display = 'none';
             loginModal.style.display = 'flex';
+            localUserInfo.style.display = 'none';
         }
 
         loginSubmit.addEventListener('click', async () => {
@@ -836,7 +849,8 @@
                 sessionStorage.setItem('localUser', JSON.stringify(user));
                 localUser = user;
                 localUserNameSpan.textContent = user.name;
-                sidebarLogoutBtn.style.display = 'block'; // Tampilkan tombol logout
+                localLogoutBtn.style.display = 'inline-block';
+                localUserInfo.style.display = 'flex';
                 loginModal.style.display = 'none';
                 mainContent.style.display = 'block';
                 // Muat ulang data setelah login
@@ -847,12 +861,12 @@
             }
         });
 
-        sidebarLogoutBtn.addEventListener('click', (e) => {
-            e.preventDefault(); // Mencegah link href
+        localLogoutBtn.addEventListener('click', () => {
             sessionStorage.removeItem('localUser');
             localUser = null;
             localUserNameSpan.textContent = '';
-            sidebarLogoutBtn.style.display = 'none'; // Sembunyikan tombol logout
+            localLogoutBtn.style.display = 'none';
+            localUserInfo.style.display = 'none';
             mainContent.style.display = 'none';
             loginModal.style.display = 'flex';
             loginUsername.value = '';
