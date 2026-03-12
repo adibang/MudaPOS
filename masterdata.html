@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDA POS - Master Data (Firestore)</title>
+    <title>MUDA POS - Master Data</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
     <style>
-        /* ===== CSS LENGKAP ===== */
+        /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -94,6 +94,66 @@
         .pagination span {
             padding: 0.4rem 0.8rem;
         }
+        /* Modal login lokal */
+        #loginModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        #loginModal .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 300px;
+            padding: 20px;
+            text-align: center;
+        }
+        #loginModal h3 {
+            color: #006B54;
+            margin-bottom: 15px;
+        }
+        #loginModal input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+        }
+        #loginModal button {
+            width: 100%;
+            padding: 12px;
+            background: #006B54;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #loginError {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+        .local-logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.9rem;
+            margin-left: 5px;
+        }
     </style>
 </head>
 <body>
@@ -140,13 +200,26 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
+            <span id="local-user-name" style="margin-right:10px; font-weight:600; color:#006B54;"></span>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+            <button class="local-logout-btn" id="localLogoutBtn" style="display:none;">Logout Lokal</button>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="main-content">
-        <h1 class="page-title">Master Data (Firestore)</h1>
+    <!-- Modal Login Lokal -->
+    <div id="loginModal">
+        <div class="modal-content">
+            <h3>Login Master Data</h3>
+            <input type="text" id="loginUsername" placeholder="Username">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button id="loginSubmit">Masuk</button>
+            <div id="loginError">Username atau password salah</div>
+        </div>
+    </div>
+
+    <!-- Main Content (akan disembunyikan jika belum login lokal) -->
+    <main class="main-content" id="mainContent" style="display:none;">
+        <h1 class="page-title">Master Data</h1>
 
         <!-- ========== SECTION TAMBAH PRODUK ========== -->
         <div id="tambahProdukSection" class="content-section active">
@@ -393,7 +466,124 @@
             enableIndexedDbPersistence, runTransaction, increment, limit, startAfter 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Aktifkan persistence
+        // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
+        const LOCAL_DB_NAME = 'MudaPOSDB';
+        const LOCAL_DB_VERSION = 1;
+        const STORE_LOCAL_USERS = 'localUsers';
+        let localDB = null;
+
+        async function initLocalDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = (e) => {
+                    localDB = e.target.result;
+                    resolve();
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_LOCAL_USERS)) {
+                        db.createObjectStore(STORE_LOCAL_USERS, { keyPath: 'id', autoIncrement: true });
+                    }
+                };
+            });
+        }
+
+        async function hashLocalPassword(password) {
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(password);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) { console.warn('Crypto digest failed, using fallback', e); }
+            }
+            let hash = 0;
+            for (let i = 0; i < password.length; i++) {
+                const char = password.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
+            }
+            return hash.toString(16);
+        }
+
+        async function verifyLocalUser(username, password) {
+            return new Promise((resolve, reject) => {
+                const tx = localDB.transaction([STORE_LOCAL_USERS], 'readonly');
+                const store = tx.objectStore(STORE_LOCAL_USERS);
+                const request = store.getAll();
+                request.onsuccess = async () => {
+                    const users = request.result;
+                    const user = users.find(u => u.username === username);
+                    if (!user) { resolve(null); return; }
+                    const hashed = await hashLocalPassword(password);
+                    if (user.password === hashed) {
+                        const { password, ...safeUser } = user;
+                        resolve(safeUser);
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = reject;
+            });
+        }
+
+        // Elemen DOM untuk login lokal
+        const loginModal = document.getElementById('loginModal');
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        const loginSubmit = document.getElementById('loginSubmit');
+        const loginError = document.getElementById('loginError');
+        const localUserNameSpan = document.getElementById('local-user-name');
+        const localLogoutBtn = document.getElementById('localLogoutBtn');
+        const mainContent = document.querySelector('.main-content');
+
+        // Cek sesi lokal saat halaman dimuat
+        let localUser = null;
+        const savedLocalSession = sessionStorage.getItem('localUser');
+        if (savedLocalSession) {
+            localUser = JSON.parse(savedLocalSession);
+            localUserNameSpan.textContent = localUser.name;
+            localLogoutBtn.style.display = 'inline-block';
+            mainContent.style.display = 'block';
+            loginModal.style.display = 'none';
+        } else {
+            mainContent.style.display = 'none';
+            loginModal.style.display = 'flex';
+        }
+
+        loginSubmit.addEventListener('click', async () => {
+            const username = loginUsername.value;
+            const password = loginPassword.value;
+            const user = await verifyLocalUser(username, password);
+            if (user) {
+                sessionStorage.setItem('localUser', JSON.stringify(user));
+                localUser = user;
+                localUserNameSpan.textContent = user.name;
+                localLogoutBtn.style.display = 'inline-block';
+                loginModal.style.display = 'none';
+                mainContent.style.display = 'block';
+                // Muat ulang data master (refresh halaman)
+                location.reload(); // atau panggil fungsi inisialisasi ulang
+            } else {
+                loginError.style.display = 'block';
+            }
+        });
+
+        localLogoutBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('localUser');
+            localUser = null;
+            localUserNameSpan.textContent = '';
+            localLogoutBtn.style.display = 'none';
+            mainContent.style.display = 'none';
+            loginModal.style.display = 'flex';
+            loginUsername.value = '';
+            loginPassword.value = '';
+            loginError.style.display = 'none';
+        });
+
+        // ========== AKTIFKAN PERSISTENCE FIRESTORE ==========
         enableIndexedDbPersistence(dbCloud).catch((err) => {
             if (err.code == 'failed-precondition') {
                 console.warn('Persistence gagal: multiple tabs open');
@@ -628,7 +818,6 @@
             if (lastKategoriDocs.length > 0) {
                 renderKategoriTable(lastKategoriDocs);
             } else {
-                // fallback: ambil ulang data
                 const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
                 getDocs(q).then(snap => {
                     lastKategoriDocs = snap.docs;
@@ -801,7 +990,7 @@
                 });
                 alert('Gudang berhasil ditambahkan');
                 e.target.reset();
-                loadDropdowns(); // perbarui dropdown di form produk
+                loadDropdowns();
             } catch (error) {
                 console.error(error);
                 alert('Gagal menambah gudang: ' + error.message);
@@ -883,7 +1072,7 @@
         // ========== PAGINATION PRODUK ==========
         let produkLastVisible = null;
         let produkFirstVisible = null;
-        let produkPageSnapshots = []; // untuk navigasi normal
+        let produkPageSnapshots = [];
         let produkCurrentPageIndex = 0;
         const produkPageSize = 10;
         let produkSearchTerm = '';
@@ -995,7 +1184,6 @@
                 const p = doc.data();
                 const kategoriNama = kategoriMap[p.kategoriId] || '-';
                 const unitNama = unitMap[p.unitId] || '';
-                // Tampilkan nama dengan huruf kapital di awal kata
                 const namaTampil = p.nama.replace(/\b\w/g, l => l.toUpperCase());
                 html += `<tr>
                     <td>${p.kode || '-'}</td>
@@ -1091,7 +1279,6 @@
             if (!confirm('Yakin hapus produk?')) return;
             try {
                 await setDoc(doc(produkCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
-                // Soft delete konversi & qty terkait
                 const konversiQuery = query(konversiCol, where('produkId', '==', id));
                 const konversiSnap = await getDocs(konversiQuery);
                 for (const d of konversiSnap.docs) {
@@ -1112,7 +1299,6 @@
             e.preventDefault();
             const produkId = produkIdInput.value;
 
-            // Ambil input dan ubah ke lowercase
             const namaInput = document.getElementById('namaProduk').value;
             const kodeInput = document.getElementById('kodeProduk').value;
             const barcodeInput = document.getElementById('barcodeProduk').value;
@@ -1196,14 +1382,12 @@
 
                 alert(produkId ? 'Produk berhasil diperbarui' : 'Produk berhasil ditambahkan');
 
-                // Reset form dan tetap di halaman tambah produk
                 e.target.reset();
                 konversiContainer.innerHTML = '';
                 qtyBreakContainer.innerHTML = '';
                 produkIdInput.value = '';
                 formProdukTitle.innerText = 'Tambah Produk Baru';
 
-                // Tidak pindah ke daftar produk
             } catch (error) {
                 console.error(error);
                 alert('Gagal menyimpan produk: ' + error.message);
@@ -1237,23 +1421,28 @@
         });
 
         // ========== INITIAL LOAD ==========
-        loadDropdowns();
-        subscribeDaftarKategori();
-        subscribeDaftarUnit();
-        subscribeDaftarGudang();
+        // Inisialisasi IndexedDB lokal terlebih dahulu
+        await initLocalDB();
 
-        // Jika ada section yang aktif saat load, pastikan tampil
-        if (sections.daftarProduk.classList.contains('active')) {
-            loadProdukPage('next');
-        }
-        if (sections.daftarKategori.classList.contains('active') && lastKategoriDocs.length > 0) {
-            renderKategoriTable(lastKategoriDocs);
-        }
-        if (sections.daftarUnit.classList.contains('active') && lastUnitDocs.length > 0) {
-            renderUnitTable(lastUnitDocs);
-        }
-        if (sections.daftarGudang.classList.contains('active') && lastGudangDocs.length > 0) {
-            renderGudangTable(lastGudangDocs);
+        // Hanya lanjutkan jika user lokal sudah login
+        if (localUser) {
+            loadDropdowns();
+            subscribeDaftarKategori();
+            subscribeDaftarUnit();
+            subscribeDaftarGudang();
+
+            if (sections.daftarProduk.classList.contains('active')) {
+                loadProdukPage('next');
+            }
+            if (sections.daftarKategori.classList.contains('active') && lastKategoriDocs.length > 0) {
+                renderKategoriTable(lastKategoriDocs);
+            }
+            if (sections.daftarUnit.classList.contains('active') && lastUnitDocs.length > 0) {
+                renderUnitTable(lastUnitDocs);
+            }
+            if (sections.daftarGudang.classList.contains('active') && lastGudangDocs.length > 0) {
+                renderGudangTable(lastGudangDocs);
+            }
         }
     </script>
 </body>
