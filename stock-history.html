@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUDA POS - Riwayat Stok</title>
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        /* ===== CSS SAMA DENGAN HALAMAN LAIN ===== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background:#f5f5f5; color:#333; font-size:14px; }
+        .text-primary { color:#006B54; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
+        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
+        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
+        .sidebar-menu { list-style:none; }
+        .sidebar-menu li { margin-bottom:0.2rem; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
+        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
+        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
+        .has-submenu.open .submenu { display:block; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
+        .submenu a:hover { background:#e6f0ec; color:#006B54; }
+        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
+        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
+        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1400px; margin:0 auto; }
+        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            background: white;
+            padding: 1rem;
+            border-radius: 20px;
+            border: 1px solid #f0f0f0;
+            align-items: center;
+        }
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 0 0.5rem;
+            height: 38px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 0.5rem;
+            border: none;
+            outline: none;
+            font-size: 0.95rem;
+            background: transparent;
+        }
+        .search-box i {
+            color: #999;
+            margin-right: 0.3rem;
+        }
+        .btn-primary {
+            background: #006B54;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .btn-primary:hover { background: #004d3b; }
+        .table-responsive { overflow-x: auto; background: white; border-radius: 20px; padding: 1rem; border: 1px solid #f0f0f0; }
+        table { width:100%; border-collapse:collapse; min-width:1000px; }
+        th, td { padding:0.8rem 0.5rem; text-align:left; border-bottom:1px solid #eee; }
+        th { background:#f9f9f9; font-weight:600; color:#006B54; }
+        tr:hover { background:#f5f5f5; }
+        .badge-add { background:#d4edda; color:#155724; padding:0.2rem 0.5rem; border-radius:20px; }
+        .badge-reduce { background:#f8d7da; color:#721c24; padding:0.2rem 0.5rem; border-radius:20px; }
+        .badge-opname { background:#fff3cd; color:#856404; padding:0.2rem 0.5rem; border-radius:20px; }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            align-items: center;
+        }
+        .pagination button {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
+        }
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .pagination span {
+            padding: 0.4rem 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>MUDA POS</h2>
+            <button class="close-sidebar" id="closeSidebar"><i data-feather="x"></i></button>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
+            <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
+            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
+            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
+            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
+            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
+            <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
+            <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
+        </ul>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
+        </div>
+        <div class="header-right" style="display:flex; align-items:center;">
+            <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+        </div>
+    </header>
+
+    <!-- Konten Utama -->
+    <main class="main-content">
+        <h1 class="page-title">Riwayat Pergerakan Stok</h1>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="search-box">
+                <i data-feather="search"></i>
+                <input type="text" id="searchInput" placeholder="Cari produk...">
+            </div>
+            <select id="typeFilter" style="padding:0.5rem; border-radius:20px; border:1px solid #ddd;">
+                <option value="">Semua Tipe</option>
+                <option value="add">Tambah</option>
+                <option value="reduce">Kurang</option>
+                <option value="opname">Opname</option>
+            </select>
+            <button class="btn-primary" id="filterBtn"><i data-feather="filter"></i> Tampilkan</button>
+            <a href="inventory.html" class="btn-primary" style="text-decoration:none;"><i data-feather="arrow-left"></i> Kembali</a>
+        </div>
+
+        <!-- Tabel Riwayat -->
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Produk</th>
+                        <th>Tipe</th>
+                        <th>Jumlah</th>
+                        <th>Stok Awal</th>
+                        <th>Stok Akhir</th>
+                        <th>Alasan</th>
+                        <th>User</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody">
+                    <tr><td colspan="8" style="text-align:center;">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+            <button id="prevPage" disabled><i data-feather="chevron-left"></i> Sebelumnya</button>
+            <span id="pageInfo">Halaman 1</span>
+            <button id="nextPage" disabled>Selanjutnya <i data-feather="chevron-right"></i></button>
+        </div>
+    </main>
+
+    <!-- Script sidebar (non-module) -->
+    <script>
+        feather.replace();
+
+        const menuToggle = document.getElementById('menuToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+        function closeSidebarFunc() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+        menuToggle.addEventListener('click', openSidebar);
+        closeSidebar.addEventListener('click', closeSidebarFunc);
+        overlay.addEventListener('click', closeSidebarFunc);
+    </script>
+
+    <!-- Script module -->
+    <script type="module">
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
+        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { 
+            collection, query, where, orderBy, limit, startAfter, getDocs,
+            getDoc, doc
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // Referensi
+        const stockMovementCol = collection(dbCloud, 'stockMovements');
+        const produkCol = collection(dbCloud, 'produk');
+
+        // Elemen DOM
+        const historyBody = document.getElementById('historyBody');
+        const searchInput = document.getElementById('searchInput');
+        const typeFilter = document.getElementById('typeFilter');
+        const filterBtn = document.getElementById('filterBtn');
+        const prevPageBtn = document.getElementById('prevPage');
+        const nextPageBtn = document.getElementById('nextPage');
+        const pageInfo = document.getElementById('pageInfo');
+        const loginBtn = document.getElementById('loginBtn');
+
+        // State pagination
+        let lastVisible = null;
+        let pageSnapshots = [];
+        let currentPageIndex = 0;
+        const pageSize = 20;
+        let currentSearchTerm = '';
+        let currentType = '';
+
+        // Cache produk untuk mendapatkan nama produk
+        let produkCache = new Map();
+
+        // Fungsi format tanggal
+        function formatDate(timestamp) {
+            if (!timestamp) return '-';
+            try {
+                const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+                return date.toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+            } catch {
+                return '-';
+            }
+        }
+
+        // Fungsi mendapatkan nama produk
+        async function getNamaProduk(produkId) {
+            if (produkCache.has(produkId)) return produkCache.get(produkId);
+            try {
+                const snap = await getDoc(doc(produkCol, produkId));
+                if (snap.exists()) {
+                    const nama = snap.data().nama;
+                    produkCache.set(produkId, nama);
+                    return nama;
+                }
+            } catch (error) {
+                console.error('Gagal ambil produk', produkId, error);
+            }
+            return 'Produk dihapus';
+        }
+
+        // Bangun query
+        function buildQuery() {
+            let q = query(stockMovementCol, orderBy('createdAt', 'desc'));
+            if (currentType) {
+                q = query(q, where('type', '==', currentType));
+            }
+            // Pencarian berdasarkan produkId tidak bisa langsung, akan difilter manual setelah data diambil
+            return q;
+        }
+
+        // Load halaman
+        async function loadPage(direction = 'next') {
+            try {
+                let q = buildQuery();
+                q = query(q, limit(pageSize));
+                if (direction === 'next' && lastVisible) {
+                    q = query(q, startAfter(lastVisible));
+                } else if (direction === 'prev' && currentPageIndex > 0) {
+                    const prevSnapshot = pageSnapshots[currentPageIndex - 1];
+                    if (prevSnapshot) {
+                        await renderHistory(prevSnapshot.docs);
+                        currentPageIndex--;
+                        lastVisible = prevSnapshot.docs[prevSnapshot.docs.length - 1];
+                        pageInfo.textContent = `Halaman ${currentPageIndex + 1}`;
+                        prevPageBtn.disabled = currentPageIndex === 0;
+                        nextPageBtn.disabled = prevSnapshot.docs.length < pageSize;
+                    }
+                    return;
+                }
+
+                const snapshot = await getDocs(q);
+                let docs = snapshot.docs;
+
+                // Filter berdasarkan pencarian (client-side)
+                if (currentSearchTerm.trim()) {
+                    const term = currentSearchTerm.toLowerCase();
+                    const filteredDocs = [];
+                    for (const doc of docs) {
+                        const data = doc.data();
+                        const nama = await getNamaProduk(data.produkId);
+                        if (nama.toLowerCase().includes(term)) {
+                            filteredDocs.push(doc);
+                        }
+                    }
+                    docs = filteredDocs;
+                }
+
+                if (direction === 'next') {
+                    pageSnapshots.push(snapshot);
+                    currentPageIndex = pageSnapshots.length - 1;
+                }
+                lastVisible = snapshot.docs[snapshot.docs.length - 1];
+
+                await renderHistory(docs);
+
+                prevPageBtn.disabled = currentPageIndex === 0;
+                nextPageBtn.disabled = docs.length < pageSize;
+                pageInfo.textContent = `Halaman ${currentPageIndex + 1}`;
+            } catch (error) {
+                console.error('Gagal memuat riwayat:', error);
+                historyBody.innerHTML = `<tr><td colspan="8" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            }
+        }
+
+        // Render tabel
+        async function renderHistory(docs) {
+            if (docs.length === 0) {
+                historyBody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Tidak ada data</td></tr>';
+                return;
+            }
+            let html = '';
+            for (const doc of docs) {
+                const data = doc.data();
+                const nama = await getNamaProduk(data.produkId);
+                const tipe = data.type;
+                const badgeClass = tipe === 'add' ? 'badge-add' : (tipe === 'reduce' ? 'badge-reduce' : 'badge-opname');
+                const tipeLabel = tipe === 'add' ? 'Tambah' : (tipe === 'reduce' ? 'Kurang' : 'Opname');
+                const qty = data.quantity || 0;
+                const prev = data.previousStock || 0;
+                const baru = data.newStock || 0;
+                const alasan = data.reason || '-';
+                const user = data.userId ? data.userId.slice(-6) : '-';
+                html += `
+                <tr>
+                    <td>${formatDate(data.createdAt)}</td>
+                    <td>${nama}</td>
+                    <td><span class="${badgeClass}">${tipeLabel}</span></td>
+                    <td>${qty}</td>
+                    <td>${prev}</td>
+                    <td>${baru}</td>
+                    <td>${alasan}</td>
+                    <td>${user}</td>
+                </tr>`;
+            }
+            historyBody.innerHTML = html;
+            feather.replace();
+        }
+
+        // Event listener
+        filterBtn.addEventListener('click', () => {
+            currentSearchTerm = searchInput.value;
+            currentType = typeFilter.value;
+            pageSnapshots = [];
+            currentPageIndex = 0;
+            lastVisible = null;
+            loadPage('next');
+        });
+
+        prevPageBtn.addEventListener('click', () => loadPage('prev'));
+        nextPageBtn.addEventListener('click', () => loadPage('next'));
+
+        // Auth (tetap)
+        onAuthStateChanged(auth, (user) => {
+            loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            feather.replace();
+        });
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
+            } else {
+                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
+            }
+        });
+
+        // Inisialisasi
+        loadPage('next');
+    </script>
+</body>
+</html>
