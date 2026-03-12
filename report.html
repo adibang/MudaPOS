@@ -155,6 +155,63 @@
             color: #006B54;
             text-align: right;
         }
+
+        /* ===== LOGIN MODAL ===== */
+        #loginModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        #loginModal .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 300px;
+            padding: 20px;
+            text-align: center;
+        }
+        #loginModal h3 {
+            color: #006B54;
+            margin-bottom: 15px;
+        }
+        #loginModal input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+        }
+        #loginModal button {
+            width: 100%;
+            padding: 12px;
+            background: #006B54;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #loginError {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+        .logout-btn-small {
+            background: transparent;
+            border: 1px solid #006B54;
+            color: #006B54;
+            padding: 4px 8px;
+            border-radius: 15px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -196,12 +253,24 @@
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
             <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <span id="user-name-display" style="margin-right:10px; font-weight:600; color:#006B54;"></span>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
 
-    <!-- Konten Utama -->
-    <main class="main-content">
+    <!-- Login Modal (Lokal) -->
+    <div id="loginModal">
+        <div class="modal-content">
+            <h3>Login Laporan</h3>
+            <input type="text" id="loginUsername" placeholder="Username">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button id="loginSubmit">Masuk</button>
+            <div id="loginError">Username atau password salah</div>
+        </div>
+    </div>
+
+    <!-- Konten Utama (disembunyikan jika belum login) -->
+    <main class="main-content" id="mainContent" style="display:none;">
         <h1 class="page-title">Laporan</h1>
 
         <!-- Tab Navigation -->
@@ -257,23 +326,95 @@
         });
     </script>
 
-    <!-- Script module utama (Firestore) -->
+    <!-- Script module utama (Firestore + IndexedDB lokal) -->
     <script type="module">
+        // ========== IMPOR FIREBASE ==========
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
-            collection, doc, getDocs, getDoc, query, where, orderBy, Timestamp 
+            collection, doc, getDocs, query, where, orderBy, Timestamp 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Referensi koleksi
+        // ========== REFERENSI KOLEKSI FIRESTORE ==========
         const salesCol = collection(dbCloud, 'sales');
         const purchaseCol = collection(dbCloud, 'purchase');
         const produkCol = collection(dbCloud, 'produk');
         const customerCol = collection(dbCloud, 'customer');
         const supplierCol = collection(dbCloud, 'supplier');
 
-        // Elemen DOM
+        // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
+        const DB_NAME = 'MudaPOSDB';
+        const DB_VERSION = 1;
+        const STORE_LOCAL_USERS = 'localUsers';
+        let localDB = null;
+
+        async function initLocalDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = (e) => {
+                    localDB = e.target.result;
+                    resolve();
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_LOCAL_USERS)) {
+                        db.createObjectStore(STORE_LOCAL_USERS, { keyPath: 'id', autoIncrement: true });
+                    }
+                };
+            });
+        }
+
+        async function hashPassword(password) {
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(password);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) { console.warn('Crypto digest failed, using fallback', e); }
+            }
+            let hash = 0;
+            for (let i = 0; i < password.length; i++) {
+                const char = password.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
+            }
+            return hash.toString(16);
+        }
+
+        async function verifyLocalUser(username, password) {
+            return new Promise((resolve, reject) => {
+                const tx = localDB.transaction([STORE_LOCAL_USERS], 'readonly');
+                const store = tx.objectStore(STORE_LOCAL_USERS);
+                const request = store.getAll();
+                request.onsuccess = async () => {
+                    const users = request.result;
+                    const user = users.find(u => u.username === username);
+                    if (!user) { resolve(null); return; }
+                    const hashed = await hashPassword(password);
+                    if (user.password === hashed) {
+                        const { password, ...safeUser } = user;
+                        resolve(safeUser);
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = reject;
+            });
+        }
+
+        // ========== ELEMEN DOM ==========
         const loginBtn = document.getElementById('loginBtn');
+        const userNameDisplay = document.getElementById('user-name-display');
+        const mainContent = document.getElementById('mainContent');
+        const loginModal = document.getElementById('loginModal');
+        const loginSubmit = document.getElementById('loginSubmit');
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        const loginError = document.getElementById('loginError');
+
         const tabProduk = document.getElementById('tabProduk');
         const tabHourly = document.getElementById('tabHourly');
         const tabCustomer = document.getElementById('tabCustomer');
@@ -283,6 +424,64 @@
         const reportContent = document.getElementById('reportContent');
 
         let currentTab = 'produk';
+        let localUser = null;
+
+        // ========== FUNGSI LOGIN LOKAL ==========
+        function showLoginModal() {
+            loginModal.style.display = 'flex';
+            mainContent.style.display = 'none';
+        }
+
+        function hideLoginModal() {
+            loginModal.style.display = 'none';
+            mainContent.style.display = 'block';
+        }
+
+        // Cek sesi lokal
+        const savedSession = sessionStorage.getItem('localUser');
+        if (savedSession) {
+            localUser = JSON.parse(savedSession);
+            userNameDisplay.textContent = localUser.name;
+            hideLoginModal();
+            initReportPage();
+        } else {
+            showLoginModal();
+        }
+
+        loginSubmit.addEventListener('click', async () => {
+            const username = loginUsername.value;
+            const password = loginPassword.value;
+            const user = await verifyLocalUser(username, password);
+            if (user) {
+                sessionStorage.setItem('localUser', JSON.stringify(user));
+                localUser = user;
+                userNameDisplay.textContent = user.name;
+                hideLoginModal();
+                initReportPage();
+            } else {
+                loginError.style.display = 'block';
+            }
+        });
+
+        // Fungsi logout lokal
+        function logoutLocal() {
+            sessionStorage.removeItem('localUser');
+            localUser = null;
+            userNameDisplay.textContent = '';
+            showLoginModal();
+        }
+
+        // Tambahkan tombol logout di samping username (opsional)
+        const logoutLocalBtn = document.createElement('button');
+        logoutLocalBtn.className = 'logout-btn-small';
+        logoutLocalBtn.textContent = 'Logout Lokal';
+        logoutLocalBtn.onclick = logoutLocal;
+        userNameDisplay.parentNode.insertBefore(logoutLocalBtn, userNameDisplay.nextSibling);
+
+        // ========== FUNGSI LAPORAN (SAMA SEPERTI SEBELUMNYA) ==========
+        async function initReportPage() {
+            setTab('produk');
+        }
 
         // Fungsi untuk mengatur filter berdasarkan tab
         function renderFilterBar() {
@@ -398,7 +597,6 @@
                             const id = item.produkId;
                             if (!id) continue;
                             if (!productMap.has(id)) {
-                                // ambil nama produk dari item (sudah ada) atau dari koleksi produk
                                 const nama = item.nama || 'Produk Dihapus';
                                 productMap.set(id, { nama, totalQty: 0, totalRevenue: 0 });
                             }
@@ -408,7 +606,6 @@
                         }
                     }
                 }
-                // Ubah ke array dan urutkan
                 const products = Array.from(productMap.entries()).map(([id, data]) => ({
                     id,
                     nama: data.nama,
@@ -485,7 +682,6 @@
                         custMap.set(custId, { nama: custName, totalQty: 0, totalRevenue: 0 });
                     }
                     const c = custMap.get(custId);
-                    // Hitung qty dari items
                     if (sale.items) {
                         sale.items.forEach(item => {
                             c.totalQty += item.qty || 0;
@@ -524,7 +720,6 @@
                     reportContent.innerHTML = '<p style="text-align:center;">Tidak ada utang</p>';
                     return;
                 }
-                // Group by supplier
                 const suppMap = new Map();
                 for (const doc of purchaseSnap.docs) {
                     const p = doc.data();
@@ -535,19 +730,13 @@
                     }
                     const item = suppMap.get(suppId);
                     item.totalUtang += p.utang || 0;
-                    item.transactions.push({ id: doc.id, tanggal: p.tanggal, utang: p.utang });
                 }
-                let html = '<table><thead><tr><th>Supplier</th><th>Total Utang</th><th>Detail</th></tr></thead><tbody>';
+                let html = '<table><thead><tr><th>Supplier</th><th>Total Utang</th></tr></thead><tbody>';
                 for (let [suppId, data] of suppMap.entries()) {
-                    html += `<tr>
-                        <td>${data.nama}</td>
-                        <td>Rp ${data.totalUtang.toLocaleString()}</td>
-                        <td><button class="btn-icon view" onclick="showUtangDetail('${suppId}')"><i data-feather="eye"></i></button></td>
-                    </tr>`;
+                    html += `<tr><td>${data.nama}</td><td>Rp ${data.totalUtang.toLocaleString()}</td></tr>`;
                 }
                 html += '</tbody></table>';
                 reportContent.innerHTML = html;
-                feather.replace();
             } catch (error) {
                 console.error(error);
                 reportContent.innerHTML = `<p style="color:red;">Gagal memuat: ${error.message}</p>`;
@@ -562,30 +751,23 @@
                     reportContent.innerHTML = '<p style="text-align:center;">Tidak ada piutang</p>';
                     return;
                 }
-                // Group by customer
                 const custMap = new Map();
                 for (const doc of salesSnap.docs) {
                     const s = doc.data();
                     const custId = s.customerId;
                     const custName = s.customerName || 'Unknown';
                     if (!custMap.has(custId)) {
-                        custMap.set(custId, { nama: custName, totalPiutang: 0, transactions: [] });
+                        custMap.set(custId, { nama: custName, totalPiutang: 0 });
                     }
                     const item = custMap.get(custId);
                     item.totalPiutang += s.outstanding || 0;
-                    item.transactions.push({ id: doc.id, tanggal: s.createdAt?.toDate?.(), piutang: s.outstanding });
                 }
-                let html = '<table><thead><tr><th>Pelanggan</th><th>Total Piutang</th><th>Detail</th></tr></thead><tbody>';
+                let html = '<table><thead><tr><th>Pelanggan</th><th>Total Piutang</th></tr></thead><tbody>';
                 for (let [custId, data] of custMap.entries()) {
-                    html += `<tr>
-                        <td>${data.nama}</td>
-                        <td>Rp ${data.totalPiutang.toLocaleString()}</td>
-                        <td><button class="btn-icon view" onclick="showPiutangDetail('${custId}')"><i data-feather="eye"></i></button></td>
-                    </tr>`;
+                    html += `<tr><td>${data.nama}</td><td>Rp ${data.totalPiutang.toLocaleString()}</td></tr>`;
                 }
                 html += '</tbody></table>';
                 reportContent.innerHTML = html;
-                feather.replace();
             } catch (error) {
                 console.error(error);
                 reportContent.innerHTML = `<p style="color:red;">Gagal memuat: ${error.message}</p>`;
@@ -616,19 +798,16 @@
         tabUtang.addEventListener('click', () => setTab('utang'));
         tabPiutang.addEventListener('click', () => setTab('piutang'));
 
-        // Fungsi detail (untuk utang/piutang) - bisa dikembangkan lebih lanjut
-        window.showUtangDetail = async (suppId) => {
-            alert('Detail utang untuk supplier ' + suppId);
-        };
-        window.showPiutangDetail = async (custId) => {
-            alert('Detail piutang untuk customer ' + custId);
-        };
-
-        // ========== AUTH ==========
+        // ========== AUTH FIREBASE (tetap ada, untuk login/out utama) ==========
         onAuthStateChanged(auth, (user) => {
-            loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            if (user) {
+                loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
+            } else {
+                loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            }
             feather.replace();
         });
+
         loginBtn.addEventListener('click', async () => {
             const user = auth.currentUser;
             if (user) {
@@ -638,8 +817,8 @@
             }
         });
 
-        // ========== INIT ==========
-        setTab('produk');
+        // Inisialisasi IndexedDB lokal
+        await initLocalDB();
     </script>
 </body>
 </html>
