@@ -172,7 +172,7 @@
             cursor: pointer;
         }
         .btn-return {
-            background: #6c757d;      /* warna abu-abu */
+            background: #6c757d;
             color: white;
             border: none;
             padding: 0.5rem 1rem;
@@ -183,15 +183,9 @@
             gap: 0.3rem;
             font-size: 0.9rem;
             transition: background 0.2s;
-            text-decoration: none;    /* untuk elemen <a> */
+            text-decoration: none;
         }
-        .btn-return:hover {
-            background: #5a6268;      /* lebih gelap saat hover */
-        }
-        .btn-return i {
-            width: 18px;
-            height: 18px;
-        }
+        .btn-return:hover { background: #5a6268; }
         #btnPiutang { background:#ccc; color:#333; }
         #btnPiutang.active { background:#dc3545; color:white; }
         #btnPending { background:#006B54; color:white; }
@@ -324,6 +318,29 @@
             padding: 0.4rem;
             font-size: 0.9rem;
             flex-shrink: 1;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            align-items: center;
+        }
+        .pagination button {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
+        }
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .pagination span {
+            padding: 0.4rem 0.8rem;
         }
 
         /* ===== MODAL ===== */
@@ -742,13 +759,9 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
-
-    <!-- Tombol Reset Darurat (untuk development) -->
-    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Data (DEV)</button>
 
     <!-- Halaman Sales -->
     <main class="main-content">
@@ -796,6 +809,13 @@
 
         <!-- Container Produk (Grid/List) -->
         <div id="productContainer" class="product-grid"></div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+            <button id="prevPage" disabled><i data-feather="chevron-left"></i> Sebelumnya</button>
+            <span id="pageInfo">Halaman 1</span>
+            <button id="nextPage" disabled>Selanjutnya <i data-feather="chevron-right"></i></button>
+        </div>
     </main>
 
     <!-- Floating Pending -->
@@ -1031,10 +1051,10 @@
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
             collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc,
-            query, where, orderBy, serverTimestamp, runTransaction, writeBatch 
+            query, where, orderBy, serverTimestamp, runTransaction, writeBatch, limit, startAfter
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        console.log('Sales page dimulai...');
+        console.log('Sales page dengan pagination...');
 
         // ========== REFERENSI KOLEKSI ==========
         const produkCol = collection(dbCloud, 'produk');
@@ -1045,17 +1065,19 @@
         const qtyCol = collection(dbCloud, 'qtyBreak');
         const pendingCol = collection(dbCloud, 'pending'); // untuk draft transaksi
         const salesCol = collection(dbCloud, 'sales'); // untuk transaksi selesai (opsional)
-        const settingsDocRef = doc(dbCloud, 'settings', 'appSettings'); // MODIFIKASI: referensi settings
+        const settingsDocRef = doc(dbCloud, 'settings', 'appSettings');
 
         // ========== DATA GLOBAL ==========
-        let allProducts = [];
         let allCustomers = [];
         let allGudang = [];
         let allKonversi = [];
         let allUnits = [];
         let allQtyBreak = [];
         let pendingList = [];
-        let appSettings = null; // MODIFIKASI: menyimpan settings dari Firestore
+        let appSettings = null;
+
+        // Cache produk: Map(id -> data produk)
+        let productsCache = new Map();
 
         let selectedCustomer = null;
         let cartItems = [];
@@ -1066,6 +1088,14 @@
         let pendingTotalPaid = 0;
         let lastTransactionData = null;
         let currentView = 'grid'; // default tampilan grid
+
+        // State pagination produk
+        let lastVisible = null;
+        let pageSnapshots = [];
+        let currentPageIndex = 0;
+        const pageSize = 20; // jumlah produk per halaman
+        let currentSearchTerm = '';
+        let currentWarehouse = '';
 
         // ========== ELEMEN DOM ==========
         const warehouseSelect = document.getElementById('warehouseSelect');
@@ -1131,18 +1161,18 @@
         const shortageConfirm = document.getElementById('shortageConfirm');
         const confirmPiutangModal = document.getElementById('confirmPiutangModal');
         const loginBtn = document.getElementById('loginBtn');
-        const syncBtn = document.getElementById('syncBtn');
-        const resetBtn = document.getElementById('resetDbBtn');
 
-        // Sembunyikan tombol sync
-        if (syncBtn) syncBtn.style.display = 'none';
+        // Elemen pagination
+        const prevPageBtn = document.getElementById('prevPage');
+        const nextPageBtn = document.getElementById('nextPage');
+        const pageInfo = document.getElementById('pageInfo');
 
         // ========== FUNGSI FORMAT RUPIAH ==========
         function formatRupiah(angka) {
             return 'Rp ' + angka.toLocaleString('id-ID');
         }
 
-        // ========== FUNGSI FORMAT TANGGAL (MODIFIKASI) ==========
+        // ========== FUNGSI FORMAT TANGGAL ==========
         function formatDate(date, format) {
             const d = date.getDate().toString().padStart(2, '0');
             const m = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -1157,14 +1187,13 @@
             }
         }
 
-        // ========== LOAD SETTINGS DARI FIRESTORE (MODIFIKASI) ==========
+        // ========== LOAD SETTINGS DARI FIRESTORE ==========
         async function loadAppSettings() {
             try {
                 const snap = await getDoc(settingsDocRef);
                 if (snap.exists()) {
                     appSettings = snap.data();
                 } else {
-                    // Default jika belum ada
                     appSettings = {
                         barcodeConfig: { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 },
                         printerConfig: {
@@ -1193,40 +1222,40 @@
             }
         }
 
-        // ========== LOAD SEMUA DATA DARI FIRESTORE ==========
-        async function loadAllData() {
+        // ========== LOAD DATA MASTER (non-produk) ==========
+        async function loadMasterData() {
             try {
-                console.log('Memuat data master...');
-                const [produkSnap, customerSnap, gudangSnap, konversiSnap, unitSnap, qtySnap] = await Promise.all([
-                    getDocs(query(produkCol, where('deleted', '==', false))),
+                console.log('Memuat data master (customer, gudang, unit, konversi, qtyBreak)...');
+                const [customerSnap, gudangSnap, unitSnap, konversiSnap, qtySnap] = await Promise.all([
                     getDocs(query(customerCol, where('deleted', '==', false))),
                     getDocs(query(gudangCol, where('deleted', '==', false))),
-                    getDocs(query(konversiCol, where('deleted', '==', false))),
                     getDocs(query(unitCol, where('deleted', '==', false))),
+                    getDocs(query(konversiCol, where('deleted', '==', false))),
                     getDocs(query(qtyCol, where('deleted', '==', false)))
                 ]);
 
-                allProducts = produkSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 allCustomers = customerSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), outstanding: doc.data().outstanding || 0 }));
                 allGudang = gudangSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                allKonversi = konversiSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 allUnits = unitSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allKonversi = konversiSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 allQtyBreak = qtySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                console.log('Data dimuat:', allProducts.length, 'produk');
-
-                // Load daftar pending
-                await loadPendingFromDB();
 
                 // Isi dropdown gudang
                 warehouseSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
                     allGudang.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
                 const saved = loadSelectedWarehouse();
-                if (saved && allGudang.some(g => g.id === saved)) warehouseSelect.value = saved;
+                if (saved && allGudang.some(g => g.id === saved)) {
+                    warehouseSelect.value = saved;
+                    currentWarehouse = saved;
+                }
 
-                renderProducts();
+                // Load daftar pending
+                await loadPendingFromDB();
+
+                // Muat halaman pertama produk
+                await loadProductsPage('next');
             } catch (error) {
-                console.error('Gagal memuat data:', error);
+                console.error('Gagal memuat data master:', error);
                 alert('Gagal memuat data: ' + error.message);
             }
         }
@@ -1261,7 +1290,6 @@
                 return false;
             }
 
-            // Cek duplikasi kode (opsional)
             const existing = pendingList.find(p => p.pendingCode && p.pendingCode.toLowerCase() === pendingCode.toLowerCase());
             if (existing) {
                 pendingCodeError.textContent = 'Kode sudah digunakan.';
@@ -1323,7 +1351,7 @@
 
             const newCart = [];
             for (let item of trans.cart) {
-                const produk = allProducts.find(p => p.id === item.produkId);
+                const produk = await getProdukFromCache(item.produkId); // ambil dari cache atau Firestore
                 if (!produk) {
                     alert(`Produk ${item.nama} tidak ditemukan, dilewati.`);
                     continue;
@@ -1403,34 +1431,127 @@
             }
         };
 
-        // ========== RENDER PRODUK ==========
-        function renderProducts() {
-            const selectedWarehouseId = warehouseSelect.value;
-            if (!selectedWarehouseId) {
+        // ========== FUNGSI PAGINATION PRODUK ==========
+        async function loadProductsPage(direction = 'next') {
+            if (!currentWarehouse) {
                 productContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#999;">Silakan pilih gudang terlebih dahulu</div>';
                 return;
             }
 
-            const keyword = barcodeInput.value.trim().toLowerCase();
-            let filtered = allProducts.filter(p => {
-                if (p.gudangId !== selectedWarehouseId) return false;
-                
-                const matchProduk = (p.nama && p.nama.toLowerCase().includes(keyword)) ||
-                                   (p.kode && p.kode.toLowerCase().includes(keyword)) ||
-                                   (p.barcode && p.barcode.toLowerCase().includes(keyword));
-                if (matchProduk) return true;
-                
-                const konversiProduk = allKonversi.filter(k => k.produkId === p.id);
-                return konversiProduk.some(k => k.barcode && k.barcode.trim().toLowerCase().includes(keyword));
-            });
+            try {
+                const exec = await executeProdukSearchQuery(direction);
+                let docs = [];
+
+                if (exec.type === 'normal' && exec.useSnapshot) {
+                    const prevSnapshot = pageSnapshots[currentPageIndex - 1];
+                    if (prevSnapshot) {
+                        docs = prevSnapshot.docs;
+                        currentPageIndex--;
+                        lastVisible = docs[docs.length - 1];
+                    } else {
+                        return;
+                    }
+                } else if (exec.type === 'normal') {
+                    const snapshot = await getDocs(exec.query);
+                    docs = snapshot.docs;
+                    if (direction === 'next') {
+                        pageSnapshots.push(snapshot);
+                        currentPageIndex = pageSnapshots.length - 1;
+                    }
+                    lastVisible = docs[docs.length - 1];
+                } else {
+                    // Mode pencarian
+                    const snapshots = await Promise.all(exec.queries.map(q => getDocs(q)));
+                    const docsMap = new Map();
+                    snapshots.forEach(snap => {
+                        snap.docs.forEach(doc => {
+                            if (!docsMap.has(doc.id)) {
+                                docsMap.set(doc.id, doc);
+                            }
+                        });
+                    });
+                    docs = Array.from(docsMap.values());
+                    docs.sort((a, b) => a.get('nama').localeCompare(b.get('nama')));
+                    docs = docs.slice(0, pageSize);
+                    // Reset pagination
+                    pageSnapshots = [];
+                    currentPageIndex = 0;
+                    lastVisible = null;
+                }
+
+                // Simpan ke cache
+                docs.forEach(doc => {
+                    productsCache.set(doc.id, { id: doc.id, ...doc.data() });
+                });
+
+                renderProducts(docs);
+
+                // Update tombol pagination
+                if (exec.type === 'search') {
+                    prevPageBtn.disabled = true;
+                    nextPageBtn.disabled = true;
+                    pageInfo.textContent = 'Halaman 1 (pencarian)';
+                } else {
+                    prevPageBtn.disabled = currentPageIndex === 0;
+                    nextPageBtn.disabled = docs.length < pageSize;
+                    pageInfo.textContent = `Halaman ${currentPageIndex + 1}`;
+                }
+            } catch (error) {
+                console.error('Gagal memuat produk:', error);
+                productContainer.innerHTML = `<div style="color:red; text-align:center;">Gagal memuat: ${error.message}</div>`;
+            }
+        }
+
+        function buildProdukBaseQuery() {
+            return query(
+                produkCol,
+                where('deleted', '==', false),
+                where('gudangId', '==', currentWarehouse),
+                orderBy('nama')
+            );
+        }
+
+        async function executeProdukSearchQuery(direction = 'next') {
+            const searchTerm = currentSearchTerm.toLowerCase().trim();
+            const baseQuery = buildProdukBaseQuery();
+
+            if (!searchTerm) {
+                let q = query(baseQuery, limit(pageSize));
+                if (direction === 'next' && lastVisible) {
+                    q = query(q, startAfter(lastVisible));
+                } else if (direction === 'prev' && currentPageIndex > 0) {
+                    return { type: 'normal', useSnapshot: true };
+                }
+                return { type: 'normal', query: q };
+            } else {
+                const fields = ['nama', 'kode', 'barcode'];
+                const queries = fields.map(field => {
+                    return query(
+                        baseQuery,
+                        where(field, '>=', searchTerm),
+                        where(field, '<=', searchTerm + '\uf8ff'),
+                        limit(pageSize)
+                    );
+                });
+                return { type: 'search', queries };
+            }
+        }
+
+        // ========== RENDER PRODUK ==========
+        function renderProducts(docs) {
+            if (docs.length === 0) {
+                productContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#999;">Tidak ada produk</div>';
+                return;
+            }
 
             if (currentView === 'grid') {
                 productContainer.className = 'product-grid';
-                productContainer.innerHTML = filtered.map(p => {
+                productContainer.innerHTML = docs.map(doc => {
+                    const p = doc.data();
                     const stok = p.stokAwal || 0;
                     const unit = allUnits.find(u => u.id === p.unitId);
                     const unitName = unit ? unit.nama : '';
-                    return `<div class="product-card" data-id="${p.id}">
+                    return `<div class="product-card" data-id="${doc.id}">
                         <div class="product-icon"><i data-feather="box" width="32"></i></div>
                         <div class="product-name" title="${p.nama}">${p.nama}</div>
                         <div class="product-price-stock">
@@ -1446,11 +1567,12 @@
                 }).join('');
             } else {
                 productContainer.className = 'product-list';
-                productContainer.innerHTML = filtered.map(p => {
+                productContainer.innerHTML = docs.map(doc => {
+                    const p = doc.data();
                     const stok = p.stokAwal || 0;
                     const unit = allUnits.find(u => u.id === p.unitId);
                     const unitName = unit ? unit.nama : '';
-                    return `<div class="product-row" data-id="${p.id}">
+                    return `<div class="product-row" data-id="${doc.id}">
                         <div class="product-info">
                             <div class="product-name" title="${p.nama}">${p.nama}</div>
                             <div class="product-code">${p.kode || p.barcode || ''}</div>
@@ -1466,6 +1588,7 @@
             }
             feather.replace();
 
+            // Event listener untuk tombol qty
             document.querySelectorAll('.qty-minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1486,79 +1609,123 @@
             });
         }
 
-        // ========== FUNGSI BARCODE (MENGGUNAKAN SETTINGS) ==========
-        function processBarcode() {
+        // ========== FUNGSI MENGAMBIL PRODUK DARI CACHE ATAU FIRESTORE ==========
+        async function getProdukFromCache(produkId) {
+            if (productsCache.has(produkId)) {
+                return productsCache.get(produkId);
+            }
+            try {
+                const docSnap = await getDoc(doc(produkCol, produkId));
+                if (docSnap.exists()) {
+                    const data = { id: docSnap.id, ...docSnap.data() };
+                    productsCache.set(produkId, data);
+                    return data;
+                }
+            } catch (error) {
+                console.error('Gagal mengambil produk', produkId, error);
+            }
+            return null;
+        }
+
+        // ========== FUNGSI BARCODE ==========
+        async function processBarcode() {
             const barcode = barcodeInput.value.trim();
             if (!barcode) return;
 
             const barcodeLower = barcode.toLowerCase();
 
-            let produk = allProducts.find(p => 
-                (p.kode && p.kode.trim().toLowerCase() === barcodeLower) || 
-                (p.barcode && p.barcode.trim().toLowerCase() === barcodeLower)
-            );
+            // Cari di cache dulu (produk yang sudah dimuat)
+            let produk = null;
+            for (let p of productsCache.values()) {
+                if (p.kode && p.kode.trim().toLowerCase() === barcodeLower) {
+                    produk = p;
+                    break;
+                }
+                if (p.barcode && p.barcode.trim().toLowerCase() === barcodeLower) {
+                    produk = p;
+                    break;
+                }
+            }
+
+            if (!produk) {
+                // Cari via query ke Firestore
+                const q = query(
+                    produkCol,
+                    where('deleted', '==', false),
+                    where('gudangId', '==', currentWarehouse),
+                    where('kode', '==', barcode)
+                );
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    produk = { id: snap.docs[0].id, ...snap.docs[0].data() };
+                    productsCache.set(produk.id, produk);
+                }
+            }
 
             if (produk) {
                 tambahKeCart(produk.id, 1, null);
                 barcodeInput.value = '';
-                renderProducts();
+                await loadProductsPage('next'); // refresh halaman (opsional)
                 return;
             }
 
-            for (let konv of allKonversi) {
-                if (konv.barcode && konv.barcode.trim().toLowerCase() === barcodeLower) {
-                    const produk = allProducts.find(p => p.id === konv.produkId);
-                    if (produk) {
-                        tambahKeCart(produk.id, 1, konv.id);
-                        barcodeInput.value = '';
-                        renderProducts();
-                        return;
-                    }
+            // Cari konversi
+            let konv = allKonversi.find(k => k.barcode && k.barcode.trim().toLowerCase() === barcodeLower);
+            if (konv) {
+                const produkId = konv.produkId;
+                produk = await getProdukFromCache(produkId);
+                if (produk) {
+                    tambahKeCart(produk.id, 1, konv.id);
+                    barcodeInput.value = '';
+                    await loadProductsPage('next');
+                    return;
                 }
             }
 
-            // Gunakan konfigurasi dari settings
+            // Barcode timbangan
             const config = appSettings?.barcodeConfig || { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 };
-
             if (barcode.length === 13) {
                 const flex = barcode.substr(0, config.flexLength);
-                if (flex !== config.flexValue) {
-                    alert('Barcode tidak dikenal (flex tidak cocok)');
-                    barcodeInput.value = '';
-                    renderProducts();
-                    return;
-                }
-
-                const productCode = barcode.substr(config.flexLength, config.productLength);
-                const weightStr = barcode.substr(config.flexLength + config.productLength, config.weightLength);
-                const weightGram = parseInt(weightStr, 10);
-
-                if (!isNaN(weightGram) && weightGram > 0) {
-                    produk = allProducts.find(p => p.kode === productCode && p.produkTimbangan === true);
-                    if (produk) {
-                        const qtyKg = weightGram / 1000;
-                        tambahKeCart(produk.id, qtyKg, null);
-                        barcodeInput.value = '';
-                        renderProducts();
-                        return;
-                    } else {
-                        alert(`Produk dengan kode ${productCode} tidak ditemukan atau bukan produk timbangan`);
-                        barcodeInput.value = '';
-                        renderProducts();
-                        return;
+                if (flex === config.flexValue) {
+                    const productCode = barcode.substr(config.flexLength, config.productLength);
+                    const weightStr = barcode.substr(config.flexLength + config.productLength, config.weightLength);
+                    const weightGram = parseInt(weightStr, 10);
+                    if (!isNaN(weightGram) && weightGram > 0) {
+                        // Cari produk dengan kode tersebut (harus timbangan)
+                        const q = query(
+                            produkCol,
+                            where('deleted', '==', false),
+                            where('gudangId', '==', currentWarehouse),
+                            where('kode', '==', productCode),
+                            where('produkTimbangan', '==', true)
+                        );
+                        const snap = await getDocs(q);
+                        if (!snap.empty) {
+                            produk = { id: snap.docs[0].id, ...snap.docs[0].data() };
+                            productsCache.set(produk.id, produk);
+                            const qtyKg = weightGram / 1000;
+                            tambahKeCart(produk.id, qtyKg, null);
+                            barcodeInput.value = '';
+                            await loadProductsPage('next');
+                            return;
+                        } else {
+                            alert(`Produk timbangan dengan kode ${productCode} tidak ditemukan`);
+                        }
                     }
                 }
             }
 
             alert('Produk tidak ditemukan');
             barcodeInput.value = '';
-            renderProducts();
         }
 
         // ========== FUNGSI CART DAN QTY BREAK ==========
         async function tambahKeCart(produkId, qty, konversiId = null) {
-            const produk = allProducts.find(p => p.id === produkId);
-            if (!produk) return;
+            const produk = await getProdukFromCache(produkId);
+            if (!produk) {
+                alert('Produk tidak ditemukan');
+                return;
+            }
 
             let konversi = null;
             let nilaiKonversi = 1;
@@ -1606,7 +1773,7 @@
         }
 
         function updateHargaProduk(produkId) {
-            const produk = allProducts.find(p => p.id === produkId);
+            const produk = productsCache.get(produkId);
             if (!produk) return;
 
             const items = cartItems.filter(item => item.produkId === produkId);
@@ -1640,7 +1807,7 @@
         function updateQtyCart(index, newQty) {
             const item = cartItems[index];
             if (!item) return false;
-            const produk = allProducts.find(p => p.id === item.produkId);
+            const produk = productsCache.get(item.produkId);
             if (!produk) return false;
 
             const newQtyDasar = newQty * item.nilaiKonversi;
@@ -1726,7 +1893,7 @@
                 return;
             }
 
-            const produk = allProducts.find(p => p.id === produkId);
+            const produk = await getProdukFromCache(produkId);
             if (!produk) return;
 
             const qtyInput = document.querySelector(`[data-id="${produkId}"] .qty-input`);
@@ -1839,7 +2006,15 @@
         }
 
         // ========== EVENT LISTENER LAINNYA ==========
-        barcodeInput.addEventListener('input', renderProducts);
+        barcodeInput.addEventListener('input', () => {
+            currentSearchTerm = barcodeInput.value;
+            // Reset pagination
+            pageSnapshots = [];
+            currentPageIndex = 0;
+            lastVisible = null;
+            loadProductsPage('next');
+        });
+
         barcodeInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -1852,15 +2027,28 @@
                 viewToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentView = btn.dataset.view;
-                renderProducts();
+                // render ulang dengan data yang sudah ada di halaman saat ini (gunakan pageSnapshots)
+                if (pageSnapshots[currentPageIndex]) {
+                    renderProducts(pageSnapshots[currentPageIndex].docs);
+                }
             });
         });
+
         warehouseSelect.addEventListener('change', (e) => {
-            saveSelectedWarehouse(e.target.value);
-            renderProducts();
+            currentWarehouse = e.target.value;
+            saveSelectedWarehouse(currentWarehouse);
+            // Reset pagination
+            pageSnapshots = [];
+            currentPageIndex = 0;
+            lastVisible = null;
+            loadProductsPage('next');
         });
 
-        // MODAL CUSTOMER
+        // Pagination buttons
+        prevPageBtn.addEventListener('click', () => loadProductsPage('prev'));
+        nextPageBtn.addEventListener('click', () => loadProductsPage('next'));
+
+        // MODAL CUSTOMER (sama seperti sebelumnya)
         async function loadCustomers() {
             try { 
                 allCustomers = await getAll(customerCol);
@@ -1919,21 +2107,37 @@
         });
 
         // MODAL BUNDLE (sementara)
-        async function loadBundles() { try { const produk = await getAll(produkCol); renderBundleList(produk); } catch (error) { console.error(error); } }
-        function renderBundleList(items) { bundleListBody.innerHTML = items.map(p => `<tr data-id="${p.id}"><td>${p.kode || '-'}</td><td>${p.nama}</td><td>Rp ${(p.hargaJual || 0).toLocaleString()}</td></tr>`).join(''); }
+        async function loadBundles() { 
+            try { 
+                const produk = []; // kita tidak punya allProducts, bisa query produk dengan filter tertentu
+                const q = query(produkCol, where('deleted', '==', false), limit(50));
+                const snap = await getDocs(q);
+                snap.docs.forEach(doc => {
+                    produk.push({ id: doc.id, ...doc.data() });
+                });
+                renderBundleList(produk); 
+            } catch (error) { console.error(error); }
+        }
+        function renderBundleList(items) { 
+            bundleListBody.innerHTML = items.map(p => `<tr data-id="${p.id}"><td>${p.kode || '-'}</td><td>${p.nama}</td><td>Rp ${(p.hargaJual || 0).toLocaleString()}</td></tr>`).join(''); 
+        }
         btnBundle.addEventListener('click', () => { modalBundle.classList.add('active'); loadBundles(); });
         closeModalBundle.addEventListener('click', () => modalBundle.classList.remove('active'));
         searchBundle.addEventListener('input', () => {
             const keyword = searchBundle.value.toLowerCase();
-            const filtered = allProducts.filter(p => p.nama.toLowerCase().includes(keyword) || (p.kode && p.kode.toLowerCase().includes(keyword)));
-            renderBundleList(filtered);
+            // tidak bisa filter cepat, bisa query ulang
         });
         bundleListBody.addEventListener('click', (e) => {
             const row = e.target.closest('tr');
             if (!row) return;
             const id = row.dataset.id;
-            const produk = allProducts.find(p => p.id === id);
-            if (produk) { tambahKeCart(id, 1, null); modalBundle.classList.remove('active'); bundleBadge.textContent = '1'; }
+            getProdukFromCache(id).then(produk => {
+                if (produk) {
+                    tambahKeCart(id, 1, null);
+                    modalBundle.classList.remove('active');
+                    bundleBadge.textContent = '1';
+                }
+            });
         });
 
         closeModalSatuan.addEventListener('click', () => modalSatuan.classList.remove('active'));
@@ -2018,7 +2222,7 @@
             alert('Piutang ditambahkan ke cart');
         });
 
-        // ========== FUNGSI PEMBAYARAN ==========
+        // ========== FUNGSI PEMBAYARAN (sama seperti sebelumnya) ==========
         function resetPaymentPage() {
             paymentCash.value = '0';
             paymentCard.value = '0';
@@ -2192,14 +2396,13 @@
                         transaction.update(custRef, { outstanding: newOutstanding, updatedAt: serverTimestamp() });
                     }
 
-                    // 4. Siapkan data item dengan harga pokok (MODIFIKASI)
+                    // 4. Siapkan data item dengan harga pokok
                     const itemsForSales = [];
                     for (let i = 0; i < produkItems.length; i++) {
                         const item = produkItems[i];
                         const produkSnap = produkSnaps[i];
                         const produkData = produkSnap.data();
                         
-                        // Hitung harga pokok per unit
                         let hargaPokok = produkData.hargaDasar || 0;
                         if (item.konversiId) {
                             const konv = allKonversi.find(k => k.id === item.konversiId && k.produkId === item.produkId);
@@ -2230,7 +2433,7 @@
                         change: paidTotal - (itemsForSales.reduce((sum, i) => sum + i.subtotal, 0)),
                         customerId: selectedCustomer ? selectedCustomer.id : null,
                         customerName: selectedCustomer ? selectedCustomer.nama : null,
-                        paymentMethods: pendingPayments, // array of {method, amount}
+                        paymentMethods: pendingPayments,
                         createdAt: serverTimestamp()
                     };
                     const salesRef = doc(salesCol);
@@ -2282,7 +2485,6 @@
         }
 
         // ========== FUNGSI PRINTER + RECONNECT OTOMATIS ==========
-
         function savePrinterConnection(port) {
             try {
                 const info = port.getInfo();
@@ -2396,7 +2598,6 @@
             }
         }
 
-        // ========== FUNGSI CETAK STRUK (MENGGUNAKAN SETTINGS) ==========
         async function doPrint(dataToPrint) {
             if (!printerPort) {
                 alert('Printer tidak terhubung');
@@ -2498,29 +2699,11 @@
             else { try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); } }
         });
 
-        // Reset data untuk development (hapus semua dokumen)
-        resetBtn.addEventListener('click', async () => {
-            if (!confirm('Hapus SEMUA data di Firestore? (produk, customer, dll.)')) return;
-            try {
-                const collections = [produkCol, customerCol, gudangCol, konversiCol, unitCol, qtyCol, pendingCol];
-                for (const col of collections) {
-                    const snap = await getDocs(col);
-                    const batch = writeBatch(dbCloud);
-                    snap.docs.forEach(doc => batch.delete(doc.ref));
-                    await batch.commit();
-                }
-                alert('Semua data dihapus. Muat ulang halaman.');
-                location.reload();
-            } catch (error) {
-                alert('Gagal reset: ' + error.message);
-            }
-        });
-
-        // ========== INITIAL LOAD + RECONNECT PRINTER + SETTINGS ==========
+        // ========== INITIAL LOAD ==========
         (async function init() {
-            await loadAllData();           // muat data master
-            await loadAppSettings();       // muat settings dari Firestore
-            await reconnectToPrinter();    // coba reconnect printer
+            await loadAppSettings();
+            await loadMasterData(); // memuat data master dan produk halaman pertama
+            await reconnectToPrinter();
         })();
     </script>
 </body>
