@@ -82,7 +82,6 @@
             <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
             <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
             <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
-            <!-- Warehouse sudah dihapus karena pindah ke masterdata -->
             <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
             <!-- Relation dengan submenu -->
             <li class="has-submenu" id="relationMenuItem">
@@ -108,13 +107,9 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <button class="btn-sync" id="syncBtn"><i data-feather="refresh-cw"></i><span>Sync</span></button>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
-
-    <!-- Tombol Reset Darurat (ubah fungsinya) -->
-    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Firestore (DEV)</button>
 
     <!-- Halaman Relation -->
     <main class="main-content">
@@ -303,7 +298,7 @@
         import { 
             collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, 
             onSnapshot, query, where, orderBy, serverTimestamp, 
-            enableIndexedDbPersistence, runTransaction, increment 
+            enableIndexedDbPersistence, writeBatch 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // Aktifkan persistence
@@ -445,7 +440,7 @@
                 token: document.getElementById('tokenCustomer').value.trim(),
                 email: document.getElementById('emailCustomer').value.trim(),
                 alamat: document.getElementById('alamatCustomer').value.trim(),
-                outstanding: 0, // default piutang
+                outstanding: 0,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 deleted: false
@@ -458,7 +453,6 @@
                 await addDoc(customerCol, data);
                 alert('Customer berhasil ditambahkan');
                 e.target.reset();
-                // Jika sedang di daftar customer, snapshot akan update otomatis
             } catch (error) {
                 console.error(error);
                 alert('Gagal menambah customer: ' + error.message);
@@ -476,7 +470,7 @@
                 noRekening: document.getElementById('noRekeningSupplier').value.trim(),
                 bank: document.getElementById('bankSupplier').value.trim(),
                 alamat: document.getElementById('alamatSupplier').value.trim(),
-                utang: 0, // default utang
+                utang: 0,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 deleted: false
@@ -506,7 +500,6 @@
                 }
                 const cust = docSnap.data();
 
-                // Prompt sederhana untuk edit (bisa dikembangkan dengan form modal)
                 const kodeBaru = prompt('Edit Kode Customer', cust.kode || '');
                 if (kodeBaru === null) return;
                 const namaBaru = prompt('Edit Nama Customer', cust.nama || '');
@@ -606,27 +599,6 @@
             } else {
                 try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
             }
-        });
-
-        // ========== TOMBOL RESET (untuk development) ==========
-        document.getElementById('resetDbBtn').addEventListener('click', async () => {
-            if (!confirm('Hapus semua data customer dan supplier di Firestore?')) return;
-            try {
-                const custSnap = await getDocs(customerCol);
-                const suppSnap = await getDocs(supplierCol);
-                const batch = writeBatch(dbCloud);
-                custSnap.docs.forEach(d => batch.delete(d.ref));
-                suppSnap.docs.forEach(d => batch.delete(d.ref));
-                await batch.commit();
-                alert('Semua data customer dan supplier telah dihapus.');
-            } catch (error) {
-                alert('Gagal reset: ' + error.message);
-            }
-        });
-
-        // ========== TOMBOL SYNC (tidak diperlukan) ==========
-        document.getElementById('syncBtn').addEventListener('click', () => {
-            alert('Sinkronasi real-time aktif. Tidak perlu sync manual.');
         });
 
         // ========== INITIAL LOAD ==========
