@@ -20,12 +20,12 @@
         .btn-sync:hover { background:#e6f0ec; }
         .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
         .reset-btn:hover { background:#c82333; }
-        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; display:flex; flex-direction:column; }
         .sidebar.open { transform:translateX(0); }
         .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
         .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
         .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
-        .sidebar-menu { list-style:none; }
+        .sidebar-menu { list-style:none; flex:1; }
         .sidebar-menu li { margin-bottom:0.2rem; }
         .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
         .sidebar-menu .menu-link:hover { background:#f0f5f3; }
@@ -140,21 +140,6 @@
             margin-top: 10px;
             display: none;
         }
-        .local-logout-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 0.4rem 1rem;
-            border-radius: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.9rem;
-            margin-left: 5px;
-        }
-
         /* ===== MODAL PILIH KATEGORI, UNIT, GUDANG ===== */
         .modal-select {
             display: none;
@@ -241,6 +226,35 @@
             border-radius: 6px;
             cursor: pointer;
         }
+
+        /* ===== FOOTER SIDEBAR UNTUK LOCAL USER INFO ===== */
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+        .local-user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 0.5rem 0.8rem;
+            border-radius: 8px;
+        }
+        .local-user-info span {
+            font-weight: 600;
+            color: #006B54;
+            font-size: 0.9rem;
+        }
+        .local-logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 1rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -279,6 +293,13 @@
             <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
             <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
         </ul>
+        <!-- Footer Sidebar: info user lokal dan tombol logout -->
+        <div class="sidebar-footer">
+            <div class="local-user-info" id="localUserInfo" style="display: none;">
+                <span id="local-user-name"></span>
+                <button class="local-logout-btn" id="localLogoutBtn">Logout Lokal</button>
+            </div>
+        </div>
     </aside>
 
     <!-- Header -->
@@ -287,9 +308,7 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <span id="local-user-name" style="margin-right:10px; font-weight:600; color:#006B54;"></span>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
-            <button class="local-logout-btn" id="localLogoutBtn" style="display:none;">Logout Lokal</button>
         </div>
     </header>
 
@@ -682,7 +701,7 @@
             });
         }
 
-        // Elemen DOM untuk login lokal
+        // Elemen DOM untuk login lokal (sekarang berada di sidebar)
         const loginModal = document.getElementById('loginModal');
         const loginUsername = document.getElementById('loginUsername');
         const loginPassword = document.getElementById('loginPassword');
@@ -690,6 +709,7 @@
         const loginError = document.getElementById('loginError');
         const localUserNameSpan = document.getElementById('local-user-name');
         const localLogoutBtn = document.getElementById('localLogoutBtn');
+        const localUserInfo = document.getElementById('localUserInfo');
         const mainContent = document.querySelector('.main-content');
 
         // Cek sesi lokal saat halaman dimuat
@@ -699,11 +719,13 @@
             localUser = JSON.parse(savedLocalSession);
             localUserNameSpan.textContent = localUser.name;
             localLogoutBtn.style.display = 'inline-block';
+            localUserInfo.style.display = 'flex'; // Tampilkan blok info
             mainContent.style.display = 'block';
             loginModal.style.display = 'none';
         } else {
             mainContent.style.display = 'none';
             loginModal.style.display = 'flex';
+            localUserInfo.style.display = 'none'; // Sembunyikan blok info
         }
 
         loginSubmit.addEventListener('click', async () => {
@@ -715,6 +737,7 @@
                 localUser = user;
                 localUserNameSpan.textContent = user.name;
                 localLogoutBtn.style.display = 'inline-block';
+                localUserInfo.style.display = 'flex';
                 loginModal.style.display = 'none';
                 mainContent.style.display = 'block';
                 location.reload(); // refresh untuk memuat data master
@@ -728,6 +751,7 @@
             localUser = null;
             localUserNameSpan.textContent = '';
             localLogoutBtn.style.display = 'none';
+            localUserInfo.style.display = 'none';
             mainContent.style.display = 'none';
             loginModal.style.display = 'flex';
             loginUsername.value = '';
