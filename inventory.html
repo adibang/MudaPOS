@@ -421,7 +421,7 @@
             doc, runTransaction, serverTimestamp, onSnapshot
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        console.log('Inventory dengan server‑side pagination (field asli)');
+        console.log('Inventory dengan pencarian otomatis (debounce)');
 
         // Referensi koleksi
         const produkCol = collection(dbCloud, 'produk');
@@ -629,10 +629,20 @@
         // Event listener untuk tombol Terapkan
         applyFilterBtn.addEventListener('click', applyFilter);
 
-        // Event listener untuk pencarian dengan Enter
+        // Event listener untuk pencarian otomatis (debounce)
+        let debounceTimeout;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                applyFilter();
+            }, 500); // tunggu 500ms setelah berhenti mengetik
+        });
+
+        // Event listener untuk pencarian dengan Enter (opsional)
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
+                clearTimeout(debounceTimeout); // batalkan debounce jika ada
                 applyFilter();
             }
         });
