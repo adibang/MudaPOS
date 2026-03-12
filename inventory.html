@@ -438,14 +438,6 @@
         const pageInfo = document.getElementById('pageInfo');
         const loginBtn = document.getElementById('loginBtn');
 
-        // Pencarian dengan Enter
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                applyFilterBtn.click();
-            }
-        });
-
         // State pagination
         let lastVisible = null;
         let firstVisible = null;
@@ -623,8 +615,8 @@
             feather.replace();
         }
 
-        // ========== EVENT LISTENER ==========
-        applyFilterBtn.addEventListener('click', () => {
+        // ========== FUNGSI UNTUK MENERAPKAN FILTER ==========
+        function applyFilter() {
             currentSearchTerm = searchInput.value;
             currentSort = sortSelect.value;
             pageSnapshots = [];
@@ -632,8 +624,20 @@
             lastVisible = null;
             firstVisible = null;
             loadPage('next');
+        }
+
+        // Event listener untuk tombol Terapkan
+        applyFilterBtn.addEventListener('click', applyFilter);
+
+        // Event listener untuk pencarian dengan Enter
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyFilter();
+            }
         });
 
+        // Event listener untuk navigasi halaman
         prevPageBtn.addEventListener('click', () => {
             loadPage('prev');
         });
