@@ -237,13 +237,9 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
-
-    <!-- Tombol Reset (untuk development) -->
-    <button class="reset-btn" id="resetDbBtn" style="display:none;"><i data-feather="trash-2"></i> Reset</button>
 
     <!-- Halaman Inventory -->
     <main class="main-content">
@@ -832,14 +828,6 @@
             } else {
                 try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
             }
-        });
-
-        // ========== TOMBOL SYNC DAN RESET ==========
-        document.getElementById('syncBtn').addEventListener('click', () => {
-            alert('Sinkronasi real-time aktif. Tidak perlu sync manual.');
-        });
-        document.getElementById('resetDbBtn').addEventListener('click', () => {
-            alert('Data tersimpan di cloud, reset lokal tidak diperlukan.');
         });
 
         // ========== INITIAL LOAD ==========
