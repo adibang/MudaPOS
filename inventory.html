@@ -562,21 +562,28 @@
         let localUser = null;
         const savedLocalSession = sessionStorage.getItem('localUser');
         if (savedLocalSession) {
-            localUser = JSON.parse(savedLocalSession);
-            updateLocalUI();
+            try {
+                localUser = JSON.parse(savedLocalSession);
+            } catch (e) {
+                sessionStorage.removeItem('localUser');
+            }
         }
 
         function updateLocalUI() {
             if (localUser) {
                 localUserInfo.style.display = 'flex';
                 localUserName.textContent = localUser.name;
-                // Tombol tambah/kurang akan muncul setelah render ulang
             } else {
                 localUserInfo.style.display = 'none';
             }
             // Render ulang tabel untuk menampilkan/menyembunyikan tombol
-            loadPage(currentPageDirection);
+            if (typeof loadPage === 'function') {
+                loadPage(currentPageDirection);
+            }
         }
+
+        // Panggil updateLocalUI setelah variabel localUser ditetapkan
+        // (sebelum inisialisasi lainnya, agar tombol langsung sesuai)
 
         // Fungsi buka modal login fitur
         window.openFeatureLoginModal = () => {
@@ -1035,7 +1042,17 @@
         });
 
         // ========== INITIAL LOAD ==========
-        await initLocalDB();
+        try {
+            await initLocalDB();
+        } catch (e) {
+            console.error('Gagal inisialisasi IndexedDB lokal, fitur login lokal tidak tersedia', e);
+            // Tampilkan notifikasi bahwa fitur lokal tidak tersedia (opsional)
+        }
+
+        // Panggil updateLocalUI setelah localUser ditentukan (sebelum loadPage)
+        updateLocalUI();
+
+        // Muat halaman pertama
         loadPage('next');
     </script>
 </body>
