@@ -7,7 +7,7 @@
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
     <style>
-        /* ===== CSS LENGKAP (sama seperti sebelumnya) ===== */
+        /* ===== CSS LENGKAP ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -455,6 +455,7 @@
             if (sectionName === 'daftarProduk') {
                 loadProdukPage('next');
             }
+            // Untuk daftar kategori/unit/gudang, tidak perlu muat ulang karena sudah pakai onSnapshot
         }
 
         // Pasang event listener submenu
@@ -494,7 +495,7 @@
             }
         }
 
-        // ========== SUBSCRIBE KATEGORI (untuk mapping) ==========
+        // ========== SUBSCRIBE KATEGORI (untuk mapping dan daftar) ==========
         let unsubKategori = null;
         function subscribeDaftarKategori() {
             if (unsubKategori) unsubKategori();
@@ -513,7 +514,7 @@
             });
         }
 
-        // ========== SUBSCRIBE UNIT (untuk mapping) ==========
+        // ========== SUBSCRIBE UNIT (untuk mapping dan daftar) ==========
         let unsubUnit = null;
         function subscribeDaftarUnit() {
             if (unsubUnit) unsubUnit();
@@ -537,25 +538,7 @@
             if (unsubGudang) unsubGudang();
             const q = query(gudangCol, where('deleted', '==', false), orderBy('nama'));
             unsubGudang = onSnapshot(q, (snapshot) => {
-                const tbody = document.getElementById('daftarGudangBody');
-                if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Belum ada data</td></tr>';
-                } else {
-                    tbody.innerHTML = snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return `<tr>
-                            <td>${data.kode || '-'}</td>
-                            <td>${data.nama}</td>
-                            <td>${data.lokasi || '-'}</td>
-                            <td>${data.kapasitas ? data.kapasitas + ' m³' : '-'}</td>
-                            <td>
-                                <button class="btn-icon edit" onclick="editGudang('${doc.id}')"><i data-feather="edit-2"></i></button>
-                                <button class="btn-icon delete" onclick="hapusGudang('${doc.id}')"><i data-feather="trash-2"></i></button>
-                            </td>
-                        </tr>`;
-                    }).join('');
-                }
-                feather.replace();
+                renderGudangTable(snapshot.docs);
             }, (error) => {
                 console.error('Snapshot gudang error:', error);
                 document.getElementById('daftarGudangBody').innerHTML = `<tr><td colspan="5" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
@@ -607,10 +590,33 @@
             feather.replace();
         }
 
+        // ========== RENDER GUDANG ==========
+        function renderGudangTable(docs) {
+            const tbody = document.getElementById('daftarGudangBody');
+            if (docs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Belum ada data</td></tr>';
+            } else {
+                tbody.innerHTML = docs.map(doc => {
+                    const data = doc.data();
+                    return `<tr>
+                        <td>${data.kode || '-'}</td>
+                        <td>${data.nama}</td>
+                        <td>${data.lokasi || '-'}</td>
+                        <td>${data.kapasitas ? data.kapasitas + ' m³' : '-'}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editGudang('${doc.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusGudang('${doc.id}')"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+            feather.replace();
+        }
+
         // ========== EVENT LISTENER PENCARIAN KATEGORI ==========
         document.getElementById('searchKategori')?.addEventListener('input', () => {
             if (unsubKategori) {
-                // Trigger render ulang dengan filter client
+                // Ambil ulang data lalu filter (bisa juga langsung filter dari koleksi, tapi kita gunakan snapshot terakhir)
                 const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
                 getDocs(q).then(snap => renderKategoriTable(snap.docs));
             }
@@ -1235,6 +1241,10 @@
         if (sections.daftarUnit.classList.contains('active')) {
             const q = query(unitCol, where('deleted', '==', false), orderBy('nama'));
             getDocs(q).then(snap => renderUnitTable(snap.docs));
+        }
+        if (sections.daftarGudang.classList.contains('active')) {
+            const q = query(gudangCol, where('deleted', '==', false), orderBy('nama'));
+            getDocs(q).then(snap => renderGudangTable(snap.docs));
         }
     </script>
 </body>
