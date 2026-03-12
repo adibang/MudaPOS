@@ -253,6 +253,7 @@
         .field-select input[readonly] {
             background: #f5f5f5;
             cursor: pointer;
+            flex: 1;
         }
         .field-select button {
             background: #006B54;
@@ -261,6 +262,7 @@
             padding: 0.6rem 1rem;
             border-radius: 6px;
             cursor: pointer;
+            white-space: nowrap;
         }
         .field-select button:hover {
             background: #004d3b;
@@ -295,28 +297,57 @@
             cursor: pointer;
         }
 
-        /* ===== PERBAIKAN TAMPILAN MOBILE UNTUK FORM PRODUK ===== */
+        /* ===== PERBAIKAN TAMPILAN MOBILE (HEMAT RUANG) ===== */
         @media (max-width: 640px) {
-            .form-grid {
-                grid-template-columns: 1fr; /* tumpuk vertikal */
-                gap: 0.8rem;
+            /* Ukuran font lebih kecil, padding lebih kecil */
+            .form-group label {
+                font-size: 0.8rem;
+                margin-bottom: 0.2rem;
             }
+            .form-group input, .form-group select, .form-group textarea {
+                padding: 0.5rem 0.6rem;
+                font-size: 0.9rem;
+            }
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+            .form-grid {
+                gap: 0.8rem;
+                margin-bottom: 1rem;
+            }
+            /* Pada layar 480px ke atas, gunakan 2 kolom */
+            @media (min-width: 481px) {
+                .form-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+            }
+            /* Pada layar sangat kecil (≤480px) tetap 1 kolom */
+            @media (max-width: 480px) {
+                .form-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+            /* Atur field-select agar tombol tetap inline */
             .field-select {
-                flex-wrap: wrap;
+                flex-wrap: nowrap;
             }
             .field-select button {
-                width: 100%;
-                margin-top: 0.3rem;
+                padding: 0.5rem 0.8rem;
+                font-size: 0.9rem;
             }
+            /* Konversi dan qty break dibuat 2 kolom dengan ukuran proporsional */
             .konversi-row, .qtybreak-row {
-                grid-template-columns: 1fr 1fr; /* 2 kolom */
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+                padding: 0.6rem;
             }
             .konversi-row .remove-row, .qtybreak-row .remove-row {
-                justify-self: center;
                 grid-column: span 2;
-                margin-top: 0.3rem;
+                justify-self: center;
+                margin-top: 0.2rem;
             }
-            /* Tombol aksi form (simpan/reset) ditumpuk */
+            /* Tombol aksi form ditumpuk vertikal dengan lebar penuh */
             div[style*="margin-top:1.5rem"] {
                 display: flex;
                 flex-direction: column;
@@ -328,10 +359,11 @@
             }
             /* Kurangi padding section */
             .content-section {
-                padding: 1rem;
+                padding: 0.8rem;
             }
             .page-title {
-                font-size: 1.4rem;
+                font-size: 1.3rem;
+                margin-bottom: 0.8rem;
             }
         }
     </style>
