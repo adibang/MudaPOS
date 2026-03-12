@@ -46,7 +46,7 @@
         .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:1rem; margin-bottom:1.2rem; }
         .form-group { display:flex; flex-direction:column; }
         .form-group label { margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
-        .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
+        .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; width:100%; box-sizing:border-box; }
         .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
         .subform-section { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e0e0e0; }
         .subform-title { font-size:1.1rem; font-weight:600; color:#006B54; margin-bottom:0.8rem; }
@@ -364,6 +364,17 @@
             .page-title {
                 font-size: 1.3rem;
                 margin-bottom: 0.8rem;
+            }
+        }
+
+        /* ===== TAMBAHAN: BATASI LEBAR INPUT DI LAYAR BESAR ===== */
+        @media (min-width: 992px) {
+            .form-group input, .form-group select, .form-group textarea {
+                max-width: 350px;
+            }
+            /* Untuk field-select yang memiliki tombol, kita biarkan flex dan input tetap 350px */
+            .field-select input[readonly] {
+                max-width: 350px;
             }
         }
     </style>
