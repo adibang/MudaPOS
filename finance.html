@@ -309,6 +309,63 @@
             border-color: #006B54;
         }
 
+        /* ===== LOGIN MODAL ===== */
+        #loginModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        #loginModal .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 300px;
+            padding: 20px;
+            text-align: center;
+        }
+        #loginModal h3 {
+            color: #006B54;
+            margin-bottom: 15px;
+        }
+        #loginModal input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+        }
+        #loginModal button {
+            width: 100%;
+            padding: 12px;
+            background: #006B54;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #loginError {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+        .logout-local-btn {
+            background: transparent;
+            border: 1px solid #006B54;
+            color: #006B54;
+            padding: 4px 8px;
+            border-radius: 15px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
         /* Responsif: sembunyikan tab bar di layar kecil, tampilkan tombol menu */
         @media (max-width: 768px) {
             .finance-tabs {
@@ -359,12 +416,25 @@
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
             <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <span id="local-user-name" style="margin-right:10px; font-weight:600; color:#006B54;"></span>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+            <button class="btn-login" id="localLogoutBtn" style="display:none; background:#dc3545; margin-left:5px;">Logout Lokal</button>
         </div>
     </header>
 
-    <!-- Konten Utama -->
-    <main class="main-content">
+    <!-- Modal Login Lokal -->
+    <div id="loginModal">
+        <div class="modal-content">
+            <h3>Login Finance</h3>
+            <input type="text" id="loginUsername" placeholder="Username">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button id="loginSubmit">Masuk</button>
+            <div id="loginError">Username atau password salah</div>
+        </div>
+    </div>
+
+    <!-- Konten Utama (disembunyikan jika belum login lokal) -->
+    <main class="main-content" id="mainContent">
         <h1 class="page-title">Finance</h1>
 
         <!-- Dashboard Cards -->
@@ -648,7 +718,7 @@
         });
     </script>
 
-    <!-- Script module utama (Firestore) -->
+    <!-- Script module utama (Firestore) dengan proteksi login lokal -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -657,14 +727,132 @@
             query, where, orderBy, serverTimestamp, Timestamp 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Referensi koleksi
+        // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
+        const LOCAL_DB_NAME = 'MudaPOSDB';
+        const LOCAL_DB_VERSION = 1;
+        const STORE_LOCAL_USERS = 'localUsers';
+        let localDB = null;
+
+        async function initLocalDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = (e) => {
+                    localDB = e.target.result;
+                    resolve();
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_LOCAL_USERS)) {
+                        db.createObjectStore(STORE_LOCAL_USERS, { keyPath: 'id', autoIncrement: true });
+                    }
+                };
+            });
+        }
+
+        async function hashLocalPassword(password) {
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(password);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) { console.warn('Crypto digest failed, using fallback', e); }
+            }
+            let hash = 0;
+            for (let i = 0; i < password.length; i++) {
+                const char = password.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
+            }
+            return hash.toString(16);
+        }
+
+        async function verifyLocalUser(username, password) {
+            return new Promise((resolve, reject) => {
+                const tx = localDB.transaction([STORE_LOCAL_USERS], 'readonly');
+                const store = tx.objectStore(STORE_LOCAL_USERS);
+                const request = store.getAll();
+                request.onsuccess = async () => {
+                    const users = request.result;
+                    const user = users.find(u => u.username === username);
+                    if (!user) { resolve(null); return; }
+                    const hashed = await hashLocalPassword(password);
+                    if (user.password === hashed) {
+                        const { password, ...safeUser } = user;
+                        resolve(safeUser);
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = reject;
+            });
+        }
+
+        // Elemen DOM untuk login lokal
+        const loginModal = document.getElementById('loginModal');
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        const loginSubmit = document.getElementById('loginSubmit');
+        const loginError = document.getElementById('loginError');
+        const localUserNameSpan = document.getElementById('local-user-name');
+        const localLogoutBtn = document.getElementById('localLogoutBtn');
+        const mainContent = document.getElementById('mainContent');
+
+        // Cek sesi lokal
+        let localUser = null;
+        const savedLocalSession = sessionStorage.getItem('localUser');
+        if (savedLocalSession) {
+            localUser = JSON.parse(savedLocalSession);
+            localUserNameSpan.textContent = localUser.name;
+            localLogoutBtn.style.display = 'inline-block';
+            mainContent.style.display = 'block';
+            loginModal.style.display = 'none';
+        } else {
+            mainContent.style.display = 'none';
+            loginModal.style.display = 'flex';
+        }
+
+        loginSubmit.addEventListener('click', async () => {
+            const username = loginUsername.value;
+            const password = loginPassword.value;
+            const user = await verifyLocalUser(username, password);
+            if (user) {
+                sessionStorage.setItem('localUser', JSON.stringify(user));
+                localUser = user;
+                localUserNameSpan.textContent = user.name;
+                localLogoutBtn.style.display = 'inline-block';
+                loginModal.style.display = 'none';
+                mainContent.style.display = 'block';
+                // Muat ulang data setelah login
+                loadDashboard();
+                showTab('cash');
+            } else {
+                loginError.style.display = 'block';
+            }
+        });
+
+        localLogoutBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('localUser');
+            localUser = null;
+            localUserNameSpan.textContent = '';
+            localLogoutBtn.style.display = 'none';
+            mainContent.style.display = 'none';
+            loginModal.style.display = 'flex';
+            loginUsername.value = '';
+            loginPassword.value = '';
+            loginError.style.display = 'none';
+        });
+
+        // ========== REFERENSI KOLEKSI FIRESTORE ==========
         const financeTransCol = collection(dbCloud, 'financeTransactions');
         const salesCol = collection(dbCloud, 'sales');
         const purchaseCol = collection(dbCloud, 'purchase');
         const customerCol = collection(dbCloud, 'customer');
         const supplierCol = collection(dbCloud, 'supplier'); // asumsi ada koleksi supplier
 
-        // Elemen DOM
+        // Elemen DOM (sama seperti sebelumnya)
         const loginBtn = document.getElementById('loginBtn');
         const syncBtn = document.getElementById('syncBtn');
         if (syncBtn) syncBtn.style.display = 'none';
@@ -1090,8 +1278,14 @@
         });
 
         // ========== INIT ==========
-        loadDashboard();
-        showTab('cash');
+        // Inisialisasi IndexedDB lokal
+        await initLocalDB();
+
+        // Jika sudah login lokal, jalankan load data
+        if (localUser) {
+            loadDashboard();
+            showTab('cash');
+        }
     </script>
 </body>
 </html>
