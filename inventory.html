@@ -438,6 +438,14 @@
         const pageInfo = document.getElementById('pageInfo');
         const loginBtn = document.getElementById('loginBtn');
 
+        // Pencarian dengan Enter
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyFilterBtn.click();
+            }
+        });
+
         // State pagination
         let lastVisible = null;
         let firstVisible = null;
