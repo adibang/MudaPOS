@@ -438,33 +438,37 @@
     <main class="main-content" id="mainContent" style="display:none;">
         <h1 class="page-title">Master Data</h1>
 
-        <!-- ========== SECTION TAMBAH PRODUK ========== -->
+        <!-- ========== SECTION TAMBAH PRODUK (MODIFIKASI) ========== -->
         <div id="tambahProdukSection" class="content-section active">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;" id="formProdukTitle">Tambah Produk Baru</h2>
             <form id="formTambahProduk">
                 <input type="hidden" id="produkId" value="">
-                <div class="form-grid">
-                    <div class="form-group">
+                <!-- Grid utama dengan 2 kolom -->
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <!-- Nama Produk - full width -->
+                    <div class="form-group" style="grid-column: span 2;">
                         <label>Nama Produk *</label>
                         <input type="text" id="namaProduk" required>
                     </div>
+
+                    <!-- Kode Produk (kolom kiri) dan Checkbox (kolom kanan) -->
                     <div class="form-group">
                         <label>Kode Produk (timbangan)</label>
                         <input type="text" id="kodeProduk">
                     </div>
-                </div>
-                <div class="form-grid" style="margin-bottom:1rem;">
-                    <div class="form-group" style="flex-direction:row; align-items:center; gap:0.5rem;">
-                        <input type="checkbox" id="produkTimbangan" style="width:auto;">
-                        <label for="produkTimbangan" style="margin-bottom:0;">Produk Timbangan</label>
+                    <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin-top: 1.5rem;">
+                        <input type="checkbox" id="produkTimbangan" style="width: auto; margin: 0;">
+                        <label for="produkTimbangan" style="margin-bottom: 0;">Produk Timbangan</label>
                     </div>
-                </div>
-                <div class="form-grid">
-                    <div class="form-group">
+
+                    <!-- Barcode - full width -->
+                    <div class="form-group" style="grid-column: span 2;">
                         <label>Barcode</label>
                         <input type="text" id="barcodeProduk">
                     </div>
-                    <div class="form-group">
+
+                    <!-- Kategori - full width (dengan tombol) -->
+                    <div class="form-group" style="grid-column: span 2;">
                         <label>Kategori *</label>
                         <div class="field-select">
                             <input type="text" id="kategoriDisplay" readonly placeholder="Pilih Kategori" style="background:#f5f5f5;">
@@ -472,8 +476,8 @@
                             <button type="button" onclick="openKategoriModal()">Pilih</button>
                         </div>
                     </div>
-                </div>
-                <div class="form-grid">
+
+                    <!-- Harga Dasar dan Harga Jual (2 kolom) -->
                     <div class="form-group">
                         <label>Harga Dasar *</label>
                         <input type="number" id="hargaDasar" required>
@@ -482,13 +486,19 @@
                         <label>Harga Jual *</label>
                         <input type="number" id="hargaJual" required>
                     </div>
-                </div>
-                <div class="form-grid">
+
+                    <!-- Berat dan Diskon (2 kolom) -->
                     <div class="form-group">
                         <label>Berat (kg)</label>
                         <input type="number" step="0.01" id="berat">
                     </div>
                     <div class="form-group">
+                        <label>Diskon (%)</label>
+                        <input type="number" id="diskon" value="0">
+                    </div>
+
+                    <!-- Unit - full width (dengan tombol) -->
+                    <div class="form-group" style="grid-column: span 2;">
                         <label>Unit *</label>
                         <div class="field-select">
                             <input type="text" id="unitDisplay" readonly placeholder="Pilih Unit" style="background:#f5f5f5;">
@@ -496,22 +506,8 @@
                             <button type="button" onclick="openUnitModal()">Pilih</button>
                         </div>
                     </div>
-                </div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Diskon (%)</label>
-                        <input type="number" id="diskon" value="0">
-                    </div>
-                    <div class="form-group">
-                        <label>Gudang *</label>
-                        <div class="field-select">
-                            <input type="text" id="gudangDisplay" readonly placeholder="Pilih Gudang" style="background:#f5f5f5;">
-                            <input type="hidden" id="gudangId" required>
-                            <button type="button" onclick="openGudangModal()">Pilih</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-grid">
+
+                    <!-- Stok Awal dan Stok Minimal (2 kolom) -->
                     <div class="form-group">
                         <label>Stok Awal *</label>
                         <input type="number" id="stokAwal" required>
@@ -519,6 +515,16 @@
                     <div class="form-group">
                         <label>Stok Minimal *</label>
                         <input type="number" id="stokMinimal" required>
+                    </div>
+
+                    <!-- Gudang - full width (dengan tombol) -->
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Gudang *</label>
+                        <div class="field-select">
+                            <input type="text" id="gudangDisplay" readonly placeholder="Pilih Gudang" style="background:#f5f5f5;">
+                            <input type="hidden" id="gudangId" required>
+                            <button type="button" onclick="openGudangModal()">Pilih</button>
+                        </div>
                     </div>
                 </div>
 
@@ -536,9 +542,10 @@
                     <button type="button" class="btn btn-outline" id="tambahQtyBreak">+ Tambah Qty Break</button>
                 </div>
 
-                <div style="margin-top:1.5rem;">
-                    <button type="submit" class="btn">Simpan Produk</button>
-                    <button type="reset" class="btn btn-secondary">Reset</button>
+                <!-- Tombol aksi dalam 2 kolom -->
+                <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <button type="submit" class="btn" style="width: 100%;">Simpan Produk</button>
+                    <button type="reset" class="btn btn-secondary" style="width: 100%;">Reset</button>
                 </div>
             </form>
         </div>
