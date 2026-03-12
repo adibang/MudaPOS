@@ -7,7 +7,7 @@
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
     <style>
-        /* ===== CSS LENGKAP ===== */
+        /* ===== CSS LENGKAP (sama seperti sebelumnya) ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -48,21 +48,6 @@
         .form-group label { margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
         .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
         .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
-        .btn-select {
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 0.6rem 0.8rem;
-            text-align: left;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-        }
-        .btn-select:hover {
-            border-color: #006B54;
-        }
         .subform-section { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e0e0e0; }
         .subform-title { font-size:1.1rem; font-weight:600; color:#006B54; margin-bottom:0.8rem; }
         .konversi-row, .qtybreak-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:0.6rem; align-items:center; background:#fafafa; padding:0.8rem; border-radius:8px; margin-bottom:0.6rem; }
@@ -87,69 +72,28 @@
         /* Search bar */
         .search-bar { display:flex; gap:0.5rem; margin-bottom:1rem; }
         .search-bar input { flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:6px; }
-
-        /* Modal styles (sama seperti halaman lain) */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 300;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal.active { display: flex; }
-        .modal-content {
-            background: white;
-            border-radius: 20px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-            padding: 1.5rem;
-            position: relative;
-        }
-        .modal-header {
+        /* Pagination */
+        .pagination {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
             align-items: center;
-            margin-bottom: 1rem;
         }
-        .modal-header h3 { color: #006B54; }
-        .close-modal {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #999;
-        }
-        .modal-search {
-            margin-bottom: 1rem;
-        }
-        .modal-search input {
-            width: 100%;
-            padding: 0.5rem;
+        .pagination button {
+            background: white;
             border: 1px solid #ddd;
             border-radius: 20px;
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
         }
-        .modal-table {
-            width: 100%;
-            border-collapse: collapse;
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
-        .modal-table th {
-            text-align: left;
-            padding: 0.5rem;
-            background: #f9f9f9;
+        .pagination span {
+            padding: 0.4rem 0.8rem;
         }
-        .modal-table td {
-            padding: 0.5rem;
-            border-bottom: 1px solid #eee;
-        }
-        .modal-table tr { cursor: pointer; }
-        .modal-table tr:hover { background: #f5f5f5; }
     </style>
 </head>
 <body>
@@ -234,16 +178,9 @@
                         <label>Barcode</label>
                         <input type="text" id="barcodeProduk">
                     </div>
-                    <!-- MODIFIKASI: Kategori menggunakan tombol pilih modal -->
                     <div class="form-group">
                         <label>Kategori *</label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <button type="button" id="btnPilihKategori" class="btn-select" style="flex:1;">
-                                <span id="selectedKategoriText">Pilih Kategori</span>
-                                <i data-feather="chevron-down" width="16"></i>
-                            </button>
-                            <input type="hidden" id="kategoriProduk" name="kategoriProduk" required>
-                        </div>
+                        <select id="kategoriProduk" required><option value="">Pilih Kategori</option></select>
                     </div>
                 </div>
                 <div class="form-grid">
@@ -313,7 +250,7 @@
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Produk</h2>
             <!-- Search bar for produk -->
             <div class="search-bar">
-                <input type="text" id="searchProduk" placeholder="Cari berdasarkan kode, nama, barcode produk, atau barcode satuan...">
+                <input type="text" id="searchProduk" placeholder="Cari berdasarkan kode, nama, atau barcode produk...">
                 <button class="btn" id="clearSearchProduk">Clear</button>
             </div>
             <div class="table-responsive">
@@ -321,6 +258,12 @@
                     <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Timbangan</th><th>Aksi</th></tr></thead>
                     <tbody id="daftarProdukBody"><tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr></tbody>
                 </table>
+            </div>
+            <!-- Pagination untuk produk -->
+            <div class="pagination" id="paginationProduk">
+                <button id="prevPageProduk" disabled><i data-feather="chevron-left"></i> Sebelumnya</button>
+                <span id="pageInfoProduk">Halaman 1</span>
+                <button id="nextPageProduk" disabled>Selanjutnya <i data-feather="chevron-right"></i></button>
             </div>
         </div>
 
@@ -417,25 +360,6 @@
         </div>
     </main>
 
-    <!-- MODAL PILIH KATEGORI (BARU) -->
-    <div class="modal" id="modalPilihKategori">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Pilih Kategori</h3>
-                <button class="close-modal" id="closeModalKategori">&times;</button>
-            </div>
-            <div class="modal-search">
-                <input type="text" id="searchKategoriModal" placeholder="Cari nama kategori...">
-            </div>
-            <div class="modal-body" style="max-height: 300px; overflow-y: auto;">
-                <table class="modal-table">
-                    <thead><tr><th>Nama Kategori</th></tr></thead>
-                    <tbody id="kategoriModalBody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
     <!-- Script sidebar (non-module) -->
     <script>
         feather.replace();
@@ -470,7 +394,7 @@
         import { 
             collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, 
             onSnapshot, query, where, orderBy, serverTimestamp, 
-            enableIndexedDbPersistence, runTransaction, increment 
+            enableIndexedDbPersistence, runTransaction, increment, limit, startAfter 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // Aktifkan persistence
@@ -496,15 +420,6 @@
         const konversiContainer = document.getElementById('konversiContainer');
         const qtyBreakContainer = document.getElementById('qtyBreakContainer');
         const loginBtn = document.getElementById('loginBtn');
-
-        // Elemen untuk kategori modal
-        const btnPilihKategori = document.getElementById('btnPilihKategori');
-        const selectedKategoriText = document.getElementById('selectedKategoriText');
-        const kategoriProdukInput = document.getElementById('kategoriProduk');
-        const modalKategori = document.getElementById('modalPilihKategori');
-        const closeModalKategori = document.getElementById('closeModalKategori');
-        const searchKategoriModal = document.getElementById('searchKategoriModal');
-        const kategoriModalBody = document.getElementById('kategoriModalBody');
 
         // Navigasi section
         const sections = {
@@ -536,6 +451,10 @@
             if (window.innerWidth <= 768 && typeof closeSidebarFunc !== 'undefined') {
                 closeSidebarFunc();
             }
+            // Jika section yang dipilih adalah daftar produk, muat data
+            if (sectionName === 'daftarProduk') {
+                loadProdukPage('next');
+            }
         }
 
         // Pasang event listener submenu
@@ -544,37 +463,28 @@
                 el.addEventListener('click', (e) => {
                     e.preventDefault();
                     showSection(key);
-                    // Jika section daftar, pastikan subscribe aktif
-                    if (key.startsWith('daftar')) {
-                        if (key === 'daftarProduk') subscribeDaftarProduk();
-                        if (key === 'daftarKategori') subscribeDaftarKategori();
-                        if (key === 'daftarUnit') subscribeDaftarUnit();
-                        if (key === 'daftarGudang') subscribeDaftarGudang();
-                    }
                 });
             }
         }
         window.showSection = showSection;
 
-        // ========== DATA GLOBAL UNTUK PENCARIAN ==========
-        let allProduk = [];
-        let allKonversi = [];
-        let allKategori = [];
+        // ========== DATA UNTUK MAPPING (kategori, unit) ==========
         let kategoriMap = {};
         let unitMap = {};
-        let searchProdukTerm = '';
-        let searchKategoriTerm = '';
 
-        // ========== LOAD DROPDOWNS (unit dan gudang saja, kategori sudah pakai modal) ==========
+        // ========== LOAD DROPDOWNS ==========
         async function loadDropdowns() {
             try {
-                // Unit
+                const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
+                const kategoriSelect = document.getElementById('kategoriProduk');
+                kategoriSelect.innerHTML = '<option value="">Pilih Kategori</option>' + 
+                    kategoriSnap.docs.map(d => `<option value="${d.id}">${d.data().nama}</option>`).join('');
+
                 const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
                 const unitSelect = document.getElementById('unit');
                 unitSelect.innerHTML = '<option value="">Pilih Unit</option>' + 
                     unitSnap.docs.map(d => `<option value="${d.id}">${d.data().nama}</option>`).join('');
 
-                // Gudang
                 const gudangSnap = await getDocs(query(gudangCol, where('deleted', '==', false)));
                 const gudangSelect = document.getElementById('gudang');
                 gudangSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
@@ -584,121 +494,44 @@
             }
         }
 
-        // ========== SUBSCRIBE KATEGORI UNTUK MODAL ==========
-        let unsubKategoriModal = null;
-        function subscribeKategoriModal() {
-            if (unsubKategoriModal) unsubKategoriModal();
-            const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
-            unsubKategoriModal = onSnapshot(q, (snapshot) => {
-                allKategori = snapshot.docs.map(doc => ({ id: doc.id, nama: doc.data().nama }));
-                renderKategoriModal();
-            }, (error) => {
-                console.error('Snapshot kategori modal error:', error);
-            });
-        }
-
-        function renderKategoriModal() {
-            const keyword = searchKategoriModal ? searchKategoriModal.value.toLowerCase() : '';
-            let filtered = allKategori;
-            if (keyword) {
-                filtered = allKategori.filter(k => k.nama.toLowerCase().includes(keyword));
-            }
-            if (filtered.length === 0) {
-                kategoriModalBody.innerHTML = '<tr><td style="text-align:center;">Tidak ada kategori</td></tr>';
-            } else {
-                kategoriModalBody.innerHTML = filtered.map(k => 
-                    `<tr data-id="${k.id}" data-nama="${k.nama}"><td>${k.nama}</td></tr>`
-                ).join('');
-            }
-            feather.replace();
-        }
-
-        // Event listener untuk modal kategori
-        btnPilihKategori.addEventListener('click', () => {
-            modalKategori.classList.add('active');
-            renderKategoriModal(); // filter ulang
-        });
-
-        closeModalKategori.addEventListener('click', () => {
-            modalKategori.classList.remove('active');
-        });
-
-        window.addEventListener('click', (e) => {
-            if (e.target === modalKategori) {
-                modalKategori.classList.remove('active');
-            }
-        });
-
-        searchKategoriModal.addEventListener('input', renderKategoriModal);
-
-        kategoriModalBody.addEventListener('click', (e) => {
-            const row = e.target.closest('tr');
-            if (!row) return;
-            const id = row.dataset.id;
-            const nama = row.dataset.nama;
-            if (id && nama) {
-                kategoriProdukInput.value = id;
-                selectedKategoriText.textContent = nama;
-                modalKategori.classList.remove('active');
-            }
-        });
-
-        // ========== SUBSCRIBE KONVERSI (untuk pencarian barcode satuan) ==========
-        let unsubKonversi = null;
-        function subscribeKonversi() {
-            if (unsubKonversi) unsubKonversi();
-            const q = query(konversiCol, where('deleted', '==', false));
-            unsubKonversi = onSnapshot(q, (snapshot) => {
-                allKonversi = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderProdukFiltered(); // refresh tampilan produk jika ada perubahan konversi
-            }, (error) => {
-                console.error('Snapshot konversi error:', error);
-            });
-        }
-
-        // ========== SUBSCRIBE DAFTAR KATEGORI (untuk halaman daftar kategori) ==========
+        // ========== SUBSCRIBE KATEGORI (untuk mapping) ==========
         let unsubKategori = null;
         function subscribeDaftarKategori() {
             if (unsubKategori) unsubKategori();
             const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
             unsubKategori = onSnapshot(q, (snapshot) => {
-                allKategori = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderKategoriFiltered();
+                snapshot.docs.forEach(doc => {
+                    kategoriMap[doc.id] = doc.data().nama;
+                });
+                // Tampilkan daftar kategori (jika sedang aktif)
+                if (sections.daftarKategori.classList.contains('active')) {
+                    renderKategoriTable(snapshot.docs);
+                }
             }, (error) => {
                 console.error('Snapshot kategori error:', error);
                 document.getElementById('daftarKategoriBody').innerHTML = `<tr><td colspan="2" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
             });
         }
 
-        // ========== SUBSCRIBE DAFTAR UNIT ==========
+        // ========== SUBSCRIBE UNIT (untuk mapping) ==========
         let unsubUnit = null;
         function subscribeDaftarUnit() {
             if (unsubUnit) unsubUnit();
             const q = query(unitCol, where('deleted', '==', false), orderBy('nama'));
             unsubUnit = onSnapshot(q, (snapshot) => {
-                const tbody = document.getElementById('daftarUnitBody');
-                if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
-                } else {
-                    tbody.innerHTML = snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return `<tr>
-                            <td>${data.nama}</td>
-                            <td>
-                                <button class="btn-icon edit" onclick="editUnit('${doc.id}')"><i data-feather="edit-2"></i></button>
-                                <button class="btn-icon delete" onclick="hapusUnit('${doc.id}')"><i data-feather="trash-2"></i></button>
-                            </td>
-                        </tr>`;
-                    }).join('');
+                snapshot.docs.forEach(doc => {
+                    unitMap[doc.id] = doc.data().nama;
+                });
+                if (sections.daftarUnit.classList.contains('active')) {
+                    renderUnitTable(snapshot.docs);
                 }
-                feather.replace();
             }, (error) => {
                 console.error('Snapshot unit error:', error);
                 document.getElementById('daftarUnitBody').innerHTML = `<tr><td colspan="2" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
             });
         }
 
-        // ========== SUBSCRIBE DAFTAR GUDANG ==========
+        // ========== SUBSCRIBE GUDANG ==========
         let unsubGudang = null;
         function subscribeDaftarGudang() {
             if (unsubGudang) unsubGudang();
@@ -729,88 +562,24 @@
             });
         }
 
-        // ========== SUBSCRIBE DAFTAR PRODUK ==========
-        let unsubProduk = null;
-        function subscribeDaftarProduk() {
-            if (unsubProduk) unsubProduk();
-            const q = query(produkCol, where('deleted', '==', false), orderBy('nama'));
-            unsubProduk = onSnapshot(q, async (snapshot) => {
-                allProduk = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // Perbarui mapping kategori dan unit
-                const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
-                kategoriMap = {};
-                kategoriSnap.docs.forEach(d => kategoriMap[d.id] = d.data().nama);
-                
-                const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
-                unitMap = {};
-                unitSnap.docs.forEach(d => unitMap[d.id] = d.data().nama);
-                
-                renderProdukFiltered();
-            }, (error) => {
-                console.error('Snapshot produk error:', error);
-                document.getElementById('daftarProdukBody').innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
-            });
-        }
-
-        // ========== RENDER PRODUK DENGAN FILTER ==========
-        function renderProdukFiltered() {
-            const tbody = document.getElementById('daftarProdukBody');
-            const term = searchProdukTerm.toLowerCase().trim();
-            
-            let filtered = allProduk;
-            if (term) {
-                filtered = allProduk.filter(produk => {
-                    // Cek di field produk sendiri
-                    if (produk.kode && produk.kode.toLowerCase().includes(term)) return true;
-                    if (produk.nama && produk.nama.toLowerCase().includes(term)) return true;
-                    if (produk.barcode && produk.barcode.toLowerCase().includes(term)) return true;
-                    // Cek di barcode konversi
-                    const konversiProduk = allKonversi.filter(k => k.produkId === produk.id);
-                    return konversiProduk.some(k => k.barcode && k.barcode.toLowerCase().includes(term));
-                });
-            }
-            
-            if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada data</td></tr>';
-            } else {
-                tbody.innerHTML = filtered.map(produk => {
-                    const kategoriNama = kategoriMap[produk.kategoriId] || '-';
-                    const unitNama = unitMap[produk.unitId] || '';
-                    return `<tr>
-                        <td>${produk.kode || '-'}</td>
-                        <td>${produk.nama}</td>
-                        <td>${kategoriNama}</td>
-                        <td>Rp ${(produk.hargaJual || 0).toLocaleString()}</td>
-                        <td>${produk.stokAwal || 0} ${unitNama}</td>
-                        <td>${produk.produkTimbangan ? '✓' : '-'}</td>
-                        <td>
-                            <button class="btn-icon edit" onclick="editProduk('${produk.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusProduk('${produk.id}')"><i data-feather="trash-2"></i></button>
-                        </td>
-                    </tr>`;
-                }).join('');
-            }
-            feather.replace();
-        }
-
-        // ========== RENDER KATEGORI DENGAN FILTER ==========
-        function renderKategoriFiltered() {
+        // ========== RENDER KATEGORI (client filter) ==========
+        function renderKategoriTable(docs) {
             const tbody = document.getElementById('daftarKategoriBody');
-            const term = searchKategoriTerm.toLowerCase().trim();
-            let filtered = allKategori;
+            const term = document.getElementById('searchKategori').value.toLowerCase().trim();
+            let filtered = docs;
             if (term) {
-                filtered = allKategori.filter(kat => kat.nama && kat.nama.toLowerCase().includes(term));
+                filtered = docs.filter(doc => doc.data().nama.toLowerCase().includes(term));
             }
             if (filtered.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Tidak ada data</td></tr>';
             } else {
-                tbody.innerHTML = filtered.map(kat => {
+                tbody.innerHTML = filtered.map(doc => {
+                    const data = doc.data();
                     return `<tr>
-                        <td>${kat.nama}</td>
+                        <td>${data.nama}</td>
                         <td>
-                            <button class="btn-icon edit" onclick="editKategori('${kat.id}')"><i data-feather="edit-2"></i></button>
-                            <button class="btn-icon delete" onclick="hapusKategori('${kat.id}')"><i data-feather="trash-2"></i></button>
+                            <button class="btn-icon edit" onclick="editKategori('${doc.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusKategori('${doc.id}')"><i data-feather="trash-2"></i></button>
                         </td>
                     </tr>`;
                 }).join('');
@@ -818,25 +587,40 @@
             feather.replace();
         }
 
-        // ========== EVENT LISTENER PENCARIAN ==========
-        document.getElementById('searchProduk')?.addEventListener('input', (e) => {
-            searchProdukTerm = e.target.value;
-            renderProdukFiltered();
-        });
-        document.getElementById('clearSearchProduk')?.addEventListener('click', () => {
-            document.getElementById('searchProduk').value = '';
-            searchProdukTerm = '';
-            renderProdukFiltered();
-        });
+        // ========== RENDER UNIT ==========
+        function renderUnitTable(docs) {
+            const tbody = document.getElementById('daftarUnitBody');
+            if (docs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Belum ada data</td></tr>';
+            } else {
+                tbody.innerHTML = docs.map(doc => {
+                    const data = doc.data();
+                    return `<tr>
+                        <td>${data.nama}</td>
+                        <td>
+                            <button class="btn-icon edit" onclick="editUnit('${doc.id}')"><i data-feather="edit-2"></i></button>
+                            <button class="btn-icon delete" onclick="hapusUnit('${doc.id}')"><i data-feather="trash-2"></i></button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+            feather.replace();
+        }
 
-        document.getElementById('searchKategori')?.addEventListener('input', (e) => {
-            searchKategoriTerm = e.target.value;
-            renderKategoriFiltered();
+        // ========== EVENT LISTENER PENCARIAN KATEGORI ==========
+        document.getElementById('searchKategori')?.addEventListener('input', () => {
+            if (unsubKategori) {
+                // Trigger render ulang dengan filter client
+                const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
+                getDocs(q).then(snap => renderKategoriTable(snap.docs));
+            }
         });
         document.getElementById('clearSearchKategori')?.addEventListener('click', () => {
             document.getElementById('searchKategori').value = '';
-            searchKategoriTerm = '';
-            renderKategoriFiltered();
+            if (unsubKategori) {
+                const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
+                getDocs(q).then(snap => renderKategoriTable(snap.docs));
+            }
         });
 
         // ========== FUNGSI UNTUK ROW KONVERSI DAN QTY BREAK ==========
@@ -938,7 +722,7 @@
                 });
                 alert('Kategori berhasil ditambahkan');
                 e.target.reset();
-                loadDropdowns(); // tidak perlu, tapi tetap
+                loadDropdowns();
             } catch (error) {
                 console.error(error);
                 alert('Gagal menambah kategori: ' + error.message);
@@ -1070,6 +854,168 @@
             }
         };
 
+        // ========== PAGINATION PRODUK ==========
+        let produkLastVisible = null;
+        let produkFirstVisible = null;
+        let produkPageSnapshots = []; // untuk navigasi normal
+        let produkCurrentPageIndex = 0;
+        const produkPageSize = 10;
+        let produkSearchTerm = '';
+
+        function buildProdukBaseQuery() {
+            return query(produkCol, where('deleted', '==', false), orderBy('nama'));
+        }
+
+        async function executeProdukSearchQuery(direction = 'next') {
+            const searchTerm = produkSearchTerm.toLowerCase().trim();
+            const baseQuery = buildProdukBaseQuery();
+
+            if (!searchTerm) {
+                let q = query(baseQuery, limit(produkPageSize));
+                if (direction === 'next' && produkLastVisible) {
+                    q = query(q, startAfter(produkLastVisible));
+                } else if (direction === 'prev' && produkCurrentPageIndex > 0) {
+                    return { type: 'normal', useSnapshot: true };
+                }
+                return { type: 'normal', query: q };
+            } else {
+                const fields = ['nama', 'kode', 'barcode'];
+                const queries = fields.map(field => {
+                    return query(
+                        baseQuery,
+                        where(field, '>=', searchTerm),
+                        where(field, '<=', searchTerm + '\uf8ff'),
+                        limit(produkPageSize)
+                    );
+                });
+                return { type: 'search', queries };
+            }
+        }
+
+        async function loadProdukPage(direction = 'next') {
+            try {
+                const exec = await executeProdukSearchQuery(direction);
+                let docs = [];
+
+                if (exec.type === 'normal' && exec.useSnapshot) {
+                    const prevSnapshot = produkPageSnapshots[produkCurrentPageIndex - 1];
+                    if (prevSnapshot) {
+                        renderProdukTable(prevSnapshot.docs);
+                        produkCurrentPageIndex--;
+                        produkLastVisible = prevSnapshot.docs[prevSnapshot.docs.length - 1];
+                        produkFirstVisible = prevSnapshot.docs[0];
+                        document.getElementById('pageInfoProduk').textContent = `Halaman ${produkCurrentPageIndex + 1}`;
+                        document.getElementById('prevPageProduk').disabled = produkCurrentPageIndex === 0;
+                        document.getElementById('nextPageProduk').disabled = prevSnapshot.docs.length < produkPageSize;
+                    }
+                    return;
+                }
+
+                if (exec.type === 'normal') {
+                    const snapshot = await getDocs(exec.query);
+                    docs = snapshot.docs;
+                    if (direction === 'next') {
+                        produkPageSnapshots.push(snapshot);
+                        produkCurrentPageIndex = produkPageSnapshots.length - 1;
+                    }
+                    produkLastVisible = docs[docs.length - 1];
+                    produkFirstVisible = docs[0];
+                } else {
+                    // search
+                    const snapshots = await Promise.all(exec.queries.map(q => getDocs(q)));
+                    const docsMap = new Map();
+                    snapshots.forEach(snap => {
+                        snap.docs.forEach(doc => {
+                            if (!docsMap.has(doc.id)) {
+                                docsMap.set(doc.id, doc);
+                            }
+                        });
+                    });
+                    docs = Array.from(docsMap.values());
+                    docs.sort((a, b) => a.get('nama').localeCompare(b.get('nama')));
+                    docs = docs.slice(0, produkPageSize);
+                    // Reset pagination karena pencarian
+                    produkPageSnapshots = [];
+                    produkCurrentPageIndex = 0;
+                    produkLastVisible = null;
+                    produkFirstVisible = null;
+                }
+
+                renderProdukTable(docs);
+
+                if (exec.type === 'search') {
+                    document.getElementById('pageInfoProduk').textContent = 'Halaman 1 (pencarian)';
+                    document.getElementById('prevPageProduk').disabled = true;
+                    document.getElementById('nextPageProduk').disabled = true;
+                } else {
+                    document.getElementById('pageInfoProduk').textContent = `Halaman ${produkCurrentPageIndex + 1}`;
+                    document.getElementById('prevPageProduk').disabled = produkCurrentPageIndex === 0;
+                    document.getElementById('nextPageProduk').disabled = docs.length < produkPageSize;
+                }
+            } catch (error) {
+                console.error('Gagal memuat produk:', error);
+                document.getElementById('daftarProdukBody').innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            }
+        }
+
+        function renderProdukTable(docs) {
+            const tbody = document.getElementById('daftarProdukBody');
+            if (docs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada data</td></tr>';
+                return;
+            }
+            let html = '';
+            docs.forEach(doc => {
+                const p = doc.data();
+                const kategoriNama = kategoriMap[p.kategoriId] || '-';
+                const unitNama = unitMap[p.unitId] || '';
+                // Tampilkan nama dengan huruf kapital di awal kata
+                const namaTampil = p.nama.replace(/\b\w/g, l => l.toUpperCase());
+                html += `<tr>
+                    <td>${p.kode || '-'}</td>
+                    <td>${namaTampil}</td>
+                    <td>${kategoriNama}</td>
+                    <td>Rp ${(p.hargaJual || 0).toLocaleString()}</td>
+                    <td>${p.stokAwal || 0} ${unitNama}</td>
+                    <td>${p.produkTimbangan ? '✓' : '-'}</td>
+                    <td>
+                        <button class="btn-icon edit" onclick="editProduk('${doc.id}')"><i data-feather="edit-2"></i></button>
+                        <button class="btn-icon delete" onclick="hapusProduk('${doc.id}')"><i data-feather="trash-2"></i></button>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+            feather.replace();
+        }
+
+        // Event listener pencarian produk
+        document.getElementById('searchProduk').addEventListener('input', (e) => {
+            produkSearchTerm = e.target.value;
+            produkPageSnapshots = [];
+            produkCurrentPageIndex = 0;
+            produkLastVisible = null;
+            produkFirstVisible = null;
+            loadProdukPage('next');
+        });
+
+        document.getElementById('clearSearchProduk').addEventListener('click', () => {
+            document.getElementById('searchProduk').value = '';
+            produkSearchTerm = '';
+            produkPageSnapshots = [];
+            produkCurrentPageIndex = 0;
+            produkLastVisible = null;
+            produkFirstVisible = null;
+            loadProdukPage('next');
+        });
+
+        document.getElementById('prevPageProduk').addEventListener('click', () => {
+            loadProdukPage('prev');
+        });
+
+        document.getElementById('nextPageProduk').addEventListener('click', () => {
+            loadProdukPage('next');
+        });
+
         // ========== EDIT PRODUK ==========
         window.editProduk = async (id) => {
             try {
@@ -1084,16 +1030,7 @@
                 document.getElementById('namaProduk').value = produk.nama || '';
                 document.getElementById('kodeProduk').value = produk.kode || '';
                 document.getElementById('barcodeProduk').value = produk.barcode || '';
-                // Set kategori
-                if (produk.kategoriId) {
-                    kategoriProdukInput.value = produk.kategoriId;
-                    // Ambil nama kategori dari allKategori atau fetch
-                    const kat = allKategori.find(k => k.id === produk.kategoriId);
-                    selectedKategoriText.textContent = kat ? kat.nama : 'Pilih Kategori';
-                } else {
-                    kategoriProdukInput.value = '';
-                    selectedKategoriText.textContent = 'Pilih Kategori';
-                }
+                document.getElementById('kategoriProduk').value = produk.kategoriId || '';
                 document.getElementById('hargaDasar').value = produk.hargaDasar || '';
                 document.getElementById('hargaJual').value = produk.hargaJual || '';
                 document.getElementById('berat').value = produk.berat || '';
@@ -1148,16 +1085,17 @@
         document.getElementById('formTambahProduk').addEventListener('submit', async (e) => {
             e.preventDefault();
             const produkId = produkIdInput.value;
-            const kategoriId = kategoriProdukInput.value;
-            if (!kategoriId) {
-                alert('Pilih kategori terlebih dahulu');
-                return;
-            }
+
+            // Ambil input dan ubah ke lowercase
+            const namaInput = document.getElementById('namaProduk').value;
+            const kodeInput = document.getElementById('kodeProduk').value;
+            const barcodeInput = document.getElementById('barcodeProduk').value;
+
             const produkData = {
-                nama: document.getElementById('namaProduk').value,
-                kode: document.getElementById('kodeProduk').value,
-                barcode: document.getElementById('barcodeProduk').value,
-                kategoriId: kategoriId,
+                nama: namaInput.toLowerCase(),
+                kode: kodeInput.toLowerCase(),
+                barcode: barcodeInput.toLowerCase(),
+                kategoriId: document.getElementById('kategoriProduk').value,
                 hargaDasar: parseFloat(document.getElementById('hargaDasar').value),
                 hargaJual: parseFloat(document.getElementById('hargaJual').value),
                 berat: document.getElementById('berat').value ? parseFloat(document.getElementById('berat').value) : null,
@@ -1232,16 +1170,14 @@
 
                 alert(produkId ? 'Produk berhasil diperbarui' : 'Produk berhasil ditambahkan');
 
+                // Reset form dan tetap di halaman tambah produk
                 e.target.reset();
                 konversiContainer.innerHTML = '';
                 qtyBreakContainer.innerHTML = '';
                 produkIdInput.value = '';
                 formProdukTitle.innerText = 'Tambah Produk Baru';
-                // Reset kategori
-                kategoriProdukInput.value = '';
-                selectedKategoriText.textContent = 'Pilih Kategori';
 
-                showSection('daftarProduk');
+                // Tidak pindah ke daftar produk
             } catch (error) {
                 console.error(error);
                 alert('Gagal menyimpan produk: ' + error.message);
@@ -1254,8 +1190,6 @@
             formProdukTitle.innerText = 'Tambah Produk Baru';
             konversiContainer.innerHTML = '';
             qtyBreakContainer.innerHTML = '';
-            kategoriProdukInput.value = '';
-            selectedKategoriText.textContent = 'Pilih Kategori';
         });
 
         // ========== AUTH ==========
@@ -1289,15 +1223,19 @@
         subscribeDaftarKategori();
         subscribeDaftarUnit();
         subscribeDaftarGudang();
-        subscribeDaftarProduk();
-        subscribeKonversi(); // untuk pencarian barcode satuan
-        subscribeKategoriModal(); // untuk modal pilih kategori
 
-        // Jika ada section yang aktif saat load, pastikan subscribe untuk daftar
-        if (sections.daftarProduk.classList.contains('active')) subscribeDaftarProduk();
-        if (sections.daftarKategori.classList.contains('active')) subscribeDaftarKategori();
-        if (sections.daftarUnit.classList.contains('active')) subscribeDaftarUnit();
-        if (sections.daftarGudang.classList.contains('active')) subscribeDaftarGudang();
+        // Jika ada section yang aktif saat load, muat data
+        if (sections.daftarProduk.classList.contains('active')) {
+            loadProdukPage('next');
+        }
+        if (sections.daftarKategori.classList.contains('active')) {
+            const q = query(kategoriCol, where('deleted', '==', false), orderBy('nama'));
+            getDocs(q).then(snap => renderKategoriTable(snap.docs));
+        }
+        if (sections.daftarUnit.classList.contains('active')) {
+            const q = query(unitCol, where('deleted', '==', false), orderBy('nama'));
+            getDocs(q).then(snap => renderUnitTable(snap.docs));
+        }
     </script>
 </body>
 </html>
