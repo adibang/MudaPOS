@@ -16,10 +16,6 @@
         .menu-toggle:hover { background:#f0f0f0; }
         .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
         .btn-login:hover { background:#004d3b; }
-        .btn-sync { background:transparent; border:1px solid #006B54; color:#006B54; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; margin-right:0.5rem; font-size:0.9rem; }
-        .btn-sync:hover { background:#e6f0ec; }
-        .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
-        .reset-btn:hover { background:#c82333; }
         .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
         .sidebar.open { transform:translateX(0); }
         .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
@@ -41,6 +37,8 @@
         .overlay.active { display:block; }
         .main-content { padding:1.5rem; max-width:1400px; margin:0 auto; }
         .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+
+        /* ===== FILTER BAR ===== */
         .filter-bar {
             display: flex;
             gap: 1rem;
@@ -127,6 +125,11 @@
             margin: 0 0.2rem;
         }
         .btn-icon.delete { color: #dc3545; }
+        .btn-icon.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
         .pagination {
             display: flex;
             justify-content: center;
@@ -148,7 +151,8 @@
         .pagination span {
             padding: 0.4rem 0.8rem;
         }
-        /* Modal */
+
+        /* ===== MODAL ===== */
         .modal {
             display: none;
             position: fixed;
@@ -206,6 +210,38 @@
             gap: 0.5rem;
             margin-top: 1rem;
         }
+
+        /* ===== LOGIN LOCAL MODAL (khusus fitur) ===== */
+        #featureLoginModal .modal-content {
+            max-width: 350px;
+        }
+        #featureLoginModal input {
+            margin-bottom: 10px;
+        }
+        #loginError {
+            color: red;
+            margin-top: 5px;
+            display: none;
+        }
+        .local-user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 15px;
+        }
+        .local-user-info span {
+            font-weight: 600;
+            color: #006B54;
+        }
+        .logout-local-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -237,9 +273,32 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
+            <!-- Info user lokal -->
+            <div class="local-user-info" id="localUserInfo" style="display:none;">
+                <span id="localUserName"></span>
+                <button class="logout-local-btn" id="logoutLocalBtn">Logout</button>
+            </div>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+            <!-- Tombol Riwayat Stok -->
+            <a href="stock-history.html" class="btn-primary" style="margin-left:10px; text-decoration:none;"><i data-feather="clock"></i> Riwayat Stok</a>
         </div>
     </header>
+
+    <!-- Modal Login Lokal (untuk fitur tambah/kurang stok) -->
+    <div class="modal" id="featureLoginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Login untuk Mengubah Stok</h3>
+                <button class="close-modal" onclick="closeFeatureLoginModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="featureUsername" placeholder="Username" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:15px;">
+                <input type="password" id="featurePassword" placeholder="Password" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:15px; margin-top:10px;">
+                <div id="loginError" style="color:red; margin-top:10px; display:none;">Username atau password salah</div>
+                <button id="featureLoginBtn" style="width:100%; padding:12px; background:#006B54; color:white; border:none; border-radius:15px; margin-top:15px;">Login</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Halaman Inventory -->
     <main class="main-content">
@@ -410,6 +469,7 @@
 
     <!-- Script module utama -->
     <script type="module">
+        // ========== IMPOR FIREBASE ==========
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
@@ -417,14 +477,70 @@
             doc, runTransaction, serverTimestamp, onSnapshot
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        console.log('Inventory dengan pencarian otomatis (debounce)');
+        // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
+        const LOCAL_DB_NAME = 'MudaPOSDB';
+        const LOCAL_DB_VERSION = 1;
+        const STORE_LOCAL_USERS = 'localUsers';
+        let localDB = null;
 
-        // Referensi koleksi
-        const produkCol = collection(dbCloud, 'produk');
-        const unitCol = collection(dbCloud, 'unit');
-        const stockMovementCol = collection(dbCloud, 'stockMovements');
+        async function initLocalDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = (e) => {
+                    localDB = e.target.result;
+                    resolve();
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_LOCAL_USERS)) {
+                        db.createObjectStore(STORE_LOCAL_USERS, { keyPath: 'id', autoIncrement: true });
+                    }
+                };
+            });
+        }
 
-        // Elemen DOM
+        async function hashLocalPassword(password) {
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(password);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) { console.warn('Crypto digest failed, using fallback', e); }
+            }
+            let hash = 0;
+            for (let i = 0; i < password.length; i++) {
+                const char = password.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
+            }
+            return hash.toString(16);
+        }
+
+        async function verifyLocalUser(username, password) {
+            return new Promise((resolve, reject) => {
+                const tx = localDB.transaction([STORE_LOCAL_USERS], 'readonly');
+                const store = tx.objectStore(STORE_LOCAL_USERS);
+                const request = store.getAll();
+                request.onsuccess = async () => {
+                    const users = request.result;
+                    const user = users.find(u => u.username === username);
+                    if (!user) { resolve(null); return; }
+                    const hashed = await hashLocalPassword(password);
+                    if (user.password === hashed) {
+                        const { password, ...safeUser } = user;
+                        resolve(safeUser);
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = reject;
+            });
+        }
+
+        // ========== ELEMEN DOM ==========
         const inventoryBody = document.getElementById('inventoryBody');
         const searchInput = document.getElementById('searchInput');
         const sortSelect = document.getElementById('sortSelect');
@@ -433,6 +549,74 @@
         const nextPageBtn = document.getElementById('nextPage');
         const pageInfo = document.getElementById('pageInfo');
         const loginBtn = document.getElementById('loginBtn');
+        const featureLoginModal = document.getElementById('featureLoginModal');
+        const featureUsername = document.getElementById('featureUsername');
+        const featurePassword = document.getElementById('featurePassword');
+        const featureLoginBtn = document.getElementById('featureLoginBtn');
+        const loginError = document.getElementById('loginError');
+        const localUserInfo = document.getElementById('localUserInfo');
+        const localUserName = document.getElementById('localUserName');
+        const logoutLocalBtn = document.getElementById('logoutLocalBtn');
+
+        // State login lokal
+        let localUser = null;
+        const savedLocalSession = sessionStorage.getItem('localUser');
+        if (savedLocalSession) {
+            localUser = JSON.parse(savedLocalSession);
+            updateLocalUI();
+        }
+
+        function updateLocalUI() {
+            if (localUser) {
+                localUserInfo.style.display = 'flex';
+                localUserName.textContent = localUser.name;
+                // Tombol tambah/kurang akan muncul setelah render ulang
+            } else {
+                localUserInfo.style.display = 'none';
+            }
+            // Render ulang tabel untuk menampilkan/menyembunyikan tombol
+            loadPage(currentPageDirection);
+        }
+
+        // Fungsi buka modal login fitur
+        window.openFeatureLoginModal = () => {
+            featureLoginModal.classList.add('active');
+            featureUsername.value = '';
+            featurePassword.value = '';
+            loginError.style.display = 'none';
+        };
+
+        window.closeFeatureLoginModal = () => {
+            featureLoginModal.classList.remove('active');
+        };
+
+        featureLoginBtn.addEventListener('click', async () => {
+            const username = featureUsername.value;
+            const password = featurePassword.value;
+            const user = await verifyLocalUser(username, password);
+            if (user) {
+                sessionStorage.setItem('localUser', JSON.stringify(user));
+                localUser = user;
+                updateLocalUI();
+                closeFeatureLoginModal();
+            } else {
+                loginError.style.display = 'block';
+            }
+        });
+
+        logoutLocalBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('localUser');
+            localUser = null;
+            updateLocalUI();
+        });
+
+        // ========== FIRESTORE ==========
+        console.log('Inventory dengan pencarian otomatis (debounce)');
+
+        // Referensi koleksi
+        const produkCol = collection(dbCloud, 'produk');
+        const unitCol = collection(dbCloud, 'unit');
+        const stockMovementCol = collection(dbCloud, 'stockMovements');
 
         // State pagination
         let lastVisible = null;
@@ -442,6 +626,7 @@
         const pageSize = 10;
         let currentSearchTerm = '';
         let currentSort = 'nama';
+        let currentPageDirection = 'next';
 
         // Data unit (real‑time)
         let unitMap = {};
@@ -475,7 +660,6 @@
             } else if (currentSort === 'stokDesc') {
                 baseQuery = query(baseQuery, orderBy('stokAwal', 'desc'), orderBy('nama'));
             } else {
-                // default 'nama' atau 'status' (status diurutkan berdasarkan stok kecil dulu)
                 baseQuery = query(baseQuery, orderBy('nama'));
             }
             return baseQuery;
@@ -510,6 +694,7 @@
 
         // ========== LOAD HALAMAN ==========
         async function loadPage(direction = 'next') {
+            currentPageDirection = direction;
             try {
                 const exec = await executeSearchQuery(direction);
 
@@ -593,6 +778,21 @@
                 const status = getStatusBadge(stok, minStok);
                 const unit = unitMap[p.unitId] || '';
                 const namaEscape = p.nama.replace(/'/g, "\\'");
+                
+                // Tombol aksi: opname selalu tampil, tambah/kurang hanya jika localUser ada
+                const opnameBtn = `<button class="btn-icon" onclick="openOpnameModal('${doc.id}', '${namaEscape}', ${stok})" title="Stok Opname"><i data-feather="rotate-cw"></i></button>`;
+                
+                let addBtn = '';
+                let reduceBtn = '';
+                if (localUser) {
+                    addBtn = `<button class="btn-icon" onclick="openAddModal('${doc.id}', '${namaEscape}', ${stok})" title="Tambah Stok"><i data-feather="plus-circle"></i></button>`;
+                    reduceBtn = `<button class="btn-icon" onclick="openReduceModal('${doc.id}', '${namaEscape}', ${stok})" title="Kurangi Stok"><i data-feather="minus-circle"></i></button>`;
+                } else {
+                    // Tombol disabled dengan efek dan membuka modal login saat diklik
+                    addBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk menambah stok"><i data-feather="plus-circle"></i></button>`;
+                    reduceBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk mengurangi stok"><i data-feather="minus-circle"></i></button>`;
+                }
+
                 html += `
                 <tr>
                     <td>${p.kode || '-'}</td>
@@ -601,9 +801,9 @@
                     <td>${minStok} ${unit}</td>
                     <td>${status}</td>
                     <td>
-                        <button class="btn-icon" onclick="openAddModal('${doc.id}', '${namaEscape}', ${stok})" title="Tambah Stok"><i data-feather="plus-circle"></i></button>
-                        <button class="btn-icon" onclick="openReduceModal('${doc.id}', '${namaEscape}', ${stok})" title="Kurangi Stok"><i data-feather="minus-circle"></i></button>
-                        <button class="btn-icon" onclick="openOpnameModal('${doc.id}', '${namaEscape}', ${stok})" title="Stok Opname"><i data-feather="rotate-cw"></i></button>
+                        ${addBtn}
+                        ${reduceBtn}
+                        ${opnameBtn}
                     </td>
                 </tr>`;
             });
@@ -622,28 +822,24 @@
             loadPage('next');
         }
 
-        // Event listener untuk tombol Terapkan
         applyFilterBtn.addEventListener('click', applyFilter);
 
-        // Event listener untuk pencarian otomatis (debounce)
         let debounceTimeout;
         searchInput.addEventListener('input', () => {
             clearTimeout(debounceTimeout);
             debounceTimeout = setTimeout(() => {
                 applyFilter();
-            }, 500); // tunggu 500ms setelah berhenti mengetik
+            }, 500);
         });
 
-        // Event listener untuk pencarian dengan Enter (opsional)
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                clearTimeout(debounceTimeout); // batalkan debounce jika ada
+                clearTimeout(debounceTimeout);
                 applyFilter();
             }
         });
 
-        // Event listener untuk navigasi halaman
         prevPageBtn.addEventListener('click', () => {
             loadPage('prev');
         });
@@ -654,6 +850,10 @@
 
         // ========== FUNGSI MODAL ==========
         window.openAddModal = (productId, productName, currentStock) => {
+            if (!localUser) {
+                openFeatureLoginModal();
+                return;
+            }
             document.getElementById('addProductId').value = productId;
             document.getElementById('addProductName').value = productName;
             document.getElementById('addCurrentStock').value = currentStock;
@@ -662,6 +862,10 @@
             document.getElementById('modalAddStock').classList.add('active');
         };
         window.openReduceModal = (productId, productName, currentStock) => {
+            if (!localUser) {
+                openFeatureLoginModal();
+                return;
+            }
             document.getElementById('reduceProductId').value = productId;
             document.getElementById('reduceProductName').value = productName;
             document.getElementById('reduceCurrentStock').value = currentStock;
@@ -681,7 +885,7 @@
             document.getElementById(modalId).classList.remove('active');
         };
 
-        // ========== FUNGSI SIMPAN ==========
+        // ========== FUNGSI SIMPAN (tidak diubah) ==========
         document.getElementById('saveAddStock').addEventListener('click', async () => {
             const productId = document.getElementById('addProductId').value;
             const qty = parseInt(document.getElementById('addQuantity').value);
@@ -812,7 +1016,7 @@
             }
         });
 
-        // ========== AUTH ==========
+        // ========== AUTH FIREBASE ==========
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
@@ -831,6 +1035,7 @@
         });
 
         // ========== INITIAL LOAD ==========
+        await initLocalDB();
         loadPage('next');
     </script>
 </body>
