@@ -6,7 +6,7 @@
     <title>MUDA POS - Sales</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- Hammer.js untuk gesture -->
+    <!-- Hammer.js untuk long press -->
     <script src="https://unpkg.com/hammerjs@2.0.8/hammer.min.js"></script>
     <style>
         /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
@@ -495,17 +495,25 @@
             color: #dc3545;
             padding: 0.2rem;
         }
+        /* Total di atas tombol */
+        #modalCart .cart-total {
+            text-align: right;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #006B54;
+            font-size: 1.2rem;
+        }
         #modalCart .cart-footer {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
             padding: 1rem 1.5rem;
             background: #f9f9f9;
             border-top: 1px solid #e0e0e0;
         }
-        #modalCart .cart-footer strong {
-            color: #006B54;
-            font-size: 1.1rem;
+        #modalCart .cart-footer button {
+            margin-left: 0;
         }
         .btn-checkout {
             background: #006B54;
@@ -962,15 +970,15 @@
                         <tbody id="cartItemsBody"><tr><td colspan="6" style="text-align:center;">Keranjang kosong</td></tr></tbody>
                     </table>
                 </div>
-                <!-- Total dipindahkan ke sini, di bawah tabel -->
-                <div style="text-align: right; margin-top: 1rem; font-weight: 600; color: #006B54; font-size: 1.1rem;">
+                <!-- Total di sini, di atas tombol -->
+                <div class="cart-total">
                     Total: Rp <span id="cartTotal">0</span>
                 </div>
             </div>
-            <div class="cart-footer" style="display: flex; justify-content: flex-end; align-items: center; padding: 1rem 1.5rem; background: #f9f9f9; border-top: 1px solid #e0e0e0;">
+            <div class="cart-footer">
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn-secondary" id="saveDraftBtn"><i data-feather="clock"></i>Pending</button>
-                    <button class="btn-checkout" id="checkoutBtn"><i data-feather="credit-card"></i>Check Out</button>
+                    <button class="btn-secondary" id="saveDraftBtn"><i data-feather="clock"></i> Pending</button>
+                    <button class="btn-checkout" id="checkoutBtn"><i data-feather="credit-card"></i> Check Out</button>
                 </div>
             </div>
         </div>
@@ -1136,7 +1144,7 @@
             query, where, orderBy, serverTimestamp, runTransaction, writeBatch, limit, startAfter
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        console.log('Sales page dengan varian, paket, dan long press menu (fixed)...');
+        console.log('Sales page dengan varian, paket, dan long press menu...');
 
         // ========== REFERENSI KOLEKSI ==========
         const produkCol = collection(dbCloud, 'produk');
@@ -1145,11 +1153,11 @@
         const konversiCol = collection(dbCloud, 'konversiUnit');
         const unitCol = collection(dbCloud, 'unit');
         const qtyCol = collection(dbCloud, 'qtyBreak');
-        const pendingCol = collection(dbCloud, 'pending'); // untuk draft transaksi
-        const salesCol = collection(dbCloud, 'sales'); // untuk transaksi selesai (opsional)
+        const pendingCol = collection(dbCloud, 'pending');
+        const salesCol = collection(dbCloud, 'sales');
         const settingsDocRef = doc(dbCloud, 'settings', 'appSettings');
-        const varianCol = collection(dbCloud, 'productVariants'); // koleksi varian
-        const paketCol = collection(dbCloud, 'productPackages'); // koleksi paket
+        const varianCol = collection(dbCloud, 'productVariants');
+        const paketCol = collection(dbCloud, 'productPackages');
 
         // ========== DATA GLOBAL ==========
         let allCustomers = [];
@@ -1160,11 +1168,8 @@
         let pendingList = [];
         let appSettings = null;
 
-        // Cache produk: Map(id -> data produk)
         let productsCache = new Map();
-        // Cache varian: Map(varianId -> data varian)
         let variantsCache = new Map();
-        // Cache paket: Map(produkId -> array paket)
         let packagesCache = new Map();
 
         let selectedCustomer = null;
@@ -1175,9 +1180,8 @@
         let pendingPayments = [];
         let pendingTotalPaid = 0;
         let lastTransactionData = null;
-        let currentView = 'grid'; // default tampilan grid
+        let currentView = 'grid';
 
-        // State pagination produk
         let lastVisible = null;
         let pageSnapshots = [];
         let currentPageIndex = 0;
@@ -1196,17 +1200,17 @@
         const modalCustomer = document.getElementById('modalCustomer');
         const modalBundle = document.getElementById('modalBundle');
         const modalSatuan = document.getElementById('modalSatuan');
-        const modalVarian = document.getElementById('modalVarian'); // baru
+        const modalVarian = document.getElementById('modalVarian');
         const closeModalCustomer = document.getElementById('closeModalCustomer');
         const closeModalBundle = document.getElementById('closeModalBundle');
         const closeModalSatuan = document.getElementById('closeModalSatuan');
-        const closeModalVarian = document.getElementById('closeModalVarian'); // baru
+        const closeModalVarian = document.getElementById('closeModalVarian');
         const searchCustomer = document.getElementById('searchCustomer');
         const customerListBody = document.getElementById('customerListBody');
         const searchBundle = document.getElementById('searchBundle');
         const bundleListBody = document.getElementById('bundleListBody');
         const satuanList = document.getElementById('satuanList');
-        const varianList = document.getElementById('varianList'); // baru
+        const varianList = document.getElementById('varianList');
         const pendingCountSpan = document.getElementById('pendingCount');
         const floatingPending = document.getElementById('floatingPending');
         const customerBadge = document.getElementById('customerBadge');
@@ -1253,12 +1257,10 @@
         const confirmPiutangModal = document.getElementById('confirmPiutangModal');
         const loginBtn = document.getElementById('loginBtn');
 
-        // Elemen pagination
         const prevPageBtn = document.getElementById('prevPage');
         const nextPageBtn = document.getElementById('nextPage');
         const pageInfo = document.getElementById('pageInfo');
 
-        // Long press menu
         const longPressMenu = document.getElementById('longPressMenu');
 
         // ========== FUNGSI FORMAT RUPIAH ==========
@@ -1266,7 +1268,6 @@
             return 'Rp ' + angka.toLocaleString('id-ID');
         }
 
-        // ========== FUNGSI FORMAT TANGGAL ==========
         function formatDate(date, format) {
             const d = date.getDate().toString().padStart(2, '0');
             const m = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -1281,7 +1282,7 @@
             }
         }
 
-        // ========== LOAD SETTINGS DARI FIRESTORE ==========
+        // ========== LOAD SETTINGS ==========
         async function loadAppSettings() {
             try {
                 const snap = await getDoc(settingsDocRef);
@@ -1302,24 +1303,14 @@
                 }
             } catch (error) {
                 console.error('Gagal memuat settings:', error);
-                appSettings = {
-                    barcodeConfig: { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 },
-                    printerConfig: {
-                        paperSize: '58mm',
-                        dateFormat: 'DD/MM/YYYY',
-                        printCashierName: false,
-                        headerText: 'TOKO MUDA',
-                        infoText: '',
-                        footerText: 'Terima Kasih'
-                    }
-                };
+                appSettings = { ... };
             }
         }
 
-        // ========== LOAD DATA MASTER (non-produk) ==========
+        // ========== LOAD MASTER DATA ==========
         async function loadMasterData() {
             try {
-                console.log('Memuat data master (customer, gudang, unit, konversi, qtyBreak, varian, paket)...');
+                console.log('Memuat data master...');
                 const [customerSnap, gudangSnap, unitSnap, konversiSnap, qtySnap] = await Promise.all([
                     getDocs(query(customerCol, where('deleted', '==', false))),
                     getDocs(query(gudangCol, where('deleted', '==', false))),
@@ -1334,7 +1325,6 @@
                 allKonversi = konversiSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 allQtyBreak = qtySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // Isi dropdown gudang
                 warehouseSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
                     allGudang.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
                 const saved = loadSelectedWarehouse();
@@ -1343,10 +1333,7 @@
                     currentWarehouse = saved;
                 }
 
-                // Load daftar pending
                 await loadPendingFromDB();
-
-                // Muat halaman pertama produk
                 await loadProductsPage('next');
             } catch (error) {
                 console.error('Gagal memuat data master:', error);
@@ -1383,13 +1370,11 @@
                 alert('Keranjang kosong, tidak ada yang disimpan');
                 return false;
             }
-
             const existing = pendingList.find(p => p.pendingCode && p.pendingCode.toLowerCase() === pendingCode.toLowerCase());
             if (existing) {
                 pendingCodeError.textContent = 'Kode sudah digunakan.';
                 return false;
             }
-
             const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
             const transactionData = {
                 pendingCode: pendingCode,
@@ -1410,7 +1395,6 @@
                 total: total,
                 createdAt: serverTimestamp()
             };
-
             try {
                 const docRef = await addDoc(pendingCol, transactionData);
                 transactionData.id = docRef.id;
@@ -1439,14 +1423,12 @@
         async function loadPendingTransaction(id) {
             const trans = pendingList.find(p => p.id === id);
             if (!trans) return;
-
             if (cartItems.length > 0 && !confirm('Keranjang saat ini tidak kosong. Muat draft akan mengganti isi keranjang. Lanjutkan?')) {
                 return;
             }
-
             const newCart = [];
             for (let item of trans.cart) {
-                const produk = await getProdukFromCache(item.produkId); // ambil dari cache atau Firestore
+                const produk = await getProdukFromCache(item.produkId);
                 if (!produk) {
                     alert(`Produk ${item.nama} tidak ditemukan, dilewati.`);
                     continue;
@@ -1527,13 +1509,12 @@
             }
         };
 
-        // ========== FUNGSI PAGINATION PRODUK ==========
+        // ========== PAGINATION PRODUK ==========
         async function loadProductsPage(direction = 'next') {
             if (!currentWarehouse) {
                 productContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#999;">Silakan pilih gudang terlebih dahulu</div>';
                 return;
             }
-
             try {
                 const exec = await executeProdukSearchQuery(direction);
                 let docs = [];
@@ -1556,7 +1537,6 @@
                     }
                     lastVisible = docs[docs.length - 1];
                 } else {
-                    // Mode pencarian
                     const snapshots = await Promise.all(exec.queries.map(q => getDocs(q)));
                     const docsMap = new Map();
                     snapshots.forEach(snap => {
@@ -1569,22 +1549,17 @@
                     docs = Array.from(docsMap.values());
                     docs.sort((a, b) => a.get('nama').localeCompare(b.get('nama')));
                     docs = docs.slice(0, pageSize);
-                    // Reset pagination
                     pageSnapshots = [];
                     currentPageIndex = 0;
                     lastVisible = null;
                 }
 
-                // Simpan ke cache produk
                 docs.forEach(doc => {
                     productsCache.set(doc.id, { id: doc.id, ...doc.data() });
                 });
 
-                // Untuk setiap produk, preload varian dan paket? Mungkin nanti saat dibutuhkan
-
                 renderProducts(docs);
 
-                // Update tombol pagination
                 if (exec.type === 'search') {
                     prevPageBtn.disabled = true;
                     nextPageBtn.disabled = true;
@@ -1635,7 +1610,6 @@
             }
         }
 
-        // ========== RENDER PRODUK ==========
         function renderProducts(docs) {
             if (docs.length === 0) {
                 productContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#999;">Tidak ada produk</div>';
@@ -1686,7 +1660,6 @@
             }
             feather.replace();
 
-            // Event listener untuk tombol qty (tetap manual)
             document.querySelectorAll('.qty-minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1707,7 +1680,6 @@
             });
         }
 
-        // ========== FUNGSI MENGAMBIL PRODUK DARI CACHE ATAU FIRESTORE ==========
         async function getProdukFromCache(produkId) {
             if (productsCache.has(produkId)) {
                 return productsCache.get(produkId);
@@ -1725,7 +1697,6 @@
             return null;
         }
 
-        // ========== FUNGSI MENGAMBIL VARIAN DARI CACHE ATAU FIRESTORE ==========
         async function getVarianFromCache(varianId) {
             if (variantsCache.has(varianId)) {
                 return variantsCache.get(varianId);
@@ -1743,7 +1714,6 @@
             return null;
         }
 
-        // ========== FUNGSI MENGAMBIL PAKET UNTUK PRODUK ==========
         async function getPackagesForProduct(produkId) {
             if (packagesCache.has(produkId)) {
                 return packagesCache.get(produkId);
@@ -1767,7 +1737,6 @@
 
             const barcodeLower = barcode.toLowerCase();
 
-            // Cari di cache dulu (produk yang sudah dimuat)
             let produk = null;
             for (let p of productsCache.values()) {
                 if (p.kode && p.kode.trim().toLowerCase() === barcodeLower) {
@@ -1781,7 +1750,6 @@
             }
 
             if (!produk) {
-                // Cari via query ke Firestore
                 const q = query(
                     produkCol,
                     where('deleted', '==', false),
@@ -1796,28 +1764,24 @@
             }
 
             if (produk) {
-                // Cek apakah produk punya varian? Jika ya, mungkin lebih baik minta pilih varian? Untuk sederhana, kita tambah tanpa varian dulu.
-                // Tapi bisa juga langsung tambah dengan varian default? Untuk sekarang, kita tambah tanpa varian.
-                tambahKeCart(produk.id, null, 1, null);
+                await tambahKeCart(produk.id, null, 1, null);
                 barcodeInput.value = '';
                 await loadProductsPage('next');
                 return;
             }
 
-            // Cari konversi
             let konv = allKonversi.find(k => k.barcode && k.barcode.trim().toLowerCase() === barcodeLower);
             if (konv) {
                 const produkId = konv.produkId;
                 produk = await getProdukFromCache(produkId);
                 if (produk) {
-                    tambahKeCart(produk.id, null, 1, konv.id);
+                    await tambahKeCart(produk.id, null, 1, konv.id);
                     barcodeInput.value = '';
                     await loadProductsPage('next');
                     return;
                 }
             }
 
-            // Cari varian berdasarkan barcode
             const varianQuery = query(varianCol, where('barcode', '==', barcode), where('deleted', '==', false));
             const varianSnap = await getDocs(varianQuery);
             if (!varianSnap.empty) {
@@ -1825,14 +1789,13 @@
                 variantsCache.set(varian.id, varian);
                 produk = await getProdukFromCache(varian.produkId);
                 if (produk) {
-                    tambahKeCart(produk.id, varian.id, 1, null);
+                    await tambahKeCart(produk.id, varian.id, 1, null);
                     barcodeInput.value = '';
                     await loadProductsPage('next');
                     return;
                 }
             }
 
-            // Barcode timbangan
             const config = appSettings?.barcodeConfig || { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 };
             if (barcode.length === 13) {
                 const flex = barcode.substr(0, config.flexLength);
@@ -1841,7 +1804,6 @@
                     const weightStr = barcode.substr(config.flexLength + config.productLength, config.weightLength);
                     const weightGram = parseInt(weightStr, 10);
                     if (!isNaN(weightGram) && weightGram > 0) {
-                        // Cari produk dengan kode tersebut (harus timbangan)
                         const q = query(
                             produkCol,
                             where('deleted', '==', false),
@@ -1854,7 +1816,7 @@
                             produk = { id: snap.docs[0].id, ...snap.docs[0].data() };
                             productsCache.set(produk.id, produk);
                             const qtyKg = weightGram / 1000;
-                            tambahKeCart(produk.id, null, qtyKg, null);
+                            await tambahKeCart(produk.id, null, qtyKg, null);
                             barcodeInput.value = '';
                             await loadProductsPage('next');
                             return;
@@ -1879,7 +1841,6 @@
             let sisa = qtyDasar;
             let total = 0;
 
-            // Gunakan paket sebanyak mungkin
             for (let paket of sortedPaket) {
                 if (sisa >= paket.qty) {
                     const jumlahPaket = Math.floor(sisa / paket.qty);
@@ -1888,7 +1849,6 @@
                 }
             }
 
-            // Sisa dihitung dengan quantity break
             if (sisa > 0) {
                 let hargaTerpakai = hargaSatuanNormal;
                 for (let br of sortedBreak) {
@@ -1902,34 +1862,43 @@
             return total;
         }
 
-        // ========== UPDATE HARGA PRODUK (dengan await) ==========
+        // ========== UPDATE HARGA PRODUK (DENGAN PEMISAHAN KONVERSI) ==========
         async function updateHargaProduk(produkId) {
-            const items = cartItems.filter(item => item.produkId === produkId);
-            if (items.length === 0) return;
+            const allItems = cartItems.filter(item => item.produkId === produkId);
+            if (allItems.length === 0) return;
 
-            const totalQtyDasar = items.reduce((sum, item) => sum + item.qtyDasar, 0);
-            const paketList = await getPackagesForProduct(produkId);
-            const breakList = allQtyBreak.filter(b => b.produkId === produkId);
+            // Pisahkan item berdasarkan ada konversi atau tidak
+            const itemsWithKonversi = allItems.filter(item => item.konversiId);
+            const itemsWithoutKonversi = allItems.filter(item => !item.konversiId);
 
-            const produk = await getProdukFromCache(produkId);
-            const hargaDasarProduk = produk.hargaJual || 0;
-            const totalHargaBenar = hitungSubtotal(produkId, totalQtyDasar, hargaDasarProduk, paketList, breakList);
+            // Update untuk items tanpa konversi (gunakan paket)
+            if (itemsWithoutKonversi.length > 0) {
+                const totalQtyDasar = itemsWithoutKonversi.reduce((sum, item) => sum + item.qtyDasar, 0);
+                const paketList = await getPackagesForProduct(produkId);
+                const breakList = allQtyBreak.filter(b => b.produkId === produkId);
+                const produk = await getProdukFromCache(produkId);
+                const hargaDasarProduk = produk.hargaJual || 0;
+                const totalHargaBenar = hitungSubtotal(produkId, totalQtyDasar, hargaDasarProduk, paketList, breakList);
+                const totalHargaAsli = itemsWithoutKonversi.reduce((sum, item) => sum + (item.hargaSatuan * item.qty), 0);
 
-            const totalHargaAsli = items.reduce((sum, item) => sum + (item.hargaSatuan * item.qty), 0);
-
-            if (totalHargaAsli !== totalHargaBenar && totalHargaAsli > 0) {
-                const faktor = totalHargaBenar / totalHargaAsli;
-                for (let item of items) {
-                    item.subtotal = item.hargaSatuan * item.qty * faktor;
+                if (totalHargaAsli !== totalHargaBenar && totalHargaAsli > 0) {
+                    const faktor = totalHargaBenar / totalHargaAsli;
+                    for (let item of itemsWithoutKonversi) {
+                        item.subtotal = item.hargaSatuan * item.qty * faktor;
+                    }
+                } else {
+                    for (let item of itemsWithoutKonversi) {
+                        item.subtotal = item.hargaSatuan * item.qty;
+                    }
                 }
-            } else {
-                for (let item of items) {
-                    item.subtotal = item.hargaSatuan * item.qty;
-                }
+            }
+
+            // Untuk items dengan konversi, subtotal tetap hargaSatuan * qty
+            for (let item of itemsWithKonversi) {
+                item.subtotal = item.hargaSatuan * item.qty;
             }
         }
 
-        // ========== FUNGSI TAMBAH KE CART (dengan await) ==========
         async function tambahKeCart(produkId, varianId = null, qty, konversiId = null) {
             const produk = await getProdukFromCache(produkId);
             if (!produk) { alert('Produk tidak ditemukan'); return; }
@@ -1954,7 +1923,6 @@
             const qtyDasar = qty * nilaiKonversi;
             if (qtyDasar <= 0) { alert('Qty harus lebih dari 0'); return; }
 
-            // Cek stok
             let stokTersedia = 0;
             if (varian) {
                 stokTersedia = varian.stok || 0;
@@ -1998,13 +1966,11 @@
                 });
             }
 
-            // Tunggu perhitungan paket selesai sebelum melanjutkan
             await updateHargaProduk(produkId);
             updateCartBadge();
             alert(`Produk ${produk.nama}${varian ? ' - ' + varian.namaVarian : ''} ditambahkan ke cart`);
         }
 
-        // ========== FUNGSI UPDATE QTY (dengan await) ==========
         async function updateQtyCart(index, newQty) {
             const item = cartItems[index];
             if (!item) return false;
@@ -2035,13 +2001,11 @@
             return true;
         }
 
-        // ========== FUNGSI UPDATE CART BADGE ==========
         function updateCartBadge() {
             const totalQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
             cartBadge.textContent = totalQty;
         }
 
-        // ========== RENDER CART MODAL ==========
         function renderCartModal() {
             if (!cartItemsBody) return;
             if (cartItems.length === 0) {
@@ -2084,12 +2048,12 @@
             });
 
             document.querySelectorAll('.remove-cart-item').forEach(btn => {
-                btn.addEventListener('click', async function(e) {
+                btn.addEventListener('click', function(e) {
                     const row = this.closest('tr');
                     const index = row.dataset.index;
                     const item = cartItems[index];
                     cartItems.splice(index, 1);
-                    if (item) await updateHargaProduk(item.produkId);
+                    if (item) updateHargaProduk(item.produkId);
                     renderCartModal();
                     updateCartBadge();
                 });
@@ -2147,7 +2111,6 @@
 
         // ========== MODAL VARIAN ==========
         async function showVarianModal(produkId, qty) {
-            // Ambil varian dari Firestore
             const q = query(varianCol, where('produkId', '==', produkId), where('deleted', '==', false));
             const snap = await getDocs(q);
             const varianListData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -2197,7 +2160,7 @@
             modalVarian.classList.add('active');
         }
 
-        // ========== LONG PRESS DAN TAP DENGAN HAMMER ==========
+        // ========== LONG PRESS MENU DENGAN HAMMER ==========
         function showLongPressMenu(x, y, produkId, qty) {
             longPressMenu.innerHTML = `
                 <button id="menuPilihVarian">Pilih Varian</button>
@@ -2216,7 +2179,6 @@
                 showSatuanModal(produkId, qty);
             });
 
-            // Tutup saat klik di luar
             setTimeout(() => {
                 document.addEventListener('click', function tutup(e) {
                     if (!longPressMenu.contains(e.target)) {
@@ -2227,7 +2189,6 @@
             }, 100);
         }
 
-        // Inisialisasi Hammer
         if (productContainer) {
             const mc = new Hammer.Manager(productContainer);
             mc.add(new Hammer.Tap({ event: 'tap', taps: 1, interval: 300, threshold: 10 }));
@@ -2268,7 +2229,6 @@
         // ========== EVENT LISTENER LAINNYA ==========
         barcodeInput.addEventListener('input', () => {
             currentSearchTerm = barcodeInput.value;
-            // Reset pagination
             pageSnapshots = [];
             currentPageIndex = 0;
             lastVisible = null;
@@ -2367,7 +2327,7 @@
         // MODAL BUNDLE
         async function loadBundles() { 
             try { 
-                const produk = []; // kita tidak punya allProducts, bisa query produk dengan filter tertentu
+                const produk = [];
                 const q = query(produkCol, where('deleted', '==', false), limit(50));
                 const snap = await getDocs(q);
                 snap.docs.forEach(doc => {
@@ -2381,10 +2341,7 @@
         }
         btnBundle.addEventListener('click', () => { modalBundle.classList.add('active'); loadBundles(); });
         closeModalBundle.addEventListener('click', () => modalBundle.classList.remove('active'));
-        searchBundle.addEventListener('input', () => {
-            const keyword = searchBundle.value.toLowerCase();
-            // tidak bisa filter cepat, bisa query ulang
-        });
+        searchBundle.addEventListener('input', () => {});
         bundleListBody.addEventListener('click', (e) => {
             const row = e.target.closest('tr');
             if (!row) return;
@@ -2609,7 +2566,6 @@
         async function executePayment(paidTotal, outstandingAdded) {
             try {
                 await runTransaction(dbCloud, async (transaction) => {
-                    // 1. Baca semua produk dan varian yang akan dikurangi stok
                     const produkRefs = [];
                     const varianRefs = [];
                     const cartItemsForStock = cartItems.filter(item => item.produkId !== 'piutang');
@@ -2626,7 +2582,6 @@
                     const produkSnaps = await Promise.all(produkRefs.map(ref => transaction.get(ref)));
                     const varianSnaps = await Promise.all(varianRefs.map(ref => transaction.get(ref)));
 
-                    // 2. Validasi stok
                     for (let i = 0; i < cartItemsForStock.length; i++) {
                         const item = cartItemsForStock[i];
                         if (item.varianId) {
@@ -2646,7 +2601,6 @@
                         }
                     }
 
-                    // 3. Update stok
                     for (let i = 0; i < cartItemsForStock.length; i++) {
                         const item = cartItemsForStock[i];
                         if (item.varianId) {
@@ -2662,17 +2616,14 @@
                         }
                     }
 
-                    // 4. Update piutang customer
                     if (selectedCustomer) {
                         const custRef = doc(customerCol, selectedCustomer.id);
                         let newOutstanding = selectedCustomer.outstanding || 0;
-                        // Kurangi outstanding jika ada item piutang di keranjang
                         for (let item of cartItems) {
                             if (item.produkId === 'piutang') {
                                 newOutstanding -= item.subtotal;
                             }
                         }
-                        // Tambah outstanding jika ada kekurangan bayar
                         if (outstandingAdded > 0) {
                             newOutstanding += outstandingAdded;
                         }
@@ -2680,7 +2631,6 @@
                         transaction.update(custRef, { outstanding: newOutstanding, updatedAt: serverTimestamp() });
                     }
 
-                    // 5. Siapkan data item dengan harga pokok
                     const itemsForSales = [];
                     for (let item of cartItemsForStock) {
                         const produk = await getProdukFromCache(item.produkId);
@@ -2709,7 +2659,6 @@
                         });
                     }
 
-                    // 6. Simpan transaksi ke koleksi sales
                     const salesData = {
                         items: itemsForSales,
                         total: itemsForSales.reduce((sum, i) => sum + i.subtotal, 0),
@@ -2725,7 +2674,6 @@
                     transaction.set(salesRef, salesData);
                 });
 
-                // Simpan data struk untuk cetak
                 lastTransactionData = {
                     items: cartItems.filter(item => item.produkId !== 'piutang').map(item => ({
                         name: item.nama,
@@ -2741,7 +2689,6 @@
                     transactionNumber: 'TRX-' + Date.now()
                 };
 
-                // Kosongkan cart
                 cartItems = [];
                 selectedCustomer = null;
                 customerBadge.textContent = '0';
@@ -2769,7 +2716,7 @@
             }
         }
 
-        // ========== FUNGSI PRINTER + RECONNECT OTOMATIS ==========
+        // ========== FUNGSI PRINTER ==========
         function savePrinterConnection(port) {
             try {
                 const info = port.getInfo();
@@ -2807,7 +2754,7 @@
                 if (ports.length === 0) return false;
 
                 const savedInfo = JSON.parse(savedInfoStr);
-                let targetPort = ports[0]; // fallback ke port pertama
+                let targetPort = ports[0];
 
                 for (const p of ports) {
                     const info = p.getInfo();
@@ -2983,7 +2930,7 @@
         // ========== INITIAL LOAD ==========
         (async function init() {
             await loadAppSettings();
-            await loadMasterData(); // memuat data master dan produk halaman pertama
+            await loadMasterData();
             await reconnectToPrinter();
         })();
     </script>
