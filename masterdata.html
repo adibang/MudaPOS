@@ -52,16 +52,58 @@
         .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
         .subform-section { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e0e0e0; }
         .subform-title { font-size:1.1rem; font-weight:600; color:#006B54; margin-bottom:0.8rem; }
-        .konversi-row, .qtybreak-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:0.6rem; align-items:center; background:#fafafa; padding:0.8rem; border-radius:8px; margin-bottom:0.6rem; }
-        .konversi-row .form-group, .qtybreak-row .form-group { margin-bottom:0; }
-        .remove-row { background:none; border:none; color:#dc3545; cursor:pointer; justify-self:end; padding:0.2rem; }
+        /* Varian row dengan stok */
+        .varian-row {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr 1fr auto;
+            gap: 0.5rem;
+            align-items: center;
+            background: #fafafa;
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 0.6rem;
+        }
+        .varian-row .form-group { margin-bottom: 0; }
+        /* Konversi row */
+        .konversi-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px,1fr));
+            gap: 0.6rem;
+            align-items: center;
+            background: #fafafa;
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 0.6rem;
+        }
+        /* Qty Break row */
+        .qtybreak-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 0.5rem;
+            align-items: center;
+            background: #fafafa;
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 0.6rem;
+        }
+        /* Paket row */
+        .paket-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr auto;
+            gap: 0.5rem;
+            align-items: center;
+            background: #fafafa;
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 0.6rem;
+        }
+        .remove-row { background:none; border:none; color:#dc3545; cursor:pointer; padding:0.2rem; }
         .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; margin-right:0.5rem; }
         .btn:hover { background:#004d3b; }
         .btn-secondary { background:#6c757d; }
         .btn-secondary:hover { background:#5a6268; }
         .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; margin-top:0.5rem; }
         .btn-outline:hover { background:#e6f0ec; }
-        /* Definisi btn-primary (sama dengan btn) untuk konsistensi */
         .btn-primary { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; }
         .btn-primary:hover { background:#004d3b; }
         .table-responsive { overflow-x:auto; margin-top:1rem; }
@@ -301,83 +343,40 @@
 
         /* ===== PERBAIKAN TAMPILAN MOBILE (HEMAT RUANG) ===== */
         @media (max-width: 640px) {
-            /* Ukuran font lebih kecil, padding lebih kecil */
-            .form-group label {
-                font-size: 0.8rem;
-                margin-bottom: 0.2rem;
-            }
-            .form-group input, .form-group select, .form-group textarea {
-                padding: 0.5rem 0.6rem;
-                font-size: 0.9rem;
-            }
-            .btn {
-                padding: 0.5rem 1rem;
-                font-size: 0.9rem;
-            }
-            .form-grid {
-                gap: 0.8rem;
-                margin-bottom: 1rem;
-            }
-            /* Pada layar 480px ke atas, gunakan 2 kolom */
-            @media (min-width: 481px) {
-                .form-grid {
-                    grid-template-columns: repeat(2, 1fr);
-                }
-            }
-            /* Pada layar sangat kecil (≤480px) tetap 1 kolom */
-            @media (max-width: 480px) {
-                .form-grid {
-                    grid-template-columns: 1fr;
-                }
-            }
-            /* Atur field-select agar tombol tetap inline */
-            .field-select {
-                flex-wrap: nowrap;
-            }
-            .field-select button {
-                padding: 0.5rem 0.8rem;
-                font-size: 0.9rem;
-            }
-            /* Konversi dan qty break dibuat 2 kolom dengan ukuran proporsional */
-            .konversi-row, .qtybreak-row {
+            .form-group label { font-size:0.8rem; margin-bottom:0.2rem; }
+            .form-group input, .form-group select, .form-group textarea { padding:0.5rem 0.6rem; font-size:0.9rem; }
+            .btn { padding:0.5rem 1rem; font-size:0.9rem; }
+            .form-grid { gap:0.8rem; margin-bottom:1rem; }
+            @media (min-width:481px) { .form-grid { grid-template-columns:repeat(2,1fr); } }
+            @media (max-width:480px) { .form-grid { grid-template-columns:1fr; } }
+            .field-select { flex-wrap:nowrap; }
+            .field-select button { padding:0.5rem 0.8rem; font-size:0.9rem; }
+            .varian-row {
                 grid-template-columns: 1fr 1fr;
                 gap: 0.5rem;
-                padding: 0.6rem;
             }
-            .konversi-row .remove-row, .qtybreak-row .remove-row {
+            .varian-row .remove-row {
                 grid-column: span 2;
                 justify-self: center;
                 margin-top: 0.2rem;
             }
-            /* Tombol aksi form ditumpuk vertikal dengan lebar penuh */
-            div[style*="margin-top:1.5rem"] {
-                display: flex;
-                flex-direction: column;
-                gap: 0.5rem;
+            .konversi-row { grid-template-columns:1fr 1fr; }
+            .qtybreak-row { grid-template-columns:1fr 1fr; }
+            .paket-row { grid-template-columns:1fr 1fr; }
+            .konversi-row .remove-row, .qtybreak-row .remove-row, .paket-row .remove-row {
+                grid-column: span 2;
+                justify-self: center;
+                margin-top: 0.2rem;
             }
-            div[style*="margin-top:1.5rem"] button {
-                width: 100%;
-                margin-right: 0;
-            }
-            /* Kurangi padding section */
-            .content-section {
-                padding: 0.8rem;
-            }
-            .page-title {
-                font-size: 1.3rem;
-                margin-bottom: 0.8rem;
-            }
+            div[style*="margin-top:1.5rem"] { display:flex; flex-direction:column; gap:0.5rem; }
+            div[style*="margin-top:1.5rem"] button { width:100%; margin-right:0; }
+            .content-section { padding:0.8rem; }
+            .page-title { font-size:1.3rem; margin-bottom:0.8rem; }
         }
 
-        /* ===== TAMBAHAN: BATASI LEBAR INPUT DI LAYAR BESAR ===== */
         @media (min-width: 992px) {
-            .form-group input, .form-group select, .form-group textarea {
-                max-width: 350px;
-            }
-            /* Untuk field-select yang memiliki tombol, kita biarkan flex dan input tetap 350px */
-            .field-select input[readonly] {
-                max-width: 350px;
-            }
+            .form-group input, .form-group select, .form-group textarea { max-width:350px; }
+            .field-select input[readonly] { max-width:350px; }
         }
     </style>
 </head>
@@ -451,7 +450,7 @@
     <main class="main-content" id="mainContent" style="display:none;">
         <h1 class="page-title">Master Data</h1>
 
-        <!-- ========== SECTION TAMBAH PRODUK (MODIFIKASI DENGAN SCAN) ========== -->
+        <!-- ========== SECTION TAMBAH PRODUK ========== -->
         <div id="tambahProdukSection" class="content-section active">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;" id="formProdukTitle">Tambah Produk Baru</h2>
             <form id="formTambahProduk">
@@ -483,7 +482,6 @@
                                 <i data-feather="camera" width="18"></i> Scan
                             </button>
                         </div>
-                        <!-- Container untuk menampilkan pemindai barcode (awalnya disembunyikan) -->
                         <div id="barcode-scanner-container" style="display: none; margin-top: 1rem; width: 100%;"></div>
                     </div>
 
@@ -527,7 +525,7 @@
                         </div>
                     </div>
 
-                    <!-- Stok Awal dan Stok Minimal (2 kolom) -->
+                    <!-- Stok Awal dan Stok Minimal (2 kolom) - Stok Awal hanya digunakan jika tidak ada varian -->
                     <div class="form-group">
                         <label>Stok Awal *</label>
                         <input type="number" id="stokAwal" required>
@@ -548,6 +546,13 @@
                     </div>
                 </div>
 
+                <!-- Varian Produk (dengan stok) -->
+                <div class="subform-section">
+                    <div class="subform-title">Varian Produk</div>
+                    <div id="varianContainer"></div>
+                    <button type="button" class="btn btn-outline" id="tambahVarian">+ Tambah Varian</button>
+                </div>
+
                 <!-- Konversi Unit -->
                 <div class="subform-section">
                     <div class="subform-title">Konversi Unit</div>
@@ -555,11 +560,18 @@
                     <button type="button" class="btn btn-outline" id="tambahKonversi">+ Tambah Konversi</button>
                 </div>
 
-                <!-- Qty Break -->
+                <!-- Quantity Break -->
                 <div class="subform-section">
                     <div class="subform-title">Quantity Break (Level Harga)</div>
                     <div id="qtyBreakContainer"></div>
                     <button type="button" class="btn btn-outline" id="tambahQtyBreak">+ Tambah Qty Break</button>
+                </div>
+
+                <!-- Harga Paket -->
+                <div class="subform-section">
+                    <div class="subform-title">Harga Paket (berlaku untuk semua varian)</div>
+                    <div id="paketContainer"></div>
+                    <button type="button" class="btn btn-outline" id="tambahPaket">+ Tambah Paket</button>
                 </div>
 
                 <!-- Tombol aksi dalam 2 kolom -->
@@ -573,18 +585,16 @@
         <!-- ========== SECTION DAFTAR PRODUK ========== -->
         <div id="daftarProdukSection" class="content-section">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Produk</h2>
-            <!-- Search bar for produk -->
             <div class="search-bar">
                 <input type="text" id="searchProduk" placeholder="Cari berdasarkan kode, nama, atau barcode produk...">
                 <button class="btn" id="clearSearchProduk">Clear</button>
             </div>
             <div class="table-responsive">
                 <table>
-                    <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Timbangan</th><th>Aksi</th></tr></thead>
-                    <tbody id="daftarProdukBody"><tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr></tbody>
+                    <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Jml Varian</th><th>Timbangan</th><th>Aksi</th></tr></thead>
+                    <tbody id="daftarProdukBody"><tr><td colspan="8" style="text-align:center;">Memuat data...</td></tr></tbody>
                 </table>
             </div>
-            <!-- Pagination untuk produk -->
             <div class="pagination" id="paginationProduk">
                 <button id="prevPageProduk" disabled><i data-feather="chevron-left"></i> Sebelumnya</button>
                 <span id="pageInfoProduk">Halaman 1</span>
@@ -607,7 +617,6 @@
         <!-- ========== SECTION DAFTAR KATEGORI ========== -->
         <div id="daftarKategoriSection" class="content-section">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Kategori</h2>
-            <!-- Search bar for kategori -->
             <div class="search-bar">
                 <input type="text" id="searchKategori" placeholder="Cari nama kategori...">
                 <button class="btn" id="clearSearchKategori">Clear</button>
@@ -766,14 +775,14 @@
         window.showSection = function(sectionName) { };
     </script>
 
-    <!-- Script module utama (Firestore + Scanner) -->
+    <!-- Script module utama (Firestore + Scanner + Varian + Paket) -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
             collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, 
             onSnapshot, query, where, orderBy, serverTimestamp, 
-            enableIndexedDbPersistence, runTransaction, increment, limit, startAfter 
+            enableIndexedDbPersistence, runTransaction, increment, limit, startAfter, writeBatch 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
@@ -839,7 +848,7 @@
             });
         }
 
-        // Elemen DOM untuk login lokal (sekarang berada di sidebar)
+        // Elemen DOM untuk login lokal
         const loginModal = document.getElementById('loginModal');
         const loginUsername = document.getElementById('loginUsername');
         const loginPassword = document.getElementById('loginPassword');
@@ -850,20 +859,19 @@
         const localUserInfo = document.getElementById('localUserInfo');
         const mainContent = document.querySelector('.main-content');
 
-        // Cek sesi lokal saat halaman dimuat
         let localUser = null;
         const savedLocalSession = sessionStorage.getItem('localUser');
         if (savedLocalSession) {
             localUser = JSON.parse(savedLocalSession);
             localUserNameSpan.textContent = localUser.name;
             localLogoutBtn.style.display = 'inline-block';
-            localUserInfo.style.display = 'flex'; // Tampilkan blok info
+            localUserInfo.style.display = 'flex';
             mainContent.style.display = 'block';
             loginModal.style.display = 'none';
         } else {
             mainContent.style.display = 'none';
             loginModal.style.display = 'flex';
-            localUserInfo.style.display = 'none'; // Sembunyikan blok info
+            localUserInfo.style.display = 'none';
         }
 
         loginSubmit.addEventListener('click', async () => {
@@ -878,7 +886,7 @@
                 localUserInfo.style.display = 'flex';
                 loginModal.style.display = 'none';
                 mainContent.style.display = 'block';
-                location.reload(); // refresh untuk memuat data master
+                location.reload();
             } else {
                 loginError.style.display = 'block';
             }
@@ -897,7 +905,7 @@
             loginError.style.display = 'none';
         });
 
-        // ========== AKTIFKAN PERSISTENCE FIRESTORE ==========
+        // ========== FIRESTORE ==========
         enableIndexedDbPersistence(dbCloud).catch((err) => {
             if (err.code == 'failed-precondition') {
                 console.warn('Persistence gagal: multiple tabs open');
@@ -913,12 +921,16 @@
         const produkCol = collection(dbCloud, 'produk');
         const konversiCol = collection(dbCloud, 'konversiUnit');
         const qtyCol = collection(dbCloud, 'qtyBreak');
+        const varianCol = collection(dbCloud, 'productVariants');
+        const paketCol = collection(dbCloud, 'productPackages'); // koleksi paket
 
         // Elemen DOM
         const produkIdInput = document.getElementById('produkId');
         const formProdukTitle = document.getElementById('formProdukTitle');
+        const varianContainer = document.getElementById('varianContainer');
         const konversiContainer = document.getElementById('konversiContainer');
         const qtyBreakContainer = document.getElementById('qtyBreakContainer');
+        const paketContainer = document.getElementById('paketContainer');
         const loginBtn = document.getElementById('loginBtn');
 
         // Navigasi section
@@ -949,7 +961,6 @@
         let lastGudangDocs = [];
 
         function showSection(sectionName) {
-            // Hentikan scanner jika pindah dari section tambah produk
             if (sectionName !== 'tambahProduk') {
                 stopBarcodeScanner();
             }
@@ -960,7 +971,6 @@
             if (window.innerWidth <= 768 && typeof closeSidebarFunc !== 'undefined') {
                 closeSidebarFunc();
             }
-            // Jika section yang dipilih adalah daftar, muat data dari yang tersimpan
             if (sectionName === 'daftarProduk') {
                 loadProdukPage('next');
             } else if (sectionName === 'daftarKategori' && lastKategoriDocs.length > 0) {
@@ -972,7 +982,6 @@
             }
         }
 
-        // Pasang event listener submenu
         for (let [key, el] of Object.entries(submenus)) {
             if (el) {
                 el.addEventListener('click', (e) => {
@@ -983,11 +992,11 @@
         }
         window.showSection = showSection;
 
-        // ========== DATA UNTUK MAPPING (kategori, unit) ==========
+        // ========== DATA UNTUK MAPPING ==========
         let kategoriMap = {};
         let unitMap = {};
+        let gudangMap = {};
 
-        // ========== LOAD DROPDOWNS (tidak digunakan lagi, diganti modal) ==========
         async function loadDataForModals() {
             try {
                 const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false), orderBy('nama')));
@@ -1014,8 +1023,6 @@
 
         // ========== MODAL KATEGORI ==========
         let selectedKategoriId = null;
-        let kategoriItems = [];
-
         window.openKategoriModal = () => {
             renderKategoriModal();
             document.getElementById('kategoriModal').classList.add('active');
@@ -1118,7 +1125,6 @@
 
         // ========== MODAL GUDANG ==========
         let selectedGudangId = null;
-        let gudangMap = {};
         window.openGudangModal = () => {
             renderGudangModal();
             document.getElementById('gudangModal').classList.add('active');
@@ -1168,7 +1174,7 @@
             }
         };
 
-        // ========== SUBSCRIBE KATEGORI (untuk mapping dan daftar) ==========
+        // ========== SUBSCRIBE KATEGORI ==========
         let unsubKategori = null;
         function subscribeDaftarKategori() {
             if (unsubKategori) unsubKategori();
@@ -1187,7 +1193,7 @@
             });
         }
 
-        // ========== SUBSCRIBE UNIT (untuk mapping dan daftar) ==========
+        // ========== SUBSCRIBE UNIT ==========
         let unsubUnit = null;
         function subscribeDaftarUnit() {
             if (unsubUnit) unsubUnit();
@@ -1225,7 +1231,7 @@
             });
         }
 
-        // ========== RENDER KATEGORI (client filter) ==========
+        // ========== RENDER KATEGORI ==========
         function renderKategoriTable(docs) {
             const tbody = document.getElementById('daftarKategoriBody');
             const term = document.getElementById('searchKategori').value.toLowerCase().trim();
@@ -1293,7 +1299,7 @@
             feather.replace();
         }
 
-        // ========== EVENT LISTENER PENCARIAN KATEGORI ==========
+        // Event listener pencarian kategori
         document.getElementById('searchKategori')?.addEventListener('input', () => {
             if (lastKategoriDocs.length > 0) {
                 renderKategoriTable(lastKategoriDocs);
@@ -1318,7 +1324,50 @@
             }
         });
 
-        // ========== FUNGSI UNTUK ROW KONVERSI DAN QTY BREAK ==========
+        // ========== FUNGSI UNTUK ROW VARIAN, KONVERSI, QTY BREAK, PAKET ==========
+        function tambahVarianRow(data = null) {
+            const row = document.createElement('div');
+            row.className = 'varian-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <input type="text" class="namaVarian" placeholder="Nama varian" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" class="barcodeVarian" placeholder="Barcode">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaDasarVarian" placeholder="Harga dasar" step="100">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="hargaJualVarian" placeholder="Harga jual" step="100">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="poinVarian" placeholder="Poin">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="komisiVarian" placeholder="Komisi" step="0.1">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="stokVarian" placeholder="Stok awal" value="0" min="0">
+                </div>
+                <button type="button" class="remove-row"><i data-feather="x"></i></button>
+            `;
+            varianContainer.appendChild(row);
+
+            if (data) {
+                row.querySelector('.namaVarian').value = data.namaVarian || '';
+                row.querySelector('.barcodeVarian').value = data.barcode || '';
+                row.querySelector('.hargaDasarVarian').value = data.hargaDasar || '';
+                row.querySelector('.hargaJualVarian').value = data.hargaJual || '';
+                row.querySelector('.poinVarian').value = data.poinCustomer || '';
+                row.querySelector('.komisiVarian').value = data.komisiSales || '';
+                row.querySelector('.stokVarian').value = data.stok || 0;
+            }
+
+            feather.replace();
+            row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+        }
+
         function tambahKonversiRow(data = null) {
             const row = document.createElement('div');
             row.className = 'konversi-row';
@@ -1399,11 +1448,41 @@
             row.querySelector('.remove-row').addEventListener('click', () => row.remove());
         }
 
-        // ========== TAMBAH KONVERSI / QTY BREAK ==========
+        // Fungsi untuk menambah baris paket (tanpa pilihan varian)
+        function tambahPaketRow(data = null) {
+            const row = document.createElement('div');
+            row.className = 'paket-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <input type="number" class="paketQty" placeholder="Jumlah item" min="1" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" class="paketHarga" placeholder="Harga paket" min="0" step="100" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" class="paketKeterangan" placeholder="Keterangan (opsional)">
+                </div>
+                <button type="button" class="remove-row"><i data-feather="x"></i></button>
+            `;
+            paketContainer.appendChild(row);
+
+            if (data) {
+                row.querySelector('.paketQty').value = data.qty || '';
+                row.querySelector('.paketHarga').value = data.price || '';
+                row.querySelector('.paketKeterangan').value = data.keterangan || '';
+            }
+
+            feather.replace();
+            row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+        }
+
+        // Event listener untuk tombol tambah
+        document.getElementById('tambahVarian').addEventListener('click', () => tambahVarianRow());
         document.getElementById('tambahKonversi').addEventListener('click', () => tambahKonversiRow());
         document.getElementById('tambahQtyBreak').addEventListener('click', () => tambahQtyBreakRow());
+        document.getElementById('tambahPaket').addEventListener('click', () => tambahPaketRow());
 
-        // ========== TAMBAH KATEGORI ==========
+        // ========== TAMBAH KATEGORI, UNIT, GUDANG ==========
         document.getElementById('formTambahKategori').addEventListener('submit', async (e) => {
             e.preventDefault();
             const nama = document.getElementById('namaKategori').value.trim();
@@ -1424,7 +1503,6 @@
             }
         });
 
-        // ========== TAMBAH UNIT ==========
         document.getElementById('formTambahUnit').addEventListener('submit', async (e) => {
             e.preventDefault();
             const nama = document.getElementById('namaUnit').value.trim();
@@ -1445,7 +1523,6 @@
             }
         });
 
-        // ========== TAMBAH GUDANG ==========
         document.getElementById('formTambahGudang').addEventListener('submit', async (e) => {
             e.preventDefault();
             const kode = document.getElementById('kodeGudang').value.trim();
@@ -1634,6 +1711,20 @@
                     produkFirstVisible = null;
                 }
 
+                if (docs.length > 0) {
+                    const produkIds = docs.map(doc => doc.id);
+                    const varianQuery = query(varianCol, where('produkId', 'in', produkIds), where('deleted', '==', false));
+                    const varianSnap = await getDocs(varianQuery);
+                    const varianCountMap = new Map();
+                    varianSnap.forEach(doc => {
+                        const produkId = doc.data().produkId;
+                        varianCountMap.set(produkId, (varianCountMap.get(produkId) || 0) + 1);
+                    });
+                    docs.forEach(doc => {
+                        doc.varianCount = varianCountMap.get(doc.id) || 0;
+                    });
+                }
+
                 renderProdukTable(docs);
 
                 if (exec.type === 'search') {
@@ -1647,14 +1738,14 @@
                 }
             } catch (error) {
                 console.error('Gagal memuat produk:', error);
-                document.getElementById('daftarProdukBody').innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+                document.getElementById('daftarProdukBody').innerHTML = `<tr><td colspan="8" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
             }
         }
 
         function renderProdukTable(docs) {
             const tbody = document.getElementById('daftarProdukBody');
             if (docs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada data</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Tidak ada data</td></tr>';
                 return;
             }
             let html = '';
@@ -1663,12 +1754,14 @@
                 const kategoriNama = kategoriMap[p.kategoriId] || '-';
                 const unitNama = unitMap[p.unitId] || '';
                 const namaTampil = p.nama.replace(/\b\w/g, l => l.toUpperCase());
+                const varianCount = doc.varianCount || 0;
                 html += `<tr>
                     <td>${p.kode || '-'}</td>
                     <td>${namaTampil}</td>
                     <td>${kategoriNama}</td>
                     <td>Rp ${(p.hargaJual || 0).toLocaleString()}</td>
                     <td>${p.stokAwal || 0} ${unitNama}</td>
+                    <td>${varianCount}</td>
                     <td>${p.produkTimbangan ? '✓' : '-'}</td>
                     <td>
                         <button class="btn-icon edit" onclick="editProduk('${doc.id}')"><i data-feather="edit-2"></i></button>
@@ -1738,15 +1831,29 @@
 
                 produkIdInput.value = id;
 
+                // Load varian
+                varianContainer.innerHTML = '';
+                const varianQuery = query(varianCol, where('produkId', '==', id), where('deleted', '==', false));
+                const varianSnap = await getDocs(varianQuery);
+                varianSnap.docs.forEach(doc => tambahVarianRow(doc.data()));
+
+                // Load konversi
                 konversiContainer.innerHTML = '';
                 const konversiQuery = query(konversiCol, where('produkId', '==', id), where('deleted', '==', false));
                 const konversiSnap = await getDocs(konversiQuery);
                 konversiSnap.docs.forEach(doc => tambahKonversiRow(doc.data()));
 
+                // Load qty break
                 qtyBreakContainer.innerHTML = '';
                 const qtyQuery = query(qtyCol, where('produkId', '==', id), where('deleted', '==', false));
                 const qtySnap = await getDocs(qtyQuery);
                 qtySnap.docs.forEach(doc => tambahQtyBreakRow(doc.data()));
+
+                // Load paket
+                paketContainer.innerHTML = '';
+                const paketQuery = query(paketCol, where('produkId', '==', id), where('deleted', '==', false));
+                const paketSnap = await getDocs(paketQuery);
+                paketSnap.docs.forEach(doc => tambahPaketRow(doc.data()));
 
                 formProdukTitle.innerText = 'Edit Produk';
                 showSection('tambahProduk');
@@ -1759,17 +1866,34 @@
         window.hapusProduk = async (id) => {
             if (!confirm('Yakin hapus produk?')) return;
             try {
-                await setDoc(doc(produkCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                const batch = writeBatch(dbCloud);
+                batch.set(doc(produkCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+
+                const varianQuery = query(varianCol, where('produkId', '==', id));
+                const varianSnap = await getDocs(varianQuery);
+                varianSnap.docs.forEach(d => {
+                    batch.set(doc(varianCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                });
+
                 const konversiQuery = query(konversiCol, where('produkId', '==', id));
                 const konversiSnap = await getDocs(konversiQuery);
-                for (const d of konversiSnap.docs) {
-                    await setDoc(doc(konversiCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
-                }
+                konversiSnap.docs.forEach(d => {
+                    batch.set(doc(konversiCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                });
+
                 const qtyQuery = query(qtyCol, where('produkId', '==', id));
                 const qtySnap = await getDocs(qtyQuery);
-                for (const d of qtySnap.docs) {
-                    await setDoc(doc(qtyCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
-                }
+                qtySnap.docs.forEach(d => {
+                    batch.set(doc(qtyCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                });
+
+                const paketQuery = query(paketCol, where('produkId', '==', id));
+                const paketSnap = await getDocs(paketQuery);
+                paketSnap.docs.forEach(d => {
+                    batch.set(doc(paketCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                });
+
+                await batch.commit();
             } catch (error) {
                 alert('Gagal hapus: ' + error.message);
             }
@@ -1784,6 +1908,16 @@
             const kodeInput = document.getElementById('kodeProduk').value;
             const barcodeInput = document.getElementById('barcodeProduk').value;
 
+            // Hitung total stok dari varian (jika ada)
+            let totalStokDariVarian = 0;
+            const varianRows = document.querySelectorAll('.varian-row');
+            if (varianRows.length > 0) {
+                for (let row of varianRows) {
+                    const stok = parseInt(row.querySelector('.stokVarian').value) || 0;
+                    totalStokDariVarian += stok;
+                }
+            }
+
             const produkData = {
                 nama: namaInput.toLowerCase(),
                 kode: kodeInput.toLowerCase(),
@@ -1795,7 +1929,7 @@
                 unitId: document.getElementById('unitId').value,
                 diskon: parseFloat(document.getElementById('diskon').value),
                 gudangId: document.getElementById('gudangId').value,
-                stokAwal: parseInt(document.getElementById('stokAwal').value),
+                stokAwal: totalStokDariVarian > 0 ? totalStokDariVarian : parseInt(document.getElementById('stokAwal').value), // jika ada varian, pakai total varian; jika tidak, pakai stok awal manual
                 stokMinimal: parseInt(document.getElementById('stokMinimal').value),
                 produkTimbangan: document.getElementById('produkTimbangan').checked,
                 updatedAt: serverTimestamp()
@@ -1812,13 +1946,25 @@
                     produkRef = doc(produkCol, produkId);
                     await setDoc(produkRef, produkData, { merge: true });
 
+                    // Hapus varian lama (soft delete)
+                    const varianSnap = await getDocs(query(varianCol, where('produkId', '==', produkId)));
+                    for (const d of varianSnap.docs) {
+                        await setDoc(doc(varianCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                    }
+                    // Hapus konversi lama
                     const konvSnap = await getDocs(query(konversiCol, where('produkId', '==', produkId)));
                     for (const d of konvSnap.docs) {
                         await setDoc(doc(konversiCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                     }
+                    // Hapus qty break lama
                     const qtySnap = await getDocs(query(qtyCol, where('produkId', '==', produkId)));
                     for (const d of qtySnap.docs) {
                         await setDoc(doc(qtyCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                    }
+                    // Hapus paket lama
+                    const paketSnap = await getDocs(query(paketCol, where('produkId', '==', produkId)));
+                    for (const d of paketSnap.docs) {
+                        await setDoc(doc(paketCol, d.id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                     }
                 } else {
                     produkData.createdAt = serverTimestamp();
@@ -1826,6 +1972,26 @@
                     produkRef = await addDoc(produkCol, produkData);
                 }
 
+                // Simpan varian baru
+                for (let row of varianRows) {
+                    const namaVarian = row.querySelector('.namaVarian').value;
+                    if (!namaVarian) continue;
+                    await addDoc(varianCol, {
+                        produkId: produkRef.id,
+                        namaVarian,
+                        barcode: row.querySelector('.barcodeVarian').value,
+                        hargaDasar: row.querySelector('.hargaDasarVarian').value ? parseFloat(row.querySelector('.hargaDasarVarian').value) : null,
+                        hargaJual: row.querySelector('.hargaJualVarian').value ? parseFloat(row.querySelector('.hargaJualVarian').value) : null,
+                        poinCustomer: row.querySelector('.poinVarian').value ? parseInt(row.querySelector('.poinVarian').value) : null,
+                        komisiSales: row.querySelector('.komisiVarian').value ? parseFloat(row.querySelector('.komisiVarian').value) : null,
+                        stok: parseInt(row.querySelector('.stokVarian').value) || 0,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        deleted: false
+                    });
+                }
+
+                // Simpan konversi baru
                 const konversiRows = document.querySelectorAll('.konversi-row');
                 for (let row of konversiRows) {
                     const unitId = row.querySelector('.unitKonversi').value;
@@ -1846,6 +2012,7 @@
                     });
                 }
 
+                // Simpan qty break baru
                 const qtyRows = document.querySelectorAll('.qtybreak-row');
                 for (let row of qtyRows) {
                     const minQty = row.querySelector('.minQty').value;
@@ -1861,11 +2028,30 @@
                     });
                 }
 
+                // Simpan paket baru
+                const paketRows = document.querySelectorAll('.paket-row');
+                for (let row of paketRows) {
+                    const qty = parseInt(row.querySelector('.paketQty').value);
+                    const price = parseFloat(row.querySelector('.paketHarga').value);
+                    if (!qty || !price) continue;
+                    await addDoc(paketCol, {
+                        produkId: produkRef.id,
+                        qty,
+                        price,
+                        keterangan: row.querySelector('.paketKeterangan').value || '',
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        deleted: false
+                    });
+                }
+
                 alert(produkId ? 'Produk berhasil diperbarui' : 'Produk berhasil ditambahkan');
 
                 e.target.reset();
+                varianContainer.innerHTML = '';
                 konversiContainer.innerHTML = '';
                 qtyBreakContainer.innerHTML = '';
+                paketContainer.innerHTML = '';
                 produkIdInput.value = '';
                 formProdukTitle.innerText = 'Tambah Produk Baru';
 
@@ -1879,80 +2065,51 @@
         document.querySelector('button[type="reset"]').addEventListener('click', function() {
             produkIdInput.value = '';
             formProdukTitle.innerText = 'Tambah Produk Baru';
+            varianContainer.innerHTML = '';
             konversiContainer.innerHTML = '';
             qtyBreakContainer.innerHTML = '';
-            stopBarcodeScanner(); // Hentikan scanner jika sedang aktif
-            document.getElementById('barcodeProduk').value = ''; // Kosongkan input barcode
+            paketContainer.innerHTML = '';
+            stopBarcodeScanner();
+            document.getElementById('barcodeProduk').value = '';
         });
 
-        // ========== FITUR SCAN BARCODE DENGAN KAMERA ==========
-        // Variabel untuk menyimpan instance scanner
+        // ========== SCANNER ==========
         let html5QrcodeScanner = null;
 
-        // Fungsi untuk memulai scanner
         function startBarcodeScanner() {
             const scannerContainer = document.getElementById('barcode-scanner-container');
             const scanButton = document.getElementById('scanBarcodeBtn');
-
-            // Jika container tidak ada, hentikan fungsi
             if (!scannerContainer) return;
 
-            // Tampilkan container dan sembunyikan tombol scan
             scannerContainer.style.display = 'block';
             scanButton.style.display = 'none';
 
-            // Buat instance scanner baru jika belum ada
             if (!html5QrcodeScanner) {
-                // Gunakan library html5-qrcode
                 html5QrcodeScanner = new Html5Qrcode("barcode-scanner-container");
+                const config = { fps: 10, qrbox: { width: 250, height: 150 }, rememberLastUsedCamera: true, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] };
 
-                // Konfigurasi scanner
-                const config = {
-                    fps: 10, // frame per second
-                    qrbox: { width: 250, height: 150 }, // ukuran kotak scan
-                    rememberLastUsedCamera: true,
-                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] // hanya kamera, tidak file
-                };
-
-                // Dapatkan daftar kamera dan mulai dengan kamera belakang (environment)
                 Html5Qrcode.getCameras().then(devices => {
                     if (devices && devices.length) {
-                        // Cari kamera belakang
                         let backCameraId = null;
                         for (const device of devices) {
-                            // Biasanya label kamera belakang mengandung kata "back" atau "environment"
-                            if (device.label.toLowerCase().includes('back') || 
-                                device.label.toLowerCase().includes('belakang') ||
-                                device.label.toLowerCase().includes('environment')) {
+                            if (device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('belakang') || device.label.toLowerCase().includes('environment')) {
                                 backCameraId = device.id;
                                 break;
                             }
                         }
-                        // Jika tidak ditemukan, gunakan kamera pertama
                         const cameraId = backCameraId || devices[0].id;
 
-                        // Mulai scanning
                         html5QrcodeScanner.start(
                             cameraId,
                             config,
-                            (decodedText, decodedResult) => {
-                                // Callback sukses: dapatkan hasil scan
-                                console.log(`Scan result: ${decodedText}`, decodedResult);
-                                
-                                // Isi ke input barcode
+                            (decodedText) => {
                                 document.getElementById('barcodeProduk').value = decodedText;
-                                
-                                // Hentikan scanner dan tutup container
                                 stopBarcodeScanner();
                             },
-                            (errorMessage) => {
-                                // Callback error: biasanya diabaikan karena akan terus mencoba
-                                // console.log(errorMessage);
-                            }
+                            (errorMessage) => {}
                         ).catch((err) => {
                             console.error('Gagal memulai scanner:', err);
                             alert('Gagal mengakses kamera. Pastikan Anda memberikan izin.');
-                            // Tutup container jika gagal
                             stopBarcodeScanner();
                         });
                     } else {
@@ -1967,22 +2124,17 @@
             }
         }
 
-        // Fungsi untuk menghentikan scanner
         function stopBarcodeScanner() {
             const scannerContainer = document.getElementById('barcode-scanner-container');
             const scanButton = document.getElementById('scanBarcodeBtn');
 
             if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
                 html5QrcodeScanner.stop().then(() => {
-                    // Sembunyikan container dan tampilkan tombol scan
                     if (scannerContainer) scannerContainer.style.display = 'none';
                     if (scanButton) scanButton.style.display = 'flex';
-                    
-                    // Hapus instance agar bisa dibuat ulang nanti
                     html5QrcodeScanner = null;
                 }).catch(err => {
                     console.error('Gagal menghentikan scanner:', err);
-                    // Force close
                     if (scannerContainer) scannerContainer.style.display = 'none';
                     if (scanButton) scanButton.style.display = 'flex';
                     html5QrcodeScanner = null;
@@ -1994,7 +2146,6 @@
             }
         }
 
-        // Event listener untuk tombol scan
         document.getElementById('scanBarcodeBtn')?.addEventListener('click', startBarcodeScanner);
 
         // ========== AUTH ==========
@@ -2016,10 +2167,8 @@
         });
 
         // ========== INITIAL LOAD ==========
-        // Inisialisasi IndexedDB lokal terlebih dahulu
         await initLocalDB();
 
-        // Hanya lanjutkan jika user lokal sudah login
         if (localUser) {
             await loadDataForModals();
             subscribeDaftarKategori();
