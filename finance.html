@@ -479,6 +479,11 @@
                 <div class="card-title">Laba Bersih (Bulan Ini)</div>
                 <div class="card-value" id="netProfit">Rp 0</div>
             </div>
+            <!-- Kartu Total Aset (baru) -->
+            <div class="card">
+                <div class="card-title">Total Aset</div>
+                <div class="card-value" id="totalAssets">Rp 0</div>
+            </div>
         </div>
 
         <!-- Mobile Tab Menu -->
@@ -880,6 +885,7 @@
         const purchaseCol = collection(dbCloud, 'purchase');
         const customerCol = collection(dbCloud, 'customer');
         const supplierCol = collection(dbCloud, 'supplier'); // asumsi ada koleksi supplier
+        const produkCol = collection(dbCloud, 'produk'); // tambahan untuk inventory
 
         // Elemen DOM (sama seperti sebelumnya)
         const loginBtn = document.getElementById('loginBtn');
@@ -895,6 +901,13 @@
         const panelReceivable = document.getElementById('panelReceivable');
         const panelPayable = document.getElementById('panelPayable');
         const panelProfitLoss = document.getElementById('panelProfitLoss');
+
+        // Elemen dashboard
+        const cashBalanceEl = document.getElementById('cashBalance');
+        const totalReceivableEl = document.getElementById('totalReceivable');
+        const totalPayableEl = document.getElementById('totalPayable');
+        const netProfitEl = document.getElementById('netProfit');
+        const totalAssetsEl = document.getElementById('totalAssets');
 
         // Elemen drawer mobile
         const mobileTabMenuBtn = document.getElementById('mobileTabMenuBtn');
@@ -978,7 +991,7 @@
                     if (t.type === 'income') cash += t.amount;
                     else if (t.type === 'expense') cash -= t.amount;
                 });
-                document.getElementById('cashBalance').innerText = 'Rp ' + cash.toLocaleString();
+                cashBalanceEl.innerText = 'Rp ' + cash.toLocaleString();
 
                 // Piutang dari sales yang belum lunas (outstanding > 0)
                 const salesSnap = await getDocs(query(salesCol, where('outstanding', '>', 0)));
@@ -986,7 +999,7 @@
                 salesSnap.forEach(doc => {
                     totalPiutang += doc.data().outstanding || 0;
                 });
-                document.getElementById('totalReceivable').innerText = 'Rp ' + totalPiutang.toLocaleString();
+                totalReceivableEl.innerText = 'Rp ' + totalPiutang.toLocaleString();
 
                 // Hutang dari purchase yang belum lunas (outstanding > 0)
                 const purchaseSnap = await getDocs(query(purchaseCol, where('outstanding', '>', 0)));
@@ -994,7 +1007,25 @@
                 purchaseSnap.forEach(doc => {
                     totalHutang += doc.data().outstanding || 0;
                 });
-                document.getElementById('totalPayable').innerText = 'Rp ' + totalHutang.toLocaleString();
+                totalPayableEl.innerText = 'Rp ' + totalHutang.toLocaleString();
+
+                // Hitung total nilai inventory (stok * harga dasar)
+                let totalInventoryValue = 0;
+                try {
+                    const produkSnap = await getDocs(query(produkCol, where('deleted', '==', false)));
+                    produkSnap.forEach(doc => {
+                        const p = doc.data();
+                        const stok = p.stokAwal || 0;
+                        const hargaDasar = p.hargaDasar || 0;
+                        totalInventoryValue += stok * hargaDasar;
+                    });
+                } catch (error) {
+                    console.error('Error menghitung inventory:', error);
+                }
+
+                // Total Aset = Kas + Piutang + Nilai Inventory
+                const totalAssets = cash + totalPiutang + totalInventoryValue;
+                totalAssetsEl.innerText = 'Rp ' + totalAssets.toLocaleString();
 
                 // Laba bersih bulan ini
                 const now = new Date();
@@ -1037,7 +1068,7 @@
                 expenseMonthSnap.forEach(doc => totalExpense += doc.data().amount);
 
                 const netProfit = grossProfit - totalExpense;
-                document.getElementById('netProfit').innerText = 'Rp ' + netProfit.toLocaleString();
+                netProfitEl.innerText = 'Rp ' + netProfit.toLocaleString();
 
             } catch (error) {
                 console.error('Error loading dashboard:', error);
