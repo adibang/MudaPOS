@@ -6,6 +6,8 @@
     <title>MUDA POS - Sales</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Hammer.js untuk gesture -->
+    <script src="https://unpkg.com/hammerjs@2.0.8/hammer.min.js"></script>
     <style>
         /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
@@ -960,9 +962,12 @@
                         <tbody id="cartItemsBody"><tr><td colspan="6" style="text-align:center;">Keranjang kosong</td></tr></tbody>
                     </table>
                 </div>
+                <!-- Total dipindahkan ke sini, di bawah tabel -->
+                <div style="text-align: right; margin-top: 1rem; font-weight: 600; color: #006B54; font-size: 1.1rem;">
+                    Total: Rp <span id="cartTotal">0</span>
+                </div>
             </div>
-            <div class="cart-footer">
-                <strong>Total: Rp <span id="cartTotal">0</span></strong>
+            <div class="cart-footer" style="display: flex; justify-content: flex-end; align-items: center; padding: 1rem 1.5rem; background: #f9f9f9; border-top: 1px solid #e0e0e0;">
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-secondary" id="saveDraftBtn"><i data-feather="clock"></i> Pending</button>
                     <button class="btn-checkout" id="checkoutBtn"><i data-feather="credit-card"></i> Check Out</button>
@@ -1131,7 +1136,7 @@
             query, where, orderBy, serverTimestamp, runTransaction, writeBatch, limit, startAfter
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        console.log('Sales page dengan varian, paket, dan long press menu...');
+        console.log('Sales page dengan varian, paket, dan long press menu (fixed)...');
 
         // ========== REFERENSI KOLEKSI ==========
         const produkCol = collection(dbCloud, 'produk');
@@ -1681,7 +1686,7 @@
             }
             feather.replace();
 
-            // Event listener untuk tombol qty
+            // Event listener untuk tombol qty (tetap manual)
             document.querySelectorAll('.qty-minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1864,14 +1869,11 @@
             barcodeInput.value = '';
         }
 
-        // ========== FUNGSI CART DENGAN PAKET ==========
-        // Fungsi untuk menghitung subtotal dengan paket dan quantity break
+        // ========== FUNGSI HITUNG SUBTOTAL DENGAN PAKET ==========
         function hitungSubtotal(produkId, qtyDasar, hargaSatuanNormal, paketList, breakList) {
             if (qtyDasar <= 0) return 0;
 
-            // Urutkan paket dari qty terbesar ke terkecil
             const sortedPaket = [...paketList].sort((a, b) => b.qty - a.qty);
-            // Urutkan break dari minQty terbesar ke terkecil
             const sortedBreak = [...breakList].sort((a, b) => b.minQty - a.minQty);
 
             let sisa = qtyDasar;
@@ -1900,21 +1902,42 @@
             return total;
         }
 
+        // ========== UPDATE HARGA PRODUK (dengan await) ==========
+        async function updateHargaProduk(produkId) {
+            const items = cartItems.filter(item => item.produkId === produkId);
+            if (items.length === 0) return;
+
+            const totalQtyDasar = items.reduce((sum, item) => sum + item.qtyDasar, 0);
+            const paketList = await getPackagesForProduct(produkId);
+            const breakList = allQtyBreak.filter(b => b.produkId === produkId);
+
+            const produk = await getProdukFromCache(produkId);
+            const hargaDasarProduk = produk.hargaJual || 0;
+            const totalHargaBenar = hitungSubtotal(produkId, totalQtyDasar, hargaDasarProduk, paketList, breakList);
+
+            const totalHargaAsli = items.reduce((sum, item) => sum + (item.hargaSatuan * item.qty), 0);
+
+            if (totalHargaAsli !== totalHargaBenar && totalHargaAsli > 0) {
+                const faktor = totalHargaBenar / totalHargaAsli;
+                for (let item of items) {
+                    item.subtotal = item.hargaSatuan * item.qty * faktor;
+                }
+            } else {
+                for (let item of items) {
+                    item.subtotal = item.hargaSatuan * item.qty;
+                }
+            }
+        }
+
+        // ========== FUNGSI TAMBAH KE CART (dengan await) ==========
         async function tambahKeCart(produkId, varianId = null, qty, konversiId = null) {
             const produk = await getProdukFromCache(produkId);
-            if (!produk) {
-                alert('Produk tidak ditemukan');
-                return;
-            }
+            if (!produk) { alert('Produk tidak ditemukan'); return; }
 
-            // Ambil data varian jika ada
             let varian = null;
             if (varianId) {
                 varian = await getVarianFromCache(varianId);
-                if (!varian) {
-                    alert('Varian tidak ditemukan');
-                    return;
-                }
+                if (!varian) { alert('Varian tidak ditemukan'); return; }
             }
 
             let konversi = null;
@@ -1939,7 +1962,6 @@
                 stokTersedia = produk.stokAwal || 0;
             }
 
-            // Hitung total qty dasar yang sudah ada di keranjang untuk produk/varian yang sama
             const existingSame = cartItems.filter(item => 
                 item.produkId === produkId && 
                 (varianId ? item.varianId === varianId : item.varianId === null) &&
@@ -1951,7 +1973,6 @@
                 return;
             }
 
-            // Cek apakah item dengan kombinasi produk+varian+konversi sudah ada
             const existingIndex = cartItems.findIndex(item => 
                 item.produkId === produkId && 
                 (varianId ? item.varianId === varianId : item.varianId === null) &&
@@ -1959,7 +1980,6 @@
             );
 
             if (existingIndex >= 0) {
-                // Update qty item yang ada
                 cartItems[existingIndex].qty += qty;
                 cartItems[existingIndex].qtyDasar += qtyDasar;
             } else {
@@ -1973,92 +1993,33 @@
                     qty: qty,
                     qtyDasar: qtyDasar,
                     hargaSatuan: hargaSatuan,
-                    subtotal: hargaSatuan * qty, // sementara, nanti diupdate oleh updateHargaSemuaProduk
+                    subtotal: hargaSatuan * qty,
                     nilaiKonversi: nilaiKonversi,
                 });
             }
 
-            // Update harga untuk semua item produk ini (karena paket tergantung total qty produk)
+            // Tunggu perhitungan paket selesai sebelum melanjutkan
             await updateHargaProduk(produkId);
             updateCartBadge();
             alert(`Produk ${produk.nama}${varian ? ' - ' + varian.namaVarian : ''} ditambahkan ke cart`);
         }
 
-        async function updateHargaProduk(produkId) {
-            // Ambil semua item di cart untuk produk ini
-            const items = cartItems.filter(item => item.produkId === produkId);
-            if (items.length === 0) return;
-
-            // Hitung total qty dasar untuk produk ini
-            const totalQtyDasar = items.reduce((sum, item) => sum + item.qtyDasar, 0);
-
-            // Ambil paket dan quantity break untuk produk ini
-            const paketList = await getPackagesForProduct(produkId);
-            const breakList = allQtyBreak.filter(b => b.produkId === produkId);
-
-            // Hitung harga satuan normal (harga dasar produk atau varian? Untuk paket, kita perlu harga satuan normal untuk sisa setelah paket.
-            // Asumsi: harga satuan normal adalah harga jual produk (atau varian jika ada). Tapi karena paket berlaku untuk semua varian,
-            // kita perlu memisahkan per item? Sebenarnya paket menghitung total qty produk, lalu membagi total harga ke semua item.
-            // Pendekatan: hitung total subtotal untuk semua item produk ini berdasarkan paket, lalu distribusikan proporsional.
-            // Tapi untuk sederhana, kita bisa hitung ulang setiap item dengan asumsi harga satuan item tetap, lalu total subtotal dijumlah.
-            // Namun paket akan mengubah harga efektif. Cara terbaik: hitung total harga untuk semua item produk ini, lalu bagi rata ke setiap item berdasarkan qtyDasar.
-
-            // Hitung total harga yang benar
-            const hargaSatuanNormal = items[0].hargaSatuan / items[0].nilaiKonversi; // kita ambil dari item pertama, asumsikan semua item produk ini punya harga dasar sama? Tidak, karena varian bisa beda harga.
-            // Kompleks. Untuk saat ini, kita akan gunakan pendekatan: setiap item memiliki hargaSatuan sendiri (berdasarkan varian/konversi), lalu total dihitung dengan paket.
-            // Tapi paket memerlukan harga satuan normal untuk sisa setelah paket. Kita perlu menentukan harga satuan normal yang mewakili. Bisa ambil harga jual produk (tanpa varian) atau rata-rata.
-            // Untuk menyederhanakan, kita asumsikan paket menggunakan harga jual produk (tanpa varian) sebagai dasar untuk sisa. Tapi jika varian memiliki harga berbeda, bisa terjadi ketidaksesuaian.
-            // Alternatif: kita hitung total harga dengan paket menggunakan harga jual produk (tanpa varian) untuk semua item, lalu bandingkan dengan total harga asli, lalu sesuaikan proporsional.
-            // Ini rumit. Untuk sementara, kita akan gunakan pendekatan bahwa paket hanya berlaku jika semua item memiliki harga satuan yang sama? Atau kita abaikan dulu.
-            // Karena user mengatakan "harga paket berlaku untuk varian apapun", maka kita harus menghitung total harga berdasarkan paket, lalu distribusikan ke item sesuai qtyDasar.
-            // Mari kita implementasikan:
-
-            // 1. Hitung total harga yang benar menggunakan paket dan break, dengan asumsi setiap unit dasar memiliki harga dasar produk (hargaJual produk).
-            const produk = await getProdukFromCache(produkId);
-            const hargaDasarProduk = produk.hargaJual || 0;
-            const totalHargaBenar = hitungSubtotal(produkId, totalQtyDasar, hargaDasarProduk, paketList, breakList);
-
-            // 2. Hitung total harga asli (sebelum paket) berdasarkan hargaSatuan masing-masing item
-            const totalHargaAsli = items.reduce((sum, item) => sum + (item.hargaSatuan * item.qty), 0);
-
-            // 3. Jika totalHargaBenar berbeda, kita perlu menyesuaikan subtotal setiap item secara proporsional
-            if (totalHargaAsli !== totalHargaBenar && totalHargaAsli > 0) {
-                const faktor = totalHargaBenar / totalHargaAsli;
-                for (let item of items) {
-                    item.subtotal = item.hargaSatuan * item.qty * faktor;
-                }
-            } else {
-                // Tidak ada paket, hitung subtotal biasa
-                for (let item of items) {
-                    item.subtotal = item.hargaSatuan * item.qty;
-                }
-            }
-        }
-
-        async function updateHargaSemuaProduk() {
-            const produkIds = [...new Set(cartItems.map(item => item.produkId))];
-            for (let id of produkIds) {
-                await updateHargaProduk(id);
-            }
-        }
-
-        function updateQtyCart(index, newQty) {
+        // ========== FUNGSI UPDATE QTY (dengan await) ==========
+        async function updateQtyCart(index, newQty) {
             const item = cartItems[index];
             if (!item) return false;
-            const produk = productsCache.get(item.produkId);
+            const produk = await getProdukFromCache(item.produkId);
             if (!produk) return false;
 
             const newQtyDasar = newQty * item.nilaiKonversi;
-            // Hitung total qty dasar untuk produk/varian yang sama selain item ini
             const otherItemsQtyDasar = cartItems
                 .filter((it, i) => i !== index && it.produkId === item.produkId && it.varianId === item.varianId && it.konversiId === item.konversiId)
                 .reduce((sum, it) => sum + it.qtyDasar, 0);
             const totalQtyDasar = otherItemsQtyDasar + newQtyDasar;
 
-            // Cek stok
             let stokTersedia = 0;
             if (item.varianId) {
-                const varian = variantsCache.get(item.varianId);
+                const varian = await getVarianFromCache(item.varianId);
                 stokTersedia = varian ? varian.stok || 0 : 0;
             } else {
                 stokTersedia = produk.stokAwal || 0;
@@ -2070,16 +2031,17 @@
 
             item.qty = newQty;
             item.qtyDasar = newQtyDasar;
-            // Update harga untuk produk ini
-            updateHargaProduk(item.produkId);
+            await updateHargaProduk(item.produkId);
             return true;
         }
 
+        // ========== FUNGSI UPDATE CART BADGE ==========
         function updateCartBadge() {
             const totalQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
             cartBadge.textContent = totalQty;
         }
 
+        // ========== RENDER CART MODAL ==========
         function renderCartModal() {
             if (!cartItemsBody) return;
             if (cartItems.length === 0) {
@@ -2103,7 +2065,7 @@
             feather.replace();
 
             document.querySelectorAll('.cart-qty').forEach(input => {
-                input.addEventListener('change', function(e) {
+                input.addEventListener('change', async function(e) {
                     const row = this.closest('tr');
                     const index = row.dataset.index;
                     const newQty = parseFloat(this.value);
@@ -2112,7 +2074,7 @@
                         this.value = cartItems[index].qty;
                         return;
                     }
-                    if (updateQtyCart(parseInt(index), newQty)) {
+                    if (await updateQtyCart(parseInt(index), newQty)) {
                         renderCartModal();
                         updateCartBadge();
                     } else {
@@ -2122,12 +2084,12 @@
             });
 
             document.querySelectorAll('.remove-cart-item').forEach(btn => {
-                btn.addEventListener('click', function(e) {
+                btn.addEventListener('click', async function(e) {
                     const row = this.closest('tr');
                     const index = row.dataset.index;
                     const item = cartItems[index];
                     cartItems.splice(index, 1);
-                    if (item) updateHargaProduk(item.produkId);
+                    if (item) await updateHargaProduk(item.produkId);
                     renderCartModal();
                     updateCartBadge();
                 });
@@ -2235,58 +2197,7 @@
             modalVarian.classList.add('active');
         }
 
-        // ========== LONG PRESS MENU ==========
-        let longPressTimer = null;
-        let longPressProductId = null;
-        let longPressQty = null;
-        let longPressTriggered = false;
-        const LONG_PRESS_DELAY = 500;
-
-        productContainer.addEventListener('mousedown', handleLongPressStart);
-        productContainer.addEventListener('touchstart', handleLongPressStart);
-        productContainer.addEventListener('mouseup', handleLongPressEnd);
-        productContainer.addEventListener('touchend', handleLongPressEnd);
-        productContainer.addEventListener('mouseleave', handleLongPressEnd);
-        productContainer.addEventListener('touchcancel', handleLongPressEnd);
-
-        function handleLongPressStart(e) {
-            if (e.button !== 0 && e.type !== 'touchstart') return;
-            if (e.target.closest('.qty-control')) return;
-
-            const productEl = e.target.closest('.product-card, .product-row');
-            if (!productEl) return;
-            const produkId = productEl.dataset.id;
-            if (!produkId) return;
-
-            const qtyInput = productEl.querySelector('.qty-input');
-            const qty = parseFloat(qtyInput?.value) || 0;
-            if (qty <= 0) {
-                alert('Qty harus diisi terlebih dahulu');
-                return;
-            }
-
-            if (longPressTimer) clearTimeout(longPressTimer);
-            longPressProductId = produkId;
-            longPressQty = qty;
-            longPressTriggered = false;
-
-            longPressTimer = setTimeout(() => {
-                longPressTriggered = true;
-                // Tampilkan menu di posisi mouse/touch
-                const x = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-                const y = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-                showLongPressMenu(x, y, produkId, qty);
-                longPressTimer = null;
-            }, LONG_PRESS_DELAY);
-        }
-
-        function handleLongPressEnd(e) {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        }
-
+        // ========== LONG PRESS DAN TAP DENGAN HAMMER ==========
         function showLongPressMenu(x, y, produkId, qty) {
             longPressMenu.innerHTML = `
                 <button id="menuPilihVarian">Pilih Varian</button>
@@ -2316,30 +2227,43 @@
             }, 100);
         }
 
-        // Override click biasa
-        productContainer.addEventListener('click', function(e) {
-            if (longPressTriggered) {
-                e.preventDefault();
-                e.stopPropagation();
-                longPressTriggered = false;
-                return;
-            }
-            if (e.target.closest('.qty-control')) return;
+        // Inisialisasi Hammer
+        if (productContainer) {
+            const mc = new Hammer.Manager(productContainer);
+            mc.add(new Hammer.Tap({ event: 'tap', taps: 1, interval: 300, threshold: 10 }));
+            mc.add(new Hammer.Press({ event: 'press', time: 500, threshold: 10 }));
 
-            const productEl = e.target.closest('.product-card, .product-row');
-            if (!productEl) return;
-            const produkId = productEl.dataset.id;
-            if (!produkId) return;
+            mc.on('tap', (ev) => {
+                const target = ev.target.closest('.product-card, .product-row');
+                if (!target) return;
+                if (ev.target.closest('.qty-control')) return;
 
-            const qtyInput = productEl.querySelector('.qty-input');
-            const qty = parseFloat(qtyInput?.value) || 0;
-            if (qty > 0) {
-                // Langsung tambah tanpa varian
-                tambahKeCart(produkId, null, qty, null);
-            } else {
-                alert('Qty harus lebih dari 0');
-            }
-        });
+                const produkId = target.dataset.id;
+                const qtyInput = target.querySelector('.qty-input');
+                const qty = parseFloat(qtyInput?.value) || 0;
+                if (qty > 0) {
+                    tambahKeCart(produkId, null, qty, null);
+                } else {
+                    alert('Qty harus lebih dari 0');
+                }
+            });
+
+            mc.on('press', (ev) => {
+                const target = ev.target.closest('.product-card, .product-row');
+                if (!target) return;
+                if (ev.target.closest('.qty-control')) return;
+
+                const produkId = target.dataset.id;
+                const qtyInput = target.querySelector('.qty-input');
+                const qty = parseFloat(qtyInput?.value) || 0;
+                if (qty <= 0) {
+                    alert('Qty harus diisi terlebih dahulu');
+                    return;
+                }
+                const point = ev.pointers[0];
+                showLongPressMenu(point.clientX, point.clientY, produkId, qty);
+            });
+        }
 
         // ========== EVENT LISTENER LAINNYA ==========
         barcodeInput.addEventListener('input', () => {
