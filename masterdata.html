@@ -6,6 +6,8 @@
     <title>MUDA POS - Master Data</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Library untuk Barcode Scanner -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
@@ -449,7 +451,7 @@
     <main class="main-content" id="mainContent" style="display:none;">
         <h1 class="page-title">Master Data</h1>
 
-        <!-- ========== SECTION TAMBAH PRODUK (MODIFIKASI) ========== -->
+        <!-- ========== SECTION TAMBAH PRODUK (MODIFIKASI DENGAN SCAN) ========== -->
         <div id="tambahProdukSection" class="content-section active">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;" id="formProdukTitle">Tambah Produk Baru</h2>
             <form id="formTambahProduk">
@@ -472,10 +474,17 @@
                         <label for="produkTimbangan" style="margin-bottom: 0;">Produk Timbangan</label>
                     </div>
 
-                    <!-- Barcode - full width -->
+                    <!-- Barcode - full width dengan tombol scanner -->
                     <div class="form-group" style="grid-column: span 2;">
                         <label>Barcode</label>
-                        <input type="text" id="barcodeProduk">
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="text" id="barcodeProduk" style="flex: 1;" placeholder="Kode Barcode">
+                            <button type="button" id="scanBarcodeBtn" class="btn" style="display: flex; align-items: center; gap: 0.3rem; margin: 0; padding: 0.6rem 1rem; width: auto; flex-shrink: 0;">
+                                <i data-feather="camera" width="18"></i> Scan
+                            </button>
+                        </div>
+                        <!-- Container untuk menampilkan pemindai barcode (awalnya disembunyikan) -->
+                        <div id="barcode-scanner-container" style="display: none; margin-top: 1rem; width: 100%;"></div>
                     </div>
 
                     <!-- Kategori - full width (dengan tombol) -->
@@ -757,7 +766,7 @@
         window.showSection = function(sectionName) { };
     </script>
 
-    <!-- Script module utama (Firestore) -->
+    <!-- Script module utama (Firestore + Scanner) -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -940,6 +949,10 @@
         let lastGudangDocs = [];
 
         function showSection(sectionName) {
+            // Hentikan scanner jika pindah dari section tambah produk
+            if (sectionName !== 'tambahProduk') {
+                stopBarcodeScanner();
+            }
             Object.values(sections).forEach(s => s && s.classList.remove('active'));
             Object.values(submenus).forEach(s => s && s.classList.remove('active'));
             if (sections[sectionName]) sections[sectionName].classList.add('active');
@@ -1868,7 +1881,121 @@
             formProdukTitle.innerText = 'Tambah Produk Baru';
             konversiContainer.innerHTML = '';
             qtyBreakContainer.innerHTML = '';
+            stopBarcodeScanner(); // Hentikan scanner jika sedang aktif
+            document.getElementById('barcodeProduk').value = ''; // Kosongkan input barcode
         });
+
+        // ========== FITUR SCAN BARCODE DENGAN KAMERA ==========
+        // Variabel untuk menyimpan instance scanner
+        let html5QrcodeScanner = null;
+
+        // Fungsi untuk memulai scanner
+        function startBarcodeScanner() {
+            const scannerContainer = document.getElementById('barcode-scanner-container');
+            const scanButton = document.getElementById('scanBarcodeBtn');
+
+            // Jika container tidak ada, hentikan fungsi
+            if (!scannerContainer) return;
+
+            // Tampilkan container dan sembunyikan tombol scan
+            scannerContainer.style.display = 'block';
+            scanButton.style.display = 'none';
+
+            // Buat instance scanner baru jika belum ada
+            if (!html5QrcodeScanner) {
+                // Gunakan library html5-qrcode
+                html5QrcodeScanner = new Html5Qrcode("barcode-scanner-container");
+
+                // Konfigurasi scanner
+                const config = {
+                    fps: 10, // frame per second
+                    qrbox: { width: 250, height: 150 }, // ukuran kotak scan
+                    rememberLastUsedCamera: true,
+                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] // hanya kamera, tidak file
+                };
+
+                // Dapatkan daftar kamera dan mulai dengan kamera belakang (environment)
+                Html5Qrcode.getCameras().then(devices => {
+                    if (devices && devices.length) {
+                        // Cari kamera belakang
+                        let backCameraId = null;
+                        for (const device of devices) {
+                            // Biasanya label kamera belakang mengandung kata "back" atau "environment"
+                            if (device.label.toLowerCase().includes('back') || 
+                                device.label.toLowerCase().includes('belakang') ||
+                                device.label.toLowerCase().includes('environment')) {
+                                backCameraId = device.id;
+                                break;
+                            }
+                        }
+                        // Jika tidak ditemukan, gunakan kamera pertama
+                        const cameraId = backCameraId || devices[0].id;
+
+                        // Mulai scanning
+                        html5QrcodeScanner.start(
+                            cameraId,
+                            config,
+                            (decodedText, decodedResult) => {
+                                // Callback sukses: dapatkan hasil scan
+                                console.log(`Scan result: ${decodedText}`, decodedResult);
+                                
+                                // Isi ke input barcode
+                                document.getElementById('barcodeProduk').value = decodedText;
+                                
+                                // Hentikan scanner dan tutup container
+                                stopBarcodeScanner();
+                            },
+                            (errorMessage) => {
+                                // Callback error: biasanya diabaikan karena akan terus mencoba
+                                // console.log(errorMessage);
+                            }
+                        ).catch((err) => {
+                            console.error('Gagal memulai scanner:', err);
+                            alert('Gagal mengakses kamera. Pastikan Anda memberikan izin.');
+                            // Tutup container jika gagal
+                            stopBarcodeScanner();
+                        });
+                    } else {
+                        alert('Tidak ada kamera yang ditemukan di perangkat ini.');
+                        stopBarcodeScanner();
+                    }
+                }).catch(err => {
+                    console.error('Gagal mendapatkan daftar kamera:', err);
+                    alert('Gagal mengakses kamera. Periksa izin browser Anda.');
+                    stopBarcodeScanner();
+                });
+            }
+        }
+
+        // Fungsi untuk menghentikan scanner
+        function stopBarcodeScanner() {
+            const scannerContainer = document.getElementById('barcode-scanner-container');
+            const scanButton = document.getElementById('scanBarcodeBtn');
+
+            if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                html5QrcodeScanner.stop().then(() => {
+                    // Sembunyikan container dan tampilkan tombol scan
+                    if (scannerContainer) scannerContainer.style.display = 'none';
+                    if (scanButton) scanButton.style.display = 'flex';
+                    
+                    // Hapus instance agar bisa dibuat ulang nanti
+                    html5QrcodeScanner = null;
+                }).catch(err => {
+                    console.error('Gagal menghentikan scanner:', err);
+                    // Force close
+                    if (scannerContainer) scannerContainer.style.display = 'none';
+                    if (scanButton) scanButton.style.display = 'flex';
+                    html5QrcodeScanner = null;
+                });
+            } else {
+                if (scannerContainer) scannerContainer.style.display = 'none';
+                if (scanButton) scanButton.style.display = 'flex';
+                html5QrcodeScanner = null;
+            }
+        }
+
+        // Event listener untuk tombol scan
+        document.getElementById('scanBarcodeBtn')?.addEventListener('click', startBarcodeScanner);
 
         // ========== AUTH ==========
         onAuthStateChanged(auth, (user) => {
