@@ -2421,6 +2421,10 @@
                 modalPending.classList.remove('active');
                 formPending.reset();
                 pendingCodeError.textContent = '';
+                // Kosongkan keranjang
+                cartItems = [];
+                updateCartBadge();
+                renderCartModal();
             }
         });
 
