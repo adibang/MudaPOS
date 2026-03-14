@@ -787,8 +787,8 @@
             </div>
             <!-- Baris ketiga: tombol aksi -->
             <div class="toolbar-row" style="justify-content: flex-end;">
-                <button id="btnPiutang"><i data-feather="alert-triangle"></i> Piutang</button>
-                <button id="btnPending"><i data-feather="clock"></i> Pending</button>
+                <button id="btnPiutang"><i data-feather="alert-triangle"></i></button>
+                <button id="btnPending"><i data-feather="clock"></i></button>
                 <button id="btnPayment"><i data-feather="credit-card"></i> Payment</button>
             </div>
         </div>
@@ -865,12 +865,12 @@
                         <tbody id="cartItemsBody"><tr><td colspan="5" style="text-align:center;">Keranjang kosong</td></tr></tbody>
                     </table>
                 </div>
+                <strong>Total: Rp <span id="cartTotal">0</span></strong>
             </div>
             <div class="cart-footer">
-                <strong>Total: Rp <span id="cartTotal">0</span></strong>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn-secondary" id="saveDraftBtn">Simpan Draft</button>
-                    <button class="btn-checkout" id="checkoutBtn">Lanjut ke Pembayaran</button>
+                    <button class="btn-secondary" id="saveDraftBtn"><i data-feather="clock"></i> Pending</button>
+                    <button class="btn-checkout" id="checkoutBtn"><i data-feather="credit-card"></i> Check Out</button>
                 </div>
             </div>
         </div>
@@ -931,19 +931,20 @@
                 <div class="payment-methods-grid">
                     <div class="payment-method-item">
                         <label>Tunai</label>
-                        <input type="number" id="paymentCash" class="payment-input" min="0" step="1000" value="0">
+                        <input type="number" id="paymentCash" class="payment-input" min="0" step="100" placeholder="0"
+                            >
                     </div>
                     <div class="payment-method-item">
                         <label>Kartu</label>
-                        <input type="number" id="paymentCard" class="payment-input" min="0" step="1000" value="0">
+                        <input type="number" id="paymentCard" class="payment-input" min="0" step="100" placeholder="0">
                     </div>
                     <div class="payment-method-item">
                         <label>Transfer</label>
-                        <input type="number" id="paymentTransfer" class="payment-input" min="0" step="1000" value="0">
+                        <input type="number" id="paymentTransfer" class="payment-input" min="0" step="100" placeholder="0">
                     </div>
                     <div class="payment-method-item">
                         <label>E-Wallet</label>
-                        <input type="number" id="paymentEwallet" class="payment-input" min="0" step="1000" value="0">
+                        <input type="number" id="paymentEwallet" class="payment-input" min="0" step="100" placeholder="0">
                     </div>
                 </div>
                 <div id="shortageDisplay" style="display:none; color:red; margin-bottom:10px; padding:10px; background:#fff3f3; border-radius:10px;">
@@ -1024,7 +1025,7 @@
         }
     </script>
 
-    <!-- Script module utama (Firestore) dengan modifikasi varian -->
+    <!-- Script module utama (Firestore) dengan modifikasi varian dan paket -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -1044,8 +1045,8 @@
         const qtyCol = collection(dbCloud, 'qtyBreak');
         const pendingCol = collection(dbCloud, 'pending');
         const salesCol = collection(dbCloud, 'sales');
-        // Tambahan koleksi varian
         const varianCol = collection(dbCloud, 'productVariants');
+        const paketCol = collection(dbCloud, 'productPackages'); // Tambahan koleksi paket
 
         // ========== REFERENSI DOKUMEN SETTINGS ==========
         const settingsDocRef = doc(dbCloud, 'settings', 'appSettings');
@@ -1057,7 +1058,8 @@
         let allKonversi = [];
         let allUnits = [];
         let allQtyBreak = [];
-        let allVariants = []; // Data varian
+        let allVariants = [];
+        let allPackages = []; // Data paket
         let pendingList = [];
 
         let selectedCustomer = null;
@@ -1141,14 +1143,15 @@
                 await loadBarcodeConfig();
                 await loadPrinterConfig();
 
-                const [produkSnap, customerSnap, gudangSnap, konversiSnap, unitSnap, qtySnap, varianSnap] = await Promise.all([
+                const [produkSnap, customerSnap, gudangSnap, konversiSnap, unitSnap, qtySnap, varianSnap, paketSnap] = await Promise.all([
                     getDocs(query(produkCol, where('deleted', '==', false))),
                     getDocs(query(customerCol, where('deleted', '==', false))),
                     getDocs(query(gudangCol, where('deleted', '==', false))),
                     getDocs(query(konversiCol, where('deleted', '==', false))),
                     getDocs(query(unitCol, where('deleted', '==', false))),
                     getDocs(query(qtyCol, where('deleted', '==', false))),
-                    getDocs(query(varianCol, where('deleted', '==', false)))
+                    getDocs(query(varianCol, where('deleted', '==', false))),
+                    getDocs(query(paketCol, where('deleted', '==', false)))
                 ]);
 
                 allProducts = produkSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1158,8 +1161,9 @@
                 allUnits = unitSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 allQtyBreak = qtySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 allVariants = varianSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allPackages = paketSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                console.log('Data dimuat:', allProducts.length, 'produk,', allVariants.length, 'varian');
+                console.log('Data dimuat:', allProducts.length, 'produk,', allVariants.length, 'varian,', allPackages.length, 'paket');
 
                 // Load daftar pending
                 await loadPendingFromDB();
@@ -1225,6 +1229,7 @@
                     unit: item.unit,
                     qty: item.qty,
                     qtyDasar: item.qtyDasar,
+                    hargaNormal: item.hargaNormal,
                     hargaSatuan: item.hargaSatuan,
                     subtotal: item.subtotal,
                     nilaiKonversi: item.nilaiKonversi
@@ -1291,12 +1296,19 @@
                     unit: item.unit,
                     qty: item.qty,
                     qtyDasar: item.qtyDasar,
-                    hargaSatuan: item.hargaSatuan,
-                    subtotal: item.subtotal,
+                    hargaNormal: item.hargaNormal,
+                    hargaSatuan: item.hargaNormal, // set sementara ke harga normal, nanti diupdate paket
+                    subtotal: item.hargaNormal * item.qty,
                     nilaiKonversi: item.nilaiKonversi
                 });
             }
             cartItems = newCart;
+
+            // Setelah memuat, update harga paket untuk semua produk
+            const produkIds = [...new Set(cartItems.map(item => item.produkId))];
+            for (let pid of produkIds) {
+                updateHargaProdukDenganPaket(pid);
+            }
 
             if (trans.customerId) {
                 const cust = allCustomers.find(c => c.id === trans.customerId);
@@ -1395,7 +1407,7 @@
                         </div>
                         <div class="qty-control">
                             <button class="qty-minus">-</button>
-                            <input type="number" class="qty-input" step="0.01" min="0" placeholder="0" value="">
+                            <input type="number" class="qty-input" step="0.001" min="0" placeholder="0" value="">
                             <button class="qty-plus">+</button>
                         </div>
                     </div>`;
@@ -1414,7 +1426,7 @@
                         </div>
                         <div class="qty-control">
                             <button class="qty-minus">-</button>
-                            <input type="number" class="qty-input" step="0.01" min="0" placeholder="0" value="">
+                            <input type="number" class="qty-input" step="0.001" min="0" placeholder="0" value="">
                             <button class="qty-plus">+</button>
                         </div>
                     </div>`;
@@ -1524,7 +1536,59 @@
             renderProducts();
         }
 
-        // ========== FUNGSI CART (DENGAN DUKUNGAN VARIAN) ==========
+        // ========== FUNGSI PAKET ==========
+        function hitungHargaPaket(produkId, qty) {
+            const produk = allProducts.find(p => p.id === produkId);
+            if (!produk) return qty * 0;
+            const hargaNormalPerUnit = produk.hargaJual;
+            const pakets = allPackages.filter(p => p.produkId === produkId).sort((a,b) => a.qty - b.qty);
+            if (pakets.length === 0) return qty * hargaNormalPerUnit;
+
+            // DP array untuk mendapatkan harga minimal untuk setiap jumlah
+            const dp = new Array(qty + 1).fill(Infinity);
+            dp[0] = 0;
+            for (let i = 1; i <= qty; i++) {
+                // opsi beli normal per unit
+                dp[i] = dp[i-1] + hargaNormalPerUnit;
+                // coba paket
+                for (let p of pakets) {
+                    if (i >= p.qty) {
+                        dp[i] = Math.min(dp[i], dp[i - p.qty] + p.price);
+                    }
+                }
+            }
+            return dp[qty];
+        }
+
+        function updateHargaProdukDenganPaket(produkId) {
+            const items = cartItems.filter(item => item.produkId === produkId);
+            if (items.length === 0) return;
+
+            // Hitung total qty dasar dan total harga normal
+            let totalQty = 0;
+            let totalHargaNormal = 0;
+            for (let item of items) {
+                totalQty += item.qtyDasar;
+                totalHargaNormal += item.hargaNormal * item.qty;
+            }
+
+            const hargaPaket = hitungHargaPaket(produkId, totalQty);
+            if (hargaPaket < totalHargaNormal) {
+                const faktor = hargaPaket / totalHargaNormal;
+                for (let item of items) {
+                    item.hargaSatuan = item.hargaNormal * faktor;
+                    item.subtotal = item.hargaSatuan * item.qty;
+                }
+            } else {
+                // tidak ada diskon, kembalikan ke harga normal
+                for (let item of items) {
+                    item.hargaSatuan = item.hargaNormal;
+                    item.subtotal = item.hargaNormal * item.qty;
+                }
+            }
+        }
+
+        // ========== FUNGSI CART (DENGAN DUKUNGAN VARIAN DAN PAKET) ==========
         async function tambahKeCart(produkId, qty, konversiId = null, varianId = null) {
             const produk = allProducts.find(p => p.id === produkId);
             if (!produk) return;
@@ -1532,20 +1596,20 @@
             let konversi = null;
             let varian = null;
             let nilaiKonversi = 1;
-            let hargaSatuan = produk.hargaJual;
+            let hargaNormal = produk.hargaJual;
             let stokTersedia = produk.stokAwal;
 
             if (varianId) {
                 varian = allVariants.find(v => v.id === varianId && v.produkId === produkId);
                 if (!varian) { alert('Varian tidak ditemukan'); return; }
-                hargaSatuan = varian.hargaJual || produk.hargaJual;
+                hargaNormal = varian.hargaJual || produk.hargaJual;
                 stokTersedia = varian.stok || 0;
                 // Varian tidak memiliki konversi, jadi qtyDasar = qty
             } else if (konversiId) {
                 konversi = allKonversi.find(k => k.id === konversiId && k.produkId === produkId);
                 if (!konversi) { alert('Konversi tidak ditemukan'); return; }
                 nilaiKonversi = konversi.nilai;
-                hargaSatuan = konversi.hargaJual || (produk.hargaJual * nilaiKonversi);
+                hargaNormal = konversi.hargaJual || (produk.hargaJual * nilaiKonversi);
             }
 
             const qtyDasar = varian ? qty : qty * nilaiKonversi;
@@ -1567,7 +1631,7 @@
             if (existingIndex >= 0) {
                 cartItems[existingIndex].qty += qty;
                 cartItems[existingIndex].qtyDasar += qtyDasar;
-                // Update harga jika ada qty break nanti
+                // Update harga paket nanti
             } else {
                 const unit = konversi 
                     ? allUnits.find(u => u.id === konversi.unitId) 
@@ -1580,42 +1644,17 @@
                     unit: unit ? unit.nama : '',
                     qty: qty,
                     qtyDasar: qtyDasar,
-                    hargaSatuan: hargaSatuan,
-                    subtotal: hargaSatuan * qty,
+                    hargaNormal: hargaNormal, // harga satuan normal
+                    hargaSatuan: hargaNormal, // sementara sama
+                    subtotal: hargaNormal * qty,
                     nilaiKonversi: nilaiKonversi,
                 });
             }
 
-            // Jika produk memiliki qty break, perbarui harga (hanya untuk item tanpa varian/konversi)
-            if (!varianId && !konversiId) {
-                updateHargaProduk(produkId);
-            }
-
+            // Update harga dengan paket untuk produk ini
+            updateHargaProdukDenganPaket(produkId);
             updateCartBadge();
             alert(`Produk ${produk.nama} ditambahkan ke cart`);
-        }
-
-        function updateHargaProduk(produkId) {
-            const produk = allProducts.find(p => p.id === produkId);
-            if (!produk) return;
-
-            const items = cartItems.filter(item => item.produkId === produkId && !item.varianId && !item.konversiId);
-            if (items.length === 0) return;
-
-            const totalQtyDasar = items.reduce((sum, item) => sum + item.qtyDasar, 0);
-            const qtyBreaks = allQtyBreak.filter(q => q.produkId === produkId).sort((a, b) => a.minQty - b.minQty);
-            let hargaDasar = produk.hargaJual;
-            for (let i = qtyBreaks.length - 1; i >= 0; i--) {
-                if (totalQtyDasar >= qtyBreaks[i].minQty) {
-                    hargaDasar = qtyBreaks[i].harga;
-                    break;
-                }
-            }
-
-            for (let item of items) {
-                item.hargaSatuan = hargaDasar * item.nilaiKonversi;
-                item.subtotal = item.hargaSatuan * item.qty;
-            }
         }
 
         function updateQtyCart(index, newQty) {
@@ -1631,8 +1670,6 @@
                 }
                 item.qty = newQty;
                 item.qtyDasar = newQty; // varian tidak punya konversi
-                item.subtotal = item.hargaSatuan * newQty;
-                return true;
             } else {
                 const produk = allProducts.find(p => p.id === item.produkId);
                 if (!produk) return false;
@@ -1650,9 +1687,11 @@
 
                 item.qty = newQty;
                 item.qtyDasar = newQtyDasar;
-                updateHargaProduk(item.produkId);
-                return true;
             }
+
+            // Update harga paket untuk produk ini
+            updateHargaProdukDenganPaket(item.produkId);
+            return true;
         }
 
         function updateCartBadge() {
@@ -1674,7 +1713,7 @@
                 return `<tr data-index="${index}">
                     <td>${item.nama} ${item.unit ? '('+item.unit+')' : ''}</td>
                     <td>Rp ${item.hargaSatuan.toLocaleString()}</td>
-                    <td><input type="number" class="cart-qty" value="${item.qty}" min="0.01" step="0.01"></td>
+                    <td><input type="number" class="cart-qty" value="${item.qty}" min="0.001" step="0.001"></td>
                     <td>Rp ${subtotal.toLocaleString()}</td>
                     <td><button class="btn-icon delete remove-cart-item"><i data-feather="trash-2"></i></button></td>
                 </tr>`;
@@ -1706,8 +1745,9 @@
                     const row = this.closest('tr');
                     const index = row.dataset.index;
                     const item = cartItems[index];
+                    const produkId = item.produkId;
                     cartItems.splice(index, 1);
-                    if (item && !item.varianId && !item.konversiId) updateHargaProduk(item.produkId);
+                    updateHargaProdukDenganPaket(produkId);
                     renderCartModal();
                     updateCartBadge();
                 });
@@ -1757,7 +1797,7 @@
                             <div class="unit-price">Stok: ${varian.stok || 0}</div>
                         </div>
                         <div class="unit-action">
-                            <input type="number" class="unit-qty" value="${qty}" min="0.01" step="0.01" style="width:60px;">
+                            <input type="number" class="unit-qty" value="${qty}" min="0.001" step="0.001" style="width:60px;">
                             <button class="btn-pilih-varian" data-varianid="${varian.id}">Pilih</button>
                         </div>
                     `;
@@ -1786,7 +1826,7 @@
                             <div class="unit-price">Harga: Rp ${hargaSatuan.toLocaleString()}</div>
                         </div>
                         <div class="unit-action">
-                            <input type="number" class="unit-qty" value="${qty}" min="0.01" step="0.01" style="width:60px;">
+                            <input type="number" class="unit-qty" value="${qty}" min="0.001" step="0.001" style="width:60px;">
                             <button class="btn-pilih-konversi" data-konvid="${konv.id}">Pilih</button>
                         </div>
                     `;
@@ -1874,7 +1914,7 @@
 
             longPressTimer = setTimeout(() => {
                 longPressTriggered = true;
-                showVarianDanSatuanModal(produkId); // Panggil fungsi baru
+                showVarianDanSatuanModal(produkId);
                 longPressTimer = null;
             }, LONG_PRESS_DELAY);
         }
@@ -2057,6 +2097,7 @@
                     unit: '',
                     qty: 1,
                     qtyDasar: 1,
+                    hargaNormal: selectedCustomer.outstanding,
                     hargaSatuan: selectedCustomer.outstanding,
                     subtotal: selectedCustomer.outstanding,
                     nilaiKonversi: 1
