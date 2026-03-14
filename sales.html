@@ -1649,13 +1649,23 @@
                     );
                 });
         
-                // === TAMBAHAN: Penanganan khusus untuk barcode timbangan ===
-                const config = appSettings?.barcodeConfig || { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 };
+                // === PENANGANAN KHUSUS UNTUK BARCODE TIMBANGAN ===
+                // Ambil konfigurasi barcode dari settings, gunakan default jika tidak ada
+                const config = appSettings?.barcodeConfig || { 
+                    flexLength: 2, 
+                    flexValue: '11', 
+                    productLength: 6, 
+                    weightLength: 5 
+                };
+                
+                // Cek apakah input memenuhi format barcode timbangan (13 digit dan awalan sesuai)
                 if (searchTerm.length === 13) {
                     const flex = searchTerm.substr(0, config.flexLength);
                     if (flex === config.flexValue) {
                         const productCode = searchTerm.substr(config.flexLength, config.productLength);
-                        // Cari produk dengan kode yang sama dan flag timbangan aktif
+                        console.log(`Mencari produk timbangan dengan kode: ${productCode}`);
+                        
+                        // Query khusus untuk produk timbangan dengan kode tersebut
                         const qTimbangan = query(
                             baseQuery,
                             where('kode', '==', productCode),
@@ -1665,7 +1675,7 @@
                         queries.push(qTimbangan);
                     }
                 }
-                // ===========================================================
+                // ===================================================
         
                 return { type: 'search', queries };
             }
