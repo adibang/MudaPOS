@@ -1655,16 +1655,54 @@
         async function processBarcode() {
             const barcode = barcodeInput.value.trim();
             if (!barcode) return;
-
+        
             console.log('Scan barcode:', barcode);
             const barcodeLower = barcode.toLowerCase();
-
-            // Cari di produk
+            const config = appSettings?.barcodeConfig || { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 };
+        
+            // ===== 1. CEK BARCODE TIMBANGAN (PALING AWAL) =====
+            if (barcode.length === 13) {
+                const flex = barcode.substr(0, config.flexLength);
+                if (flex === config.flexValue) {
+                    // Ekstrak kode produk dan berat
+                    const productCode = barcode.substr(config.flexLength, config.productLength).toLowerCase();
+                    const weightStr = barcode.substr(config.flexLength + config.productLength, config.weightLength);
+                    const weightGram = parseInt(weightStr, 10);
+                    console.log('Barcode timbangan, productCode:', productCode, 'weightGram:', weightGram);
+        
+                    if (!isNaN(weightGram) && weightGram > 0) {
+                        const produk = allProducts.find(p => 
+                            p.kode && p.kode.toLowerCase() === productCode && p.produkTimbangan === true
+                        );
+                        if (produk) {
+                            const qtyKg = weightGram / 1000;
+                            console.log('Produk timbangan ditemukan:', produk.nama, 'Berat kg:', qtyKg);
+                            await tambahKeCart(produk.id, qtyKg, null);
+                            barcodeInput.value = '';
+                            renderProducts();
+                            return;
+                        } else {
+                            alert(`Produk timbangan dengan kode ${productCode} tidak ditemukan`);
+                            barcodeInput.value = '';
+                            renderProducts();
+                            return;
+                        }
+                    } else {
+                        alert('Berat tidak valid dalam barcode timbangan');
+                        barcodeInput.value = '';
+                        renderProducts();
+                        return;
+                    }
+                }
+                // Jika flex tidak cocok, lanjut ke pencarian biasa (bukan timbangan)
+            }
+        
+            // ===== 2. PENCARIAN PRODUK BIASA (KODE / BARCODE) =====
             let produk = allProducts.find(p => 
                 (p.kode && p.kode.trim().toLowerCase() === barcodeLower) || 
                 (p.barcode && p.barcode.trim().toLowerCase() === barcodeLower)
             );
-
+        
             if (produk) {
                 console.log('Produk ditemukan via kode/barcode:', produk.nama);
                 await tambahKeCart(produk.id, 1, null);
@@ -1672,8 +1710,8 @@
                 renderProducts();
                 return;
             }
-
-            // Cari di konversi unit
+        
+            // ===== 3. PENCARIAN DI KONVERSI SATUAN =====
             for (let konv of allKonversi) {
                 if (konv.barcode && konv.barcode.trim().toLowerCase() === barcodeLower) {
                     produk = allProducts.find(p => p.id === konv.produkId);
@@ -1686,37 +1724,8 @@
                     }
                 }
             }
-
-            // Cek barcode timbangan (13 digit)
-            const config = appSettings?.barcodeConfig || { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 };
-            if (barcode.length === 13) {
-                const flex = barcode.substr(0, config.flexLength);
-                if (flex !== config.flexValue) {
-                    // Fallback: tetap coba ekstrak kode produk meskipun prefix tidak cocok
-                    console.warn(`Prefix tidak cocok, tetapi tetap mencoba mencari produk dengan kode yang diekstrak.`);
-                }
-                const productCode = barcode.substr(config.flexLength, config.productLength).toLowerCase();
-                const weightStr = barcode.substr(config.flexLength + config.productLength, config.weightLength);
-                const weightGram = parseInt(weightStr, 10);
-                console.log('Product code (lowercase):', productCode, 'Berat (gram):', weightGram);
-                if (!isNaN(weightGram) && weightGram > 0) {
-                    produk = allProducts.find(p => p.kode === productCode && p.produkTimbangan === true);
-                    if (produk) {
-                        const qtyKg = weightGram / 1000;
-                        console.log('Produk timbangan ditemukan:', produk.nama, 'Berat kg:', qtyKg);
-                        await tambahKeCart(produk.id, qtyKg, null);
-                        barcodeInput.value = '';
-                        renderProducts();
-                        return;
-                    } else {
-                        alert(`Produk dengan kode ${productCode} tidak ditemukan atau bukan produk timbangan`);
-                        barcodeInput.value = '';
-                        renderProducts();
-                        return;
-                    }
-                }
-            }
-
+        
+            // ===== 4. TIDAK DITEMUKAN =====
             alert('Produk tidak ditemukan');
             barcodeInput.value = '';
             renderProducts();
