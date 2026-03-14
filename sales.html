@@ -1650,7 +1650,6 @@
                 });
         
                 // === PENANGANAN KHUSUS UNTUK BARCODE TIMBANGAN ===
-                // Ambil konfigurasi barcode dari settings, gunakan default jika tidak ada
                 const config = appSettings?.barcodeConfig || { 
                     flexLength: 2, 
                     flexValue: '11', 
@@ -1658,14 +1657,12 @@
                     weightLength: 5 
                 };
                 
-                // Cek apakah input memenuhi format barcode timbangan (13 digit dan awalan sesuai)
                 if (searchTerm.length === 13) {
                     const flex = searchTerm.substr(0, config.flexLength);
                     if (flex === config.flexValue) {
-                        const productCode = searchTerm.substr(config.flexLength, config.productLength);
-                        console.log(`Mencari produk timbangan dengan kode: ${productCode}`);
+                        const productCode = searchTerm.substr(config.flexLength, config.productLength).toLowerCase(); // <-- lowercase!
+                        console.log(`[Pencarian] Mencari produk timbangan dengan kode: ${productCode}`);
                         
-                        // Query khusus untuk produk timbangan dengan kode tersebut
                         const qTimbangan = query(
                             baseQuery,
                             where('kode', '==', productCode),
@@ -1805,9 +1802,11 @@
         async function processBarcode() {
             const barcode = barcodeInput.value.trim();
             if (!barcode) return;
-
+        
+            console.log('Scan barcode:', barcode);
             const barcodeLower = barcode.toLowerCase();
-
+        
+            // Cek di cache produk
             let produk = null;
             for (let p of productsCache.values()) {
                 if (p.kode && p.kode.trim().toLowerCase() === barcodeLower) {
@@ -1819,7 +1818,8 @@
                     break;
                 }
             }
-
+        
+            // Jika tidak ada di cache, coba query ke Firestore (kode)
             if (!produk) {
                 const q = query(
                     produkCol,
@@ -1833,18 +1833,20 @@
                     productsCache.set(produk.id, produk);
                 }
             }
-
+        
             if (produk) {
+                console.log('Produk ditemukan via kode/barcode:', produk.nama);
                 await tambahKeCart(produk.id, null, 1, null);
                 barcodeInput.value = '';
                 await loadProductsPage('next');
                 return;
             }
-
+        
+            // Cek di konversi unit
             let konv = allKonversi.find(k => k.barcode && k.barcode.trim().toLowerCase() === barcodeLower);
             if (konv) {
-                const produkId = konv.produkId;
-                produk = await getProdukFromCache(produkId);
+                console.log('Ditemukan di konversi, produkId:', konv.produkId);
+                produk = await getProdukFromCache(konv.produkId);
                 if (produk) {
                     await tambahKeCart(produk.id, null, 1, konv.id);
                     barcodeInput.value = '';
@@ -1852,12 +1854,14 @@
                     return;
                 }
             }
-
+        
+            // Cek di varian
             const varianQuery = query(varianCol, where('barcode', '==', barcode), where('deleted', '==', false));
             const varianSnap = await getDocs(varianQuery);
             if (!varianSnap.empty) {
                 const varian = { id: varianSnap.docs[0].id, ...varianSnap.docs[0].data() };
                 variantsCache.set(varian.id, varian);
+                console.log('Ditemukan di varian, produkId:', varian.produkId);
                 produk = await getProdukFromCache(varian.produkId);
                 if (produk) {
                     await tambahKeCart(produk.id, varian.id, 1, null);
@@ -1866,14 +1870,18 @@
                     return;
                 }
             }
-
+        
+            // Cek barcode timbangan (13 digit)
             const config = appSettings?.barcodeConfig || { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 };
+            console.log('Konfigurasi barcode:', config);
             if (barcode.length === 13) {
                 const flex = barcode.substr(0, config.flexLength);
+                console.log('Flex:', flex);
                 if (flex === config.flexValue) {
-                    const productCode = barcode.substr(config.flexLength, config.productLength);
+                    const productCode = barcode.substr(config.flexLength, config.productLength).toLowerCase(); // <-- lowercase!
                     const weightStr = barcode.substr(config.flexLength + config.productLength, config.weightLength);
                     const weightGram = parseInt(weightStr, 10);
+                    console.log('Product code (lowercase):', productCode, 'Berat (gram):', weightGram);
                     if (!isNaN(weightGram) && weightGram > 0) {
                         const q = query(
                             produkCol,
@@ -1887,17 +1895,19 @@
                             produk = { id: snap.docs[0].id, ...snap.docs[0].data() };
                             productsCache.set(produk.id, produk);
                             const qtyKg = weightGram / 1000;
+                            console.log('Produk timbangan ditemukan:', produk.nama, 'Berat kg:', qtyKg);
                             await tambahKeCart(produk.id, null, qtyKg, null);
                             barcodeInput.value = '';
                             await loadProductsPage('next');
                             return;
                         } else {
+                            console.log('Produk timbangan dengan kode', productCode, 'tidak ditemukan');
                             alert(`Produk timbangan dengan kode ${productCode} tidak ditemukan`);
                         }
                     }
                 }
             }
-
+        
             alert('Produk tidak ditemukan');
             barcodeInput.value = '';
         }
