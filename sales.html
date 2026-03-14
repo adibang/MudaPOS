@@ -193,7 +193,6 @@
         }
         #btnPiutang { background:#ccc; color:#333; }
         #btnPiutang.active { background:#dc3545; color:white; }
-        #btnPending { background:#006B54; color:white; }
         #btnPayment { background:#006B54; color:white; }
 
         /* ===== PRODUK ===== */
@@ -1023,7 +1022,7 @@
         }
     </script>
 
-    <!-- Script module utama (Firestore) dengan modifikasi varian dan paket -->
+    <!-- Script module utama (Firestore) dengan modifikasi varian dan paket, serta perbaikan error -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -1085,6 +1084,9 @@
             infoText: '',
             footerText: 'Terima Kasih'
         };
+
+        // ========== ELEMEN DOM ==========
+        const pendingCountSpan = document.getElementById('pendingCount'); // tambahan untuk badge pending
 
         // ========== FUNGSI FORMAT RUPIAH ==========
         function formatRupiah(angka) {
@@ -1200,7 +1202,7 @@
 
         function updatePendingBadge() {
             pendingCount = pendingList.length;
-            pendingCountSpan.textContent = pendingCount;
+            if (pendingCountSpan) pendingCountSpan.textContent = pendingCount;
         }
 
         async function savePendingTransaction(pendingCode) {
@@ -1951,11 +1953,9 @@
         // MODAL CUSTOMER
         async function loadCustomers() {
             try { 
-                allCustomers = await getAll(customerCol);
-                allCustomers = allCustomers.map(c => ({
-                    ...c,
-                    outstanding: c.outstanding !== undefined ? c.outstanding : 0
-                }));
+                // Perbaikan: getAll tidak didefinisikan, gunakan getDocs langsung
+                const snapshot = await getDocs(query(customerCol, where('deleted', '==', false)));
+                allCustomers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), outstanding: doc.data().outstanding || 0 }));
                 renderCustomerList(allCustomers); 
             } catch (error) { console.error(error); }
         }
@@ -2007,7 +2007,13 @@
         });
 
         // MODAL BUNDLE (sementara)
-        async function loadBundles() { try { const produk = await getAll(produkCol); renderBundleList(produk); } catch (error) { console.error(error); } }
+        async function loadBundles() { 
+            try { 
+                const snapshot = await getDocs(query(produkCol, where('deleted', '==', false)));
+                const produk = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderBundleList(produk); 
+            } catch (error) { console.error(error); }
+        }
         function renderBundleList(items) { bundleListBody.innerHTML = items.map(p => `<tr data-id="${p.id}"><td>${p.kode || '-'}</td><td>${p.nama}</td><td>Rp ${(p.hargaJual || 0).toLocaleString()}</td></tr>`).join(''); }
         btnBundle.addEventListener('click', () => { modalBundle.classList.add('active'); loadBundles(); });
         closeModalBundle.addEventListener('click', () => modalBundle.classList.remove('active'));
@@ -2065,7 +2071,7 @@
             }
         });
 
-        btnPending.addEventListener('click', openPendingListModal);
+        // btnPending sudah dihapus dari toolbar, jadi hanya floatingPending yang digunakan
         floatingPending.addEventListener('click', openPendingListModal);
 
         function openPendingListModal() {
