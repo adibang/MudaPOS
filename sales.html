@@ -2597,6 +2597,7 @@
         async function executePayment(paidTotal, outstandingAdded) {
             try {
                 await runTransaction(dbCloud, async (transaction) => {
+                    // Kumpulkan semua referensi yang perlu dibaca
                     const produkRefs = [];
                     const varianRefs = [];
                     const cartItemsForStock = cartItems.filter(item => item.produkId !== 'piutang');
@@ -2610,56 +2611,67 @@
                         }
                     }
 
-                    const produkSnaps = await Promise.all(produkRefs.map(ref => transaction.get(ref)));
-                    const varianSnaps = await Promise.all(varianRefs.map(ref => transaction.get(ref)));
+                    const allRefs = [...produkRefs, ...varianRefs];
+                    let custRef = null;
+                    if (selectedCustomer) {
+                        custRef = doc(customerCol, selectedCustomer.id);
+                        allRefs.push(custRef);
+                    }
 
+                    // Baca semua dokumen sekaligus
+                    const snapshots = await Promise.all(allRefs.map(ref => transaction.get(ref)));
+                    const snapshotMap = new Map();
+                    snapshots.forEach(snap => {
+                        snapshotMap.set(snap.ref.path, snap);
+                    });
+
+                    // Validasi stok untuk produk dan varian
                     for (let i = 0; i < cartItemsForStock.length; i++) {
                         const item = cartItemsForStock[i];
                         if (item.varianId) {
-                            const varianSnap = varianSnaps[varianRefs.findIndex(ref => ref.id === item.varianId)];
-                            if (!varianSnap.exists()) throw new Error(`Varian ${item.nama} tidak ditemukan`);
-                            const varianData = varianSnap.data();
+                            const ref = doc(varianCol, item.varianId);
+                            const snap = snapshotMap.get(ref.path);
+                            if (!snap.exists()) throw new Error(`Varian ${item.nama} tidak ditemukan`);
+                            const varianData = snap.data();
                             if (varianData.stok < item.qtyDasar) {
                                 throw new Error(`Stok varian ${item.nama} tidak mencukupi. Stok: ${varianData.stok}, dibutuhkan: ${item.qtyDasar}`);
                             }
                         } else {
-                            const produkSnap = produkSnaps[produkRefs.findIndex(ref => ref.id === item.produkId)];
-                            if (!produkSnap.exists()) throw new Error(`Produk ${item.nama} tidak ditemukan`);
-                            const produkData = produkSnap.data();
+                            const ref = doc(produkCol, item.produkId);
+                            const snap = snapshotMap.get(ref.path);
+                            if (!snap.exists()) throw new Error(`Produk ${item.nama} tidak ditemukan`);
+                            const produkData = snap.data();
                             if (produkData.stokAwal < item.qtyDasar) {
                                 throw new Error(`Stok produk ${item.nama} tidak mencukupi. Stok: ${produkData.stokAwal}, dibutuhkan: ${item.qtyDasar}`);
                             }
                         }
                     }
 
+                    // Update stok
                     for (let i = 0; i < cartItemsForStock.length; i++) {
                         const item = cartItemsForStock[i];
                         if (item.varianId) {
                             const ref = doc(varianCol, item.varianId);
-                            const varianSnap = varianSnaps[varianRefs.findIndex(ref => ref.id === item.varianId)];
-                            const newStok = varianSnap.data().stok - item.qtyDasar;
+                            const snap = snapshotMap.get(ref.path);
+                            const newStok = snap.data().stok - item.qtyDasar;
                             transaction.update(ref, { stok: newStok, updatedAt: serverTimestamp() });
                         } else {
                             const ref = doc(produkCol, item.produkId);
-                            const produkSnap = produkSnaps[produkRefs.findIndex(ref => ref.id === item.produkId)];
-                            const newStok = produkSnap.data().stokAwal - item.qtyDasar;
+                            const snap = snapshotMap.get(ref.path);
+                            const newStok = snap.data().stokAwal - item.qtyDasar;
                             transaction.update(ref, { stokAwal: newStok, updatedAt: serverTimestamp() });
                         }
                     }
 
-                    // Update outstanding customer dengan membaca data terbaru dari database
-                    if (selectedCustomer) {
-                        const custRef = doc(customerCol, selectedCustomer.id);
-                        const custSnap = await transaction.get(custRef);
-                        if (!custSnap.exists()) throw new Error('Customer tidak ditemukan');
+                    // Update outstanding customer jika ada
+                    if (selectedCustomer && custRef) {
+                        const custSnap = snapshotMap.get(custRef.path);
                         let newOutstanding = custSnap.data().outstanding || 0;
-                        // Kurangi jika ada item piutang di keranjang
                         for (let item of cartItems) {
                             if (item.produkId === 'piutang') {
                                 newOutstanding -= item.subtotal;
                             }
                         }
-                        // Tambah jika ada kekurangan bayar
                         if (outstandingAdded > 0) {
                             newOutstanding += outstandingAdded;
                         }
@@ -2667,6 +2679,7 @@
                         transaction.update(custRef, { outstanding: newOutstanding, updatedAt: serverTimestamp() });
                     }
 
+                    // Siapkan data item dengan harga pokok
                     const itemsForSales = [];
                     for (let item of cartItemsForStock) {
                         const produk = await getProdukFromCache(item.produkId);
