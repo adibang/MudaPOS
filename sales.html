@@ -1153,11 +1153,11 @@
         const konversiCol = collection(dbCloud, 'konversiUnit');
         const unitCol = collection(dbCloud, 'unit');
         const qtyCol = collection(dbCloud, 'qtyBreak');
-        const pendingCol = collection(dbCloud, 'pending');
-        const salesCol = collection(dbCloud, 'sales');
+        const pendingCol = collection(dbCloud, 'pending'); // untuk draft transaksi
+        const salesCol = collection(dbCloud, 'sales'); // untuk transaksi selesai (opsional)
         const settingsDocRef = doc(dbCloud, 'settings', 'appSettings');
-        const varianCol = collection(dbCloud, 'productVariants');
-        const paketCol = collection(dbCloud, 'productPackages');
+        const varianCol = collection(dbCloud, 'productVariants'); // koleksi varian
+        const paketCol = collection(dbCloud, 'productPackages'); // koleksi paket
 
         // ========== DATA GLOBAL ==========
         let allCustomers = [];
@@ -1168,8 +1168,11 @@
         let pendingList = [];
         let appSettings = null;
 
+        // Cache produk: Map(id -> data produk)
         let productsCache = new Map();
+        // Cache varian: Map(varianId -> data varian)
         let variantsCache = new Map();
+        // Cache paket: Map(produkId -> array paket)
         let packagesCache = new Map();
 
         let selectedCustomer = null;
@@ -1180,8 +1183,9 @@
         let pendingPayments = [];
         let pendingTotalPaid = 0;
         let lastTransactionData = null;
-        let currentView = 'grid';
+        let currentView = 'grid'; // default tampilan grid
 
+        // State pagination produk
         let lastVisible = null;
         let pageSnapshots = [];
         let currentPageIndex = 0;
@@ -1257,10 +1261,12 @@
         const confirmPiutangModal = document.getElementById('confirmPiutangModal');
         const loginBtn = document.getElementById('loginBtn');
 
+        // Elemen pagination
         const prevPageBtn = document.getElementById('prevPage');
         const nextPageBtn = document.getElementById('nextPage');
         const pageInfo = document.getElementById('pageInfo');
 
+        // Long press menu
         const longPressMenu = document.getElementById('longPressMenu');
 
         // ========== FUNGSI FORMAT RUPIAH ==========
@@ -1268,6 +1274,7 @@
             return 'Rp ' + angka.toLocaleString('id-ID');
         }
 
+        // ========== FUNGSI FORMAT TANGGAL ==========
         function formatDate(date, format) {
             const d = date.getDate().toString().padStart(2, '0');
             const m = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -1282,7 +1289,7 @@
             }
         }
 
-        // ========== LOAD SETTINGS ==========
+        // ========== LOAD SETTINGS DARI FIRESTORE ==========
         async function loadAppSettings() {
             try {
                 const snap = await getDoc(settingsDocRef);
@@ -1303,14 +1310,24 @@
                 }
             } catch (error) {
                 console.error('Gagal memuat settings:', error);
-                appSettings = { ... };
+                appSettings = {
+                    barcodeConfig: { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 },
+                    printerConfig: {
+                        paperSize: '58mm',
+                        dateFormat: 'DD/MM/YYYY',
+                        printCashierName: false,
+                        headerText: 'TOKO MUDA',
+                        infoText: '',
+                        footerText: 'Terima Kasih'
+                    }
+                };
             }
         }
 
-        // ========== LOAD MASTER DATA ==========
+        // ========== LOAD DATA MASTER (non-produk) ==========
         async function loadMasterData() {
             try {
-                console.log('Memuat data master...');
+                console.log('Memuat data master (customer, gudang, unit, konversi, qtyBreak, varian, paket)...');
                 const [customerSnap, gudangSnap, unitSnap, konversiSnap, qtySnap] = await Promise.all([
                     getDocs(query(customerCol, where('deleted', '==', false))),
                     getDocs(query(gudangCol, where('deleted', '==', false))),
@@ -1325,6 +1342,7 @@
                 allKonversi = konversiSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 allQtyBreak = qtySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+                // Isi dropdown gudang
                 warehouseSelect.innerHTML = '<option value="">Pilih Gudang</option>' + 
                     allGudang.map(g => `<option value="${g.id}">${g.nama}</option>`).join('');
                 const saved = loadSelectedWarehouse();
@@ -1333,7 +1351,10 @@
                     currentWarehouse = saved;
                 }
 
+                // Load daftar pending
                 await loadPendingFromDB();
+
+                // Muat halaman pertama produk
                 await loadProductsPage('next');
             } catch (error) {
                 console.error('Gagal memuat data master:', error);
@@ -1370,11 +1391,13 @@
                 alert('Keranjang kosong, tidak ada yang disimpan');
                 return false;
             }
+
             const existing = pendingList.find(p => p.pendingCode && p.pendingCode.toLowerCase() === pendingCode.toLowerCase());
             if (existing) {
                 pendingCodeError.textContent = 'Kode sudah digunakan.';
                 return false;
             }
+
             const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
             const transactionData = {
                 pendingCode: pendingCode,
@@ -1395,6 +1418,7 @@
                 total: total,
                 createdAt: serverTimestamp()
             };
+
             try {
                 const docRef = await addDoc(pendingCol, transactionData);
                 transactionData.id = docRef.id;
@@ -1423,9 +1447,11 @@
         async function loadPendingTransaction(id) {
             const trans = pendingList.find(p => p.id === id);
             if (!trans) return;
+
             if (cartItems.length > 0 && !confirm('Keranjang saat ini tidak kosong. Muat draft akan mengganti isi keranjang. Lanjutkan?')) {
                 return;
             }
+
             const newCart = [];
             for (let item of trans.cart) {
                 const produk = await getProdukFromCache(item.produkId);
@@ -1509,12 +1535,13 @@
             }
         };
 
-        // ========== PAGINATION PRODUK ==========
+        // ========== FUNGSI PAGINATION PRODUK ==========
         async function loadProductsPage(direction = 'next') {
             if (!currentWarehouse) {
                 productContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#999;">Silakan pilih gudang terlebih dahulu</div>';
                 return;
             }
+
             try {
                 const exec = await executeProdukSearchQuery(direction);
                 let docs = [];
@@ -2916,15 +2943,19 @@
         connectPrinterBtn.addEventListener('click', togglePrinter);
         printReceiptBtn.addEventListener('click', printReceipt);
 
-        // ========== AUTH ==========
+        // ========== AUTH (TIDAK DIUBAH) ==========
         onAuthStateChanged(auth, (user) => {
             loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
             feather.replace();
         });
+
         loginBtn.addEventListener('click', async () => {
             const user = auth.currentUser;
-            if (user) { try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); } }
-            else { try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); } }
+            if (user) {
+                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
+            } else {
+                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
+            }
         });
 
         // ========== INITIAL LOAD ==========
