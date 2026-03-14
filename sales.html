@@ -1628,7 +1628,7 @@
         async function executeProdukSearchQuery(direction = 'next') {
             const searchTerm = currentSearchTerm.toLowerCase().trim();
             const baseQuery = buildProdukBaseQuery();
-
+        
             if (!searchTerm) {
                 let q = query(baseQuery, limit(pageSize));
                 if (direction === 'next' && lastVisible) {
@@ -1638,6 +1638,7 @@
                 }
                 return { type: 'normal', query: q };
             } else {
+                // Query pencarian biasa di field nama, kode, barcode
                 const fields = ['nama', 'kode', 'barcode'];
                 const queries = fields.map(field => {
                     return query(
@@ -1647,6 +1648,25 @@
                         limit(pageSize)
                     );
                 });
+        
+                // === TAMBAHAN: Penanganan khusus untuk barcode timbangan ===
+                const config = appSettings?.barcodeConfig || { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 };
+                if (searchTerm.length === 13) {
+                    const flex = searchTerm.substr(0, config.flexLength);
+                    if (flex === config.flexValue) {
+                        const productCode = searchTerm.substr(config.flexLength, config.productLength);
+                        // Cari produk dengan kode yang sama dan flag timbangan aktif
+                        const qTimbangan = query(
+                            baseQuery,
+                            where('kode', '==', productCode),
+                            where('produkTimbangan', '==', true),
+                            limit(pageSize)
+                        );
+                        queries.push(qTimbangan);
+                    }
+                }
+                // ===========================================================
+        
                 return { type: 'search', queries };
             }
         }
