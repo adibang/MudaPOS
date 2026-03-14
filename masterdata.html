@@ -1376,7 +1376,7 @@
                     <select class="unitKonversi" required><option value="">Unit</option></select>
                 </div>
                 <div class="form-group">
-                    <input type="number" step="0.01" class="nilaiKonversi" placeholder="Nilai" required>
+                    <input type="number" step="0.001" class="nilaiKonversi" placeholder="Nilai" required>
                 </div>
                 <div class="form-group">
                     <input type="text" class="barcodeKonversi" placeholder="Barcode">
@@ -1429,7 +1429,7 @@
                     <input type="text" class="levelQty" placeholder="Level" required>
                 </div>
                 <div class="form-group">
-                    <input type="number" step="0.01" class="minQty" placeholder="Min Qty" required>
+                    <input type="number" step="0.001" class="minQty" placeholder="Min Qty" required>
                 </div>
                 <div class="form-group">
                     <input type="number" class="hargaQty" placeholder="Harga" required>
@@ -1454,7 +1454,7 @@
             row.className = 'paket-row';
             row.innerHTML = `
                 <div class="form-group">
-                    <input type="number" step="0.01" class="paketQty" placeholder="Jumlah item" min="0.01" required>
+                    <input type="number" step="0.001" class="paketQty" placeholder="Jumlah item" min="0.001" required>
                 </div>
                 <div class="form-group">
                     <input type="number" class="paketHarga" placeholder="Harga paket" min="0" step="100" required>
