@@ -1018,7 +1018,7 @@
         </div>
     </div>
 
-    <!-- MODAL PEMBAYARAN (MULTI-PAYMENT) -->
+    <!-- MODAL PEMBAYARAN (MULTI-PAYMENT) - dengan placeholder, tanpa value default -->
     <div class="modal" id="modalPayment">
         <div class="modal-content" style="max-width:600px;">
             <div class="modal-header">
@@ -1039,19 +1039,19 @@
                 <div class="payment-methods-grid">
                     <div class="payment-method-item">
                         <label>Tunai</label>
-                        <input type="number" id="paymentCash" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                        <input type="number" id="paymentCash" class="payment-input" min="0" step="1000" placeholder="0" oninput="updatePaymentSummary()">
                     </div>
                     <div class="payment-method-item">
                         <label>Kartu</label>
-                        <input type="number" id="paymentCard" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                        <input type="number" id="paymentCard" class="payment-input" min="0" step="1000" placeholder="0" oninput="updatePaymentSummary()">
                     </div>
                     <div class="payment-method-item">
                         <label>Transfer</label>
-                        <input type="number" id="paymentTransfer" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                        <input type="number" id="paymentTransfer" class="payment-input" min="0" step="1000" placeholder="0" oninput="updatePaymentSummary()">
                     </div>
                     <div class="payment-method-item">
                         <label>E-Wallet</label>
-                        <input type="number" id="paymentEwallet" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                        <input type="number" id="paymentEwallet" class="payment-input" min="0" step="1000" placeholder="0" oninput="updatePaymentSummary()">
                     </div>
                 </div>
                 <div id="shortageDisplay" style="display:none; color:red; margin-bottom:10px; padding:10px; background:#fff3f3; border-radius:10px;">
@@ -2472,10 +2472,10 @@
 
         // ========== FUNGSI PEMBAYARAN ==========
         function resetPaymentPage() {
-            paymentCash.value = '0';
-            paymentCard.value = '0';
-            paymentTransfer.value = '0';
-            paymentEwallet.value = '0';
+            paymentCash.value = '';
+            paymentCard.value = '';
+            paymentTransfer.value = '';
+            paymentEwallet.value = '';
             paymentTotal.textContent = 'Rp 0';
             paymentGrandTotal.textContent = 'Rp 0';
             changeAmount.textContent = 'Kembalian: Rp 0';
