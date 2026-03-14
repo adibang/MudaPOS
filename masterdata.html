@@ -1376,7 +1376,7 @@
                     <select class="unitKonversi" required><option value="">Unit</option></select>
                 </div>
                 <div class="form-group">
-                    <input type="number" class="nilaiKonversi" placeholder="Nilai" required>
+                    <input type="number" step="0.01" class="nilaiKonversi" placeholder="Nilai" required>
                 </div>
                 <div class="form-group">
                     <input type="text" class="barcodeKonversi" placeholder="Barcode">
@@ -1454,7 +1454,7 @@
             row.className = 'paket-row';
             row.innerHTML = `
                 <div class="form-group">
-                    <input type="number" class="paketQty" placeholder="Jumlah item" min="1" required>
+                    <input type="number" step="0.01" class="paketQty" placeholder="Jumlah item" min="0.01" required>
                 </div>
                 <div class="form-group">
                     <input type="number" class="paketHarga" placeholder="Harga paket" min="0" step="100" required>
@@ -2031,7 +2031,7 @@
                 // Simpan paket baru
                 const paketRows = document.querySelectorAll('.paket-row');
                 for (let row of paketRows) {
-                    const qty = parseInt(row.querySelector('.paketQty').value);
+                    const qty = parseFloat(row.querySelector('.paketQty').value);
                     const price = parseFloat(row.querySelector('.paketHarga').value);
                     if (!qty || !price) continue;
                     await addDoc(paketCol, {
