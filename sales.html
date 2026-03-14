@@ -1309,6 +1309,7 @@
                 const snap = await getDoc(settingsDocRef);
                 if (snap.exists()) {
                     appSettings = snap.data();
+                    console.log('Settings dimuat:', appSettings);
                 } else {
                     appSettings = {
                         barcodeConfig: { flexLength: 2, flexValue: '11', productLength: 6, weightLength: 5 },
@@ -1321,6 +1322,7 @@
                             footerText: 'Terima Kasih'
                         }
                     };
+                    console.log('Settings tidak ditemukan, menggunakan default:', appSettings);
                 }
             } catch (error) {
                 console.error('Gagal memuat settings:', error);
@@ -1579,6 +1581,7 @@
                     lastVisible = docs[docs.length - 1];
                 } else {
                     const snapshots = await Promise.all(exec.queries.map(q => getDocs(q)));
+                    console.log('Hasil semua query pencarian:', snapshots.map(s => s.docs.map(d => d.id)));
                     const docsMap = new Map();
                     snapshots.forEach(snap => {
                         snap.docs.forEach(doc => {
@@ -1659,10 +1662,22 @@
                 
                 if (searchTerm.length === 13) {
                     const flex = searchTerm.substr(0, config.flexLength);
+                    console.log(`[Pencarian] Prefix barcode: ${flex}, diharapkan: ${config.flexValue}`);
                     if (flex === config.flexValue) {
-                        const productCode = searchTerm.substr(config.flexLength, config.productLength).toLowerCase(); // <-- lowercase!
-                        console.log(`[Pencarian] Mencari produk timbangan dengan kode: ${productCode}`);
+                        const productCode = searchTerm.substr(config.flexLength, config.productLength).toLowerCase();
+                        console.log(`[Pencarian] Prefix cocok. Mencari produk timbangan dengan kode: ${productCode}`);
                         
+                        const qTimbangan = query(
+                            baseQuery,
+                            where('kode', '==', productCode),
+                            where('produkTimbangan', '==', true),
+                            limit(pageSize)
+                        );
+                        queries.push(qTimbangan);
+                    } else {
+                        // Fallback: tetap coba ekstrak kode produk meskipun prefix tidak cocok
+                        console.warn(`[Pencarian] Prefix tidak cocok, tetapi tetap mencoba mencari produk dengan kode yang diekstrak.`);
+                        const productCode = searchTerm.substr(config.flexLength, config.productLength).toLowerCase();
                         const qTimbangan = query(
                             baseQuery,
                             where('kode', '==', productCode),
@@ -1878,7 +1893,7 @@
                 const flex = barcode.substr(0, config.flexLength);
                 console.log('Flex:', flex);
                 if (flex === config.flexValue) {
-                    const productCode = barcode.substr(config.flexLength, config.productLength).toLowerCase(); // <-- lowercase!
+                    const productCode = barcode.substr(config.flexLength, config.productLength).toLowerCase();
                     const weightStr = barcode.substr(config.flexLength + config.productLength, config.weightLength);
                     const weightGram = parseInt(weightStr, 10);
                     console.log('Product code (lowercase):', productCode, 'Berat (gram):', weightGram);
@@ -1896,6 +1911,35 @@
                             productsCache.set(produk.id, produk);
                             const qtyKg = weightGram / 1000;
                             console.log('Produk timbangan ditemukan:', produk.nama, 'Berat kg:', qtyKg);
+                            await tambahKeCart(produk.id, null, qtyKg, null);
+                            barcodeInput.value = '';
+                            await loadProductsPage('next');
+                            return;
+                        } else {
+                            console.log('Produk timbangan dengan kode', productCode, 'tidak ditemukan');
+                            alert(`Produk timbangan dengan kode ${productCode} tidak ditemukan`);
+                        }
+                    }
+                } else {
+                    // Fallback: tetap coba ekstrak kode produk meskipun prefix tidak cocok
+                    console.warn(`Prefix tidak cocok, tetapi tetap mencoba mencari produk dengan kode yang diekstrak.`);
+                    const productCode = barcode.substr(config.flexLength, config.productLength).toLowerCase();
+                    const weightStr = barcode.substr(config.flexLength + config.productLength, config.weightLength);
+                    const weightGram = parseInt(weightStr, 10);
+                    if (!isNaN(weightGram) && weightGram > 0) {
+                        const q = query(
+                            produkCol,
+                            where('deleted', '==', false),
+                            where('gudangId', '==', currentWarehouse),
+                            where('kode', '==', productCode),
+                            where('produkTimbangan', '==', true)
+                        );
+                        const snap = await getDocs(q);
+                        if (!snap.empty) {
+                            produk = { id: snap.docs[0].id, ...snap.docs[0].data() };
+                            productsCache.set(produk.id, produk);
+                            const qtyKg = weightGram / 1000;
+                            console.log('Produk timbangan ditemukan (fallback):', produk.nama, 'Berat kg:', qtyKg);
                             await tambahKeCart(produk.id, null, qtyKg, null);
                             barcodeInput.value = '';
                             await loadProductsPage('next');
