@@ -18,8 +18,6 @@
         .btn-login:hover { background:#004d3b; }
         .btn-sync { background:transparent; border:1px solid #006B54; color:#006B54; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; margin-right:0.5rem; font-size:0.9rem; }
         .btn-sync:hover { background:#e6f0ec; }
-        .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
-        .reset-btn:hover { background:#c82333; }
         .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
         .sidebar.open { transform:translateX(0); }
         .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
@@ -98,6 +96,28 @@
             color: #006B54;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        /* Tombol Retur */
+        .btn-return {
+            background: #ffc107;
+            color: #333;
+            border: none;
+            border-radius: 20px;
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn-return:hover {
+            background: #e0a800;
+        }
+        .btn-return i {
+            width: 18px;
+            height: 18px;
+        }
         .search-box {
             flex: 1;
             min-width: 150px;
@@ -160,7 +180,7 @@
             font-weight: bold;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-        /* Tombol aksi */
+        /* Tombol aksi baris ketiga */
         .toolbar-row:last-child button {
             border: none;
             padding: 0.5rem 1rem;
@@ -726,9 +746,6 @@
         </div>
     </header>
 
-    <!-- Tombol Reset Darurat (untuk development) -->
-    <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Data (DEV)</button>
-
     <!-- Halaman Sales -->
     <main class="main-content">
         <h1 class="page-title">Sales</h1>
@@ -740,9 +757,13 @@
                     <option value="">Pilih Gudang</option>
                 </select>
                 <div class="view-toggle" id="viewToggle">
-                    <button class="active" data-view="grid"><i data-feather="grid"></i> Grid</button>
-                    <button data-view="list"><i data-feather="list"></i> List</button>
+                    <button class="active" data-view="grid"><i data-feather="grid"></i> <span>Grid</span></button>
+                    <button data-view="list"><i data-feather="list"></i> <span>List</span></button>
                 </div>
+                <!-- Tombol Retur -->
+                <button class="btn-return" id="btnReturn" onclick="location.href='sales-return.html'">
+                    <i data-feather="corner-up-left"></i> Retur
+                </button>
             </div>
             <div class="toolbar-row">
                 <div class="search-box">
@@ -766,8 +787,8 @@
             </div>
             <!-- Baris ketiga: tombol aksi -->
             <div class="toolbar-row" style="justify-content: flex-end;">
-                <button id="btnPiutang"><i data-feather="alert-triangle"></i></button>
-                <button id="btnPending"><i data-feather="clock"></i></button>
+                <button id="btnPiutang"><i data-feather="alert-triangle"></i> Piutang</button>
+                <button id="btnPending"><i data-feather="clock"></i> Pending</button>
                 <button id="btnPayment"><i data-feather="credit-card"></i> Payment</button>
             </div>
         </div>
@@ -910,19 +931,19 @@
                 <div class="payment-methods-grid">
                     <div class="payment-method-item">
                         <label>Tunai</label>
-                        <input type="number" id="paymentCash" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                        <input type="number" id="paymentCash" class="payment-input" min="0" step="1000" value="0">
                     </div>
                     <div class="payment-method-item">
                         <label>Kartu</label>
-                        <input type="number" id="paymentCard" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                        <input type="number" id="paymentCard" class="payment-input" min="0" step="1000" value="0">
                     </div>
                     <div class="payment-method-item">
                         <label>Transfer</label>
-                        <input type="number" id="paymentTransfer" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                        <input type="number" id="paymentTransfer" class="payment-input" min="0" step="1000" value="0">
                     </div>
                     <div class="payment-method-item">
                         <label>E-Wallet</label>
-                        <input type="number" id="paymentEwallet" class="payment-input" min="0" step="1000" value="0" oninput="updatePaymentSummary()">
+                        <input type="number" id="paymentEwallet" class="payment-input" min="0" step="1000" value="0">
                     </div>
                 </div>
                 <div id="shortageDisplay" style="display:none; color:red; margin-bottom:10px; padding:10px; background:#fff3f3; border-radius:10px;">
@@ -1009,7 +1030,7 @@
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
             collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc,
-            query, where, orderBy, serverTimestamp, runTransaction 
+            query, where, orderBy, serverTimestamp, runTransaction, writeBatch 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         console.log('Sales page dimulai...');
@@ -1023,6 +1044,9 @@
         const qtyCol = collection(dbCloud, 'qtyBreak');
         const pendingCol = collection(dbCloud, 'pending'); // untuk draft transaksi
         const salesCol = collection(dbCloud, 'sales'); // untuk transaksi selesai (opsional)
+
+        // ========== REFERENSI DOKUMEN SETTINGS ==========
+        const settingsDocRef = doc(dbCloud, 'settings', 'appSettings');
 
         // ========== DATA GLOBAL ==========
         let allProducts = [];
@@ -1042,92 +1066,78 @@
         let lastTransactionData = null;
         let currentView = 'grid'; // default tampilan grid
 
-        const barcodeConfig = {
+        // Konfigurasi barcode dan printer (akan diisi dari Firestore)
+        let barcodeConfig = {
             flexLength: 2,
             flexValue: '11',
             productLength: 6,
             weightLength: 5
         };
 
-        // ========== ELEMEN DOM ==========
-        const warehouseSelect = document.getElementById('warehouseSelect');
-        const viewToggle = document.getElementById('viewToggle');
-        const barcodeInput = document.getElementById('barcodeInput');
-        const productContainer = document.getElementById('productContainer');
-        const btnPilihCustomer = document.getElementById('btnPilihCustomer');
-        const btnBundle = document.getElementById('btnBundle');
-        const btnCart = document.getElementById('btnCart');
-        const modalCustomer = document.getElementById('modalCustomer');
-        const modalBundle = document.getElementById('modalBundle');
-        const modalSatuan = document.getElementById('modalSatuan');
-        const closeModalCustomer = document.getElementById('closeModalCustomer');
-        const closeModalBundle = document.getElementById('closeModalBundle');
-        const closeModalSatuan = document.getElementById('closeModalSatuan');
-        const searchCustomer = document.getElementById('searchCustomer');
-        const customerListBody = document.getElementById('customerListBody');
-        const searchBundle = document.getElementById('searchBundle');
-        const bundleListBody = document.getElementById('bundleListBody');
-        const satuanList = document.getElementById('satuanList');
-        const pendingCountSpan = document.getElementById('pendingCount');
-        const floatingPending = document.getElementById('floatingPending');
-        const customerBadge = document.getElementById('customerBadge');
-        const bundleBadge = document.getElementById('bundleBadge');
-        const cartBadge = document.getElementById('cartBadge');
-        const modalCart = document.getElementById('modalCart');
-        const modalPending = document.getElementById('modalPending');
-        const modalPayment = document.getElementById('modalPayment');
-        const btnPiutang = document.getElementById('btnPiutang');
-        const btnPending = document.getElementById('btnPending');
-        const btnPayment = document.getElementById('btnPayment');
-        const closeModalCart = document.getElementById('closeModalCart');
-        const closeModalPending = document.getElementById('closeModalPending');
-        const closeModalPayment = document.getElementById('closeModalPayment');
-        const cartItemsBody = document.getElementById('cartItemsBody');
-        const cartTotal = document.getElementById('cartTotal');
-        const formPending = document.getElementById('formPending');
-        const namaPending = document.getElementById('namaPending');
-        const pendingCodeError = document.getElementById('pendingCodeError');
-        const saveDraftBtn = document.getElementById('saveDraftBtn');
-        const modalPendingList = document.getElementById('modalPendingList');
-        const closeModalPendingList = document.getElementById('closeModalPendingList');
-        const pendingListContainer = document.getElementById('pendingListContainer');
-        const checkoutBtn = document.getElementById('checkoutBtn');
-
-        const paymentTotal = document.getElementById('paymentTotal');
-        const paymentGrandTotal = document.getElementById('paymentGrandTotal');
-        const paymentCash = document.getElementById('paymentCash');
-        const paymentCard = document.getElementById('paymentCard');
-        const paymentTransfer = document.getElementById('paymentTransfer');
-        const paymentEwallet = document.getElementById('paymentEwallet');
-        const shortageDisplay = document.getElementById('shortageDisplay');
-        const shortageAmount = document.getElementById('shortageAmount');
-        const changeAmount = document.getElementById('changeAmount');
-        const prosesPembayaranBtn = document.getElementById('prosesPembayaranBtn');
-        const connectPrinterBtn = document.getElementById('connectPrinterBtn');
-        const connectBtnText = document.getElementById('connectBtnText');
-        const printerStatusLight = document.getElementById('printerStatusLight');
-        const printerStatusText = document.getElementById('printerStatusText');
-        const printReceiptBtn = document.getElementById('printReceiptBtn');
-        const closeConfirmPiutang = document.getElementById('closeConfirmPiutang');
-        const confirmPiutangBtn = document.getElementById('confirmPiutangBtn');
-        const shortageConfirm = document.getElementById('shortageConfirm');
-        const confirmPiutangModal = document.getElementById('confirmPiutangModal');
-        const loginBtn = document.getElementById('loginBtn');
-        const syncBtn = document.getElementById('syncBtn');
-        const resetBtn = document.getElementById('resetDbBtn');
-
-        // Sembunyikan tombol sync
-        if (syncBtn) syncBtn.style.display = 'none';
+        let printerConfig = {
+            paperSize: '58mm',
+            dateFormat: 'DD/MM/YYYY',
+            printCashierName: false,
+            headerText: 'TOKO MUDA',
+            infoText: '',
+            footerText: 'Terima Kasih'
+        };
 
         // ========== FUNGSI FORMAT RUPIAH ==========
         function formatRupiah(angka) {
             return 'Rp ' + angka.toLocaleString('id-ID');
         }
 
+        // ========== FUNGSI MEMUAT KONFIGURASI DARI FIRESTORE ==========
+        async function loadBarcodeConfig() {
+            try {
+                const docSnap = await getDoc(settingsDocRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.barcodeConfig) {
+                        barcodeConfig = {
+                            flexLength: data.barcodeConfig.flexLength ?? 2,
+                            flexValue: data.barcodeConfig.flexValue || '11',
+                            productLength: data.barcodeConfig.productLength ?? 6,
+                            weightLength: data.barcodeConfig.weightLength ?? 5
+                        };
+                    }
+                }
+                console.log('Barcode config dimuat:', barcodeConfig);
+            } catch (error) {
+                console.error('Gagal memuat barcode config, menggunakan default:', error);
+            }
+        }
+
+        async function loadPrinterConfig() {
+            try {
+                const docSnap = await getDoc(settingsDocRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.printerConfig) {
+                        printerConfig = {
+                            paperSize: data.printerConfig.paperSize || '58mm',
+                            dateFormat: data.printerConfig.dateFormat || 'DD/MM/YYYY',
+                            printCashierName: data.printerConfig.printCashierName || false,
+                            headerText: data.printerConfig.headerText || 'TOKO MUDA',
+                            infoText: data.printerConfig.infoText || '',
+                            footerText: data.printerConfig.footerText || 'Terima Kasih'
+                        };
+                    }
+                }
+                console.log('Printer config dimuat:', printerConfig);
+            } catch (error) {
+                console.error('Gagal memuat printer config, menggunakan default:', error);
+            }
+        }
+
         // ========== LOAD SEMUA DATA DARI FIRESTORE ==========
         async function loadAllData() {
             try {
                 console.log('Memuat data master...');
+                await loadBarcodeConfig();
+                await loadPrinterConfig();
+
                 const [produkSnap, customerSnap, gudangSnap, konversiSnap, unitSnap, qtySnap] = await Promise.all([
                     getDocs(query(produkCol, where('deleted', '==', false))),
                     getDocs(query(customerCol, where('deleted', '==', false))),
@@ -2011,6 +2021,11 @@
             }
         };
 
+        // Tambahkan event listener untuk update saat nilai input berubah
+        [paymentCash, paymentCard, paymentTransfer, paymentEwallet].forEach(input => {
+            input.addEventListener('input', updatePaymentSummary);
+        });
+
         prosesPembayaranBtn.addEventListener('click', async () => {
             if (cartItems.length === 0) {
                 alert('Keranjang kosong');
@@ -2238,10 +2253,42 @@
             try {
                 const writer = printerPort.writable.getWriter();
                 const encoder = new TextEncoder();
+
+                // Format tanggal sesuai pengaturan
+                let dateStr;
+                const now = new Date();
+                switch (printerConfig.dateFormat) {
+                    case 'DD/MM/YYYY':
+                        dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        break;
+                    case 'MM/DD/YYYY':
+                        dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+                        break;
+                    case 'YYYY-MM-DD':
+                        dateStr = now.toISOString().split('T')[0];
+                        break;
+                    case 'DD MMM YYYY':
+                        dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/\./g, '');
+                        break;
+                    default:
+                        dateStr = now.toLocaleString('id-ID');
+                }
+
                 let receipt = '\n';
-                receipt += 'TOKO MUDA\n';
+                // Header
+                receipt += (printerConfig.headerText || 'TOKO MUDA') + '\n';
+                if (printerConfig.infoText) {
+                    receipt += printerConfig.infoText + '\n';
+                }
                 receipt += '===============\n';
-                receipt += `Tanggal: ${new Date().toLocaleString('id-ID')}\n`;
+                receipt += `Tanggal: ${dateStr}\n`;
+
+                // Cetak nama kasir jika diaktifkan dan user sedang login
+                if (printerConfig.printCashierName && auth.currentUser) {
+                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
+                    receipt += `Kasir: ${kasir}\n`;
+                }
+
                 receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
                 receipt += '---------------\n';
                 dataToPrint.items.forEach(item => {
@@ -2253,7 +2300,12 @@
                 receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
                 receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
                 receipt += '===============\n';
-                receipt += 'Terima kasih\n\n\n';
+                if (printerConfig.footerText) {
+                    receipt += printerConfig.footerText + '\n';
+                } else {
+                    receipt += 'Terima kasih\n';
+                }
+                receipt += '\n\n\n';
 
                 await writer.write(encoder.encode(receipt));
                 writer.releaseLock();
@@ -2297,23 +2349,8 @@
             else { try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); } }
         });
 
-        // Reset data untuk development (hapus semua dokumen)
-        resetBtn.addEventListener('click', async () => {
-            if (!confirm('Hapus SEMUA data di Firestore? (produk, customer, dll.)')) return;
-            try {
-                const collections = [produkCol, customerCol, gudangCol, konversiCol, unitCol, qtyCol, pendingCol];
-                for (const col of collections) {
-                    const snap = await getDocs(col);
-                    const batch = writeBatch(dbCloud);
-                    snap.docs.forEach(doc => batch.delete(doc.ref));
-                    await batch.commit();
-                }
-                alert('Semua data dihapus. Muat ulang halaman.');
-                location.reload();
-            } catch (error) {
-                alert('Gagal reset: ' + error.message);
-            }
-        });
+        // Sembunyikan tombol sync
+        if (syncBtn) syncBtn.style.display = 'none';
 
         // ========== INITIAL LOAD ==========
         loadAllData();
