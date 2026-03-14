@@ -2647,14 +2647,19 @@
                         }
                     }
 
+                    // Update outstanding customer dengan membaca data terbaru dari database
                     if (selectedCustomer) {
                         const custRef = doc(customerCol, selectedCustomer.id);
-                        let newOutstanding = selectedCustomer.outstanding || 0;
+                        const custSnap = await transaction.get(custRef);
+                        if (!custSnap.exists()) throw new Error('Customer tidak ditemukan');
+                        let newOutstanding = custSnap.data().outstanding || 0;
+                        // Kurangi jika ada item piutang di keranjang
                         for (let item of cartItems) {
                             if (item.produkId === 'piutang') {
                                 newOutstanding -= item.subtotal;
                             }
                         }
+                        // Tambah jika ada kekurangan bayar
                         if (outstandingAdded > 0) {
                             newOutstanding += outstandingAdded;
                         }
