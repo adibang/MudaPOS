@@ -765,10 +765,143 @@
             background: #006B54;
             color: white;
             font-weight: 600;
-            margin: 0; /* hilangkan margin yang mengganggu */
+            margin: 0;
         }
         .cart-footer .btn-checkout:hover {
             background: #004d3b;
+        }
+
+        /* ===== PERBAIKAN TAMPILAN MODAL CREATE PROMO ===== */
+        #modalCreatePromo .modal-content {
+            max-width: 600px;
+        }
+        #modalCreatePromo .modal-header {
+            background: #006B54;
+            color: white;
+            padding: 1rem 1.5rem;
+            margin: -1.5rem -1.5rem 1rem -1.5rem;
+            border-radius: 20px 20px 0 0;
+        }
+        #modalCreatePromo .modal-header h3 {
+            color: white;
+            margin: 0;
+        }
+        #modalCreatePromo .close-modal {
+            color: white;
+        }
+        #modalCreatePromo .form-group {
+            margin-bottom: 1.5rem;
+        }
+        #modalCreatePromo .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #006B54;
+        }
+        #modalCreatePromo .form-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        #modalCreatePromo .form-input:focus {
+            border-color: #006B54;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0,107,84,0.1);
+        }
+        #modalCreatePromo .product-checkbox-container {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+        #modalCreatePromo .product-checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            margin: 2px 0;
+            background: white;
+            border-radius: 10px;
+            transition: all 0.2s;
+        }
+        #modalCreatePromo .product-checkbox-item:hover {
+            background: #e6f0ec;
+        }
+        #modalCreatePromo .product-checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            accent-color: #006B54;
+        }
+        #modalCreatePromo .product-checkbox-item label {
+            margin: 0;
+            color: #333;
+            font-weight: normal;
+            cursor: pointer;
+            flex: 1;
+        }
+        #modalCreatePromo .product-checkbox-item small {
+            color: #999;
+            font-size: 0.8rem;
+        }
+        #modalCreatePromo .pagination {
+            margin-top: 1rem;
+            justify-content: center;
+        }
+        #modalCreatePromo .pagination button {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.9rem;
+        }
+
+        /* Perbaikan modal bundle */
+        #modalBundle .modal-content {
+            max-width: 600px;
+        }
+        #modalBundle .modal-header {
+            background: #006B54;
+            color: white;
+            padding: 1rem 1.5rem;
+            margin: -1.5rem -1.5rem 1rem -1.5rem;
+            border-radius: 20px 20px 0 0;
+        }
+        #modalBundle .modal-header h3 {
+            color: white;
+            margin: 0;
+        }
+        #modalBundle .close-modal {
+            color: white;
+        }
+        #modalBundle .product-grid {
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.8rem;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+        #modalBundle .product-card {
+            padding: 0.8rem;
+        }
+        #modalBundle .product-icon {
+            width: 40px;
+            height: 40px;
+        }
+        #modalBundle .product-name {
+            font-size: 0.9rem;
+        }
+        #modalBundle .product-price-stock {
+            font-size: 0.8rem;
+        }
+        #modalBundle .qty-control input {
+            width: 50px;
+        }
+        #btnAddBundleToCart:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #ccc;
         }
     </style>
 </head>
@@ -1051,7 +1184,7 @@
         </div>
     </div>
 
-    <!-- MODAL BUAT PROMO -->
+    <!-- MODAL BUAT PROMO (diperbarui dengan tema) -->
     <div class="modal" id="modalCreatePromo">
         <div class="modal-content">
             <div class="modal-header">
@@ -1062,22 +1195,23 @@
                 <form id="formCreatePromo">
                     <div class="form-group">
                         <label>Nama Promo</label>
-                        <input type="text" id="promoName" class="form-input" required>
+                        <input type="text" id="promoName" class="form-input" placeholder="Contoh: Promo 3 pcs 10.000" required>
                     </div>
                     <div class="form-group">
                         <label>Harga Promo (Rp)</label>
-                        <input type="number" id="promoPrice" class="form-input" min="0" required>
+                        <input type="number" id="promoPrice" class="form-input" min="0" placeholder="10000" required>
                     </div>
                     <div class="form-group">
                         <label>Minimal Jumlah Item</label>
-                        <input type="number" id="promoMinQty" class="form-input" min="1" value="1" required>
+                        <input type="number" id="promoMinQty" class="form-input" min="1" value="3" required>
                     </div>
                     <div class="form-group">
                         <label>Pilih Produk yang Termasuk</label>
                         <input type="text" id="searchPromoProducts" placeholder="Cari produk..." class="form-input" style="margin-bottom:10px;">
-                        <div id="promoProductsList" style="max-height:200px; overflow-y:auto; border:1px solid #ddd; border-radius:10px; padding:5px;"></div>
+                        <div id="promoProductsContainer" class="product-checkbox-container"></div>
+                        <div id="promoProductsPagination" class="pagination"></div>
                     </div>
-                    <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
                         <button type="button" class="btn-secondary" onclick="document.getElementById('closeModalCreatePromo').click()">Batal</button>
                         <button type="submit" class="btn-primary">Simpan Promo</button>
                     </div>
@@ -1140,7 +1274,7 @@
         const salesCol = collection(dbCloud, 'sales');
         const varianCol = collection(dbCloud, 'productVariants');
         const paketCol = collection(dbCloud, 'productPackages');
-        const promoCol = collection(dbCloud, 'promos'); // Tambahan koleksi promo
+        const promoCol = collection(dbCloud, 'promos');
 
         // ========== REFERENSI DOKUMEN SETTINGS ==========
         const settingsDocRef = doc(dbCloud, 'settings', 'appSettings');
@@ -1154,7 +1288,7 @@
         let allQtyBreak = [];
         let allVariants = [];
         let allPackages = [];
-        let allPromos = []; // Data promo
+        let allPromos = [];
         let pendingList = [];
 
         let selectedCustomer = null;
@@ -1171,12 +1305,17 @@
         let lastWarehouse = '';
 
         // ===== VARIABEL BUNDLE =====
-        let bundleState = 'list'; // 'list' atau 'select'
+        let bundleState = 'list';
         let selectedPromo = null;
-        let bundleSelectedItems = []; // [{ produkId, qty }]
+        let bundleSelectedItems = [];
         let bundleSearchKeyword = '';
 
-        // Konfigurasi barcode dan printer (akan diisi dari Firestore)
+        // ===== VARIABEL PAGINATION UNTUK MODAL CREATE PROMO =====
+        let promoProductsPage = 1;
+        const promoProductsPerPage = 10;
+        let filteredPromoProducts = [];
+
+        // Konfigurasi barcode dan printer
         let barcodeConfig = {
             flexLength: 2,
             flexValue: '11',
@@ -1193,7 +1332,7 @@
             footerText: 'Terima Kasih'
         };
 
-        // ========== VARIABEL PRINTER (BARU) ==========
+        // ========== VARIABEL PRINTER ==========
         let printerPort = null;
         let printerWriter = null;
         let isPrinterConnected = false;
@@ -1214,7 +1353,6 @@
         const customerBadge = document.getElementById('customerBadge');
         const btnBundle = document.getElementById('btnBundle');
         const modalBundle = document.getElementById('modalBundle');
-        const closeModalBundle = document.getElementById('closeModalBundle');
         const bundleBadge = document.getElementById('bundleBadge');
         const modalSatuan = document.getElementById('modalSatuan');
         const closeModalSatuan = document.getElementById('closeModalSatuan');
@@ -1263,7 +1401,8 @@
         const closeModalCreatePromo = document.getElementById('closeModalCreatePromo');
         const formCreatePromo = document.getElementById('formCreatePromo');
         const searchPromoProducts = document.getElementById('searchPromoProducts');
-        const promoProductsList = document.getElementById('promoProductsList');
+        const promoProductsContainer = document.getElementById('promoProductsContainer');
+        const promoProductsPagination = document.getElementById('promoProductsPagination');
 
         // ========== FUNGSI FORMAT RUPIAH ==========
         function formatRupiah(angka) {
@@ -1963,7 +2102,7 @@
             });
         }
 
-        // ========== FUNGSI BARCODE (DENGAN DUKUNGAN VARIAN) ==========
+        // ========== FUNGSI BARCODE ==========
         function processBarcode() {
             const barcode = barcodeInput.value.trim();
             if (!barcode) return;
@@ -2595,6 +2734,7 @@
         function attachBundleQtyEvents() {
             document.querySelectorAll('#bundleProductsContainer .qty-minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     const produkId = e.target.dataset.produk;
                     const item = bundleSelectedItems.find(i => i.produkId === produkId);
                     if (item) {
@@ -2606,6 +2746,7 @@
             });
             document.querySelectorAll('#bundleProductsContainer .qty-plus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     const produkId = e.target.dataset.produk;
                     const item = bundleSelectedItems.find(i => i.produkId === produkId);
                     if (item) {
@@ -2617,6 +2758,7 @@
             });
             document.querySelectorAll('#bundleProductsContainer .qty-input').forEach(input => {
                 input.addEventListener('change', (e) => {
+                    e.stopPropagation();
                     const produkId = e.target.dataset.produk;
                     const newQty = parseFloat(e.target.value) || 0;
                     const item = bundleSelectedItems.find(i => i.produkId === produkId);
@@ -2683,30 +2825,94 @@
             alert('Promo bundle ditambahkan ke keranjang');
         }
 
-        // ========== FUNGSI CREATE PROMO ==========
+        // ========== FUNGSI CREATE PROMO (DENGAN PAGINATION) ==========
         closeModalCreatePromo.addEventListener('click', () => modalCreatePromo.classList.remove('active'));
         window.addEventListener('click', (e) => {
             if (e.target === modalCreatePromo) modalCreatePromo.classList.remove('active');
         });
 
         function loadProductsForPromoCreation(keyword = '') {
-            let produkList = allProducts;
-            if (keyword) {
-                produkList = produkList.filter(p => 
-                    p.nama.toLowerCase().includes(keyword) || 
-                    (p.kode && p.kode.toLowerCase().includes(keyword))
-                );
-            }
+            filteredPromoProducts = allProducts.filter(p => 
+                p.nama.toLowerCase().includes(keyword.toLowerCase()) || 
+                (p.kode && p.kode.toLowerCase().includes(keyword.toLowerCase()))
+            );
+            promoProductsPage = 1;
+            renderPromoProductsList();
+        }
+
+        function renderPromoProductsList() {
+            const totalPages = Math.ceil(filteredPromoProducts.length / promoProductsPerPage) || 1;
+            if (promoProductsPage > totalPages) promoProductsPage = totalPages;
+
+            const start = (promoProductsPage - 1) * promoProductsPerPage;
+            const end = start + promoProductsPerPage;
+            const productsToShow = filteredPromoProducts.slice(start, end);
+
             let html = '';
-            produkList.forEach(produk => {
+            productsToShow.forEach(produk => {
                 html += `
-                    <div style="display:flex; align-items:center; padding:5px;">
+                    <div class="product-checkbox-item">
                         <input type="checkbox" class="promo-product-checkbox" value="${produk.id}" id="prod_${produk.id}">
-                        <label for="prod_${produk.id}" style="margin-left:5px;">${produk.nama} (${produk.kode || '-'})</label>
+                        <label for="prod_${produk.id}">
+                            ${produk.nama} <small>(${produk.kode || '-'})</small>
+                        </label>
                     </div>
                 `;
             });
-            promoProductsList.innerHTML = html;
+
+            if (productsToShow.length === 0) {
+                html = '<p style="text-align:center; padding:20px;">Tidak ada produk ditemukan</p>';
+            }
+
+            promoProductsContainer.innerHTML = html;
+
+            // Render pagination
+            let paginationHtml = '';
+            if (totalPages > 1) {
+                paginationHtml += `<button class="page-prev" ${promoProductsPage === 1 ? 'disabled' : ''}><i data-feather="chevron-left"></i></button>`;
+                
+                const maxVisible = 5;
+                let startPage = Math.max(1, promoProductsPage - Math.floor(maxVisible / 2));
+                let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                if (endPage - startPage + 1 < maxVisible) {
+                    startPage = Math.max(1, endPage - maxVisible + 1);
+                }
+
+                for (let i = startPage; i <= endPage; i++) {
+                    paginationHtml += `<button class="page-number ${i === promoProductsPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+                }
+
+                paginationHtml += `<button class="page-next" ${promoProductsPage === totalPages ? 'disabled' : ''}><i data-feather="chevron-right"></i></button>`;
+            }
+            promoProductsPagination.innerHTML = paginationHtml;
+            feather.replace();
+
+            // Event pagination
+            promoProductsPagination.querySelectorAll('.page-prev:not([disabled])').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (promoProductsPage > 1) {
+                        promoProductsPage--;
+                        renderPromoProductsList();
+                    }
+                });
+            });
+            promoProductsPagination.querySelectorAll('.page-next:not([disabled])').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (promoProductsPage < totalPages) {
+                        promoProductsPage++;
+                        renderPromoProductsList();
+                    }
+                });
+            });
+            promoProductsPagination.querySelectorAll('.page-number').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const page = parseInt(e.target.dataset.page);
+                    if (page !== promoProductsPage) {
+                        promoProductsPage = page;
+                        renderPromoProductsList();
+                    }
+                });
+            });
         }
 
         searchPromoProducts.addEventListener('input', (e) => {
@@ -2742,6 +2948,8 @@
                 alert('Promo berhasil dibuat');
                 modalCreatePromo.classList.remove('active');
                 formCreatePromo.reset();
+                promoProductsContainer.innerHTML = '';
+                promoProductsPagination.innerHTML = '';
                 if (bundleState === 'list') {
                     renderBundleModal();
                 }
