@@ -1095,7 +1095,7 @@
         }
     </script>
 
-    <!-- Script module utama (Firestore) dengan perbaikan paket dan qty break -->
+    <!-- Script module utama (Firestore) dengan perbaikan paket, qty break, dan printer reconnect -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -1135,9 +1135,6 @@
         let selectedCustomer = null;
         let cartItems = [];
         let pendingCount = 0;
-        let printerPort = null;
-        let pendingPayments = [];
-        let pendingTotalPaid = 0;
         let lastTransactionData = null;
         let currentView = 'grid';
 
@@ -1165,8 +1162,74 @@
             footerText: 'Terima Kasih'
         };
 
+        // ========== VARIABEL PRINTER (BARU) ==========
+        let printerPort = null;
+        let printerWriter = null;
+        let isPrinterConnected = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 3;
+
         // ========== ELEMEN DOM ==========
-        const pendingCountSpan = document.getElementById('pendingCount'); // tambahan untuk badge pending
+        const pendingCountSpan = document.getElementById('pendingCount');
+        const warehouseSelect = document.getElementById('warehouseSelect');
+        const barcodeInput = document.getElementById('barcodeInput');
+        const viewToggle = document.getElementById('viewToggle');
+        const productContainer = document.getElementById('productContainer');
+        const btnPilihCustomer = document.getElementById('btnPilihCustomer');
+        const modalCustomer = document.getElementById('modalCustomer');
+        const closeModalCustomer = document.getElementById('closeModalCustomer');
+        const customerListBody = document.getElementById('customerListBody');
+        const searchCustomer = document.getElementById('searchCustomer');
+        const customerBadge = document.getElementById('customerBadge');
+        const btnBundle = document.getElementById('btnBundle');
+        const modalBundle = document.getElementById('modalBundle');
+        const closeModalBundle = document.getElementById('closeModalBundle');
+        const bundleListBody = document.getElementById('bundleListBody');
+        const searchBundle = document.getElementById('searchBundle');
+        const bundleBadge = document.getElementById('bundleBadge');
+        const modalSatuan = document.getElementById('modalSatuan');
+        const closeModalSatuan = document.getElementById('closeModalSatuan');
+        const btnCart = document.getElementById('btnCart');
+        const modalCart = document.getElementById('modalCart');
+        const closeModalCart = document.getElementById('closeModalCart');
+        const cartItemsBody = document.getElementById('cartItemsBody');
+        const cartTotal = document.getElementById('cartTotal');
+        const saveDraftBtn = document.getElementById('saveDraftBtn');
+        const checkoutBtn = document.getElementById('checkoutBtn');
+        const modalPending = document.getElementById('modalPending');
+        const closeModalPending = document.getElementById('closeModalPending');
+        const formPending = document.getElementById('formPending');
+        const namaPending = document.getElementById('namaPending');
+        const pendingCodeError = document.getElementById('pendingCodeError');
+        const floatingPending = document.getElementById('floatingPending');
+        const modalPendingList = document.getElementById('modalPendingList');
+        const closeModalPendingList = document.getElementById('closeModalPendingList');
+        const pendingListContainer = document.getElementById('pendingListContainer');
+        const btnPiutang = document.getElementById('btnPiutang');
+        const btnPayment = document.getElementById('btnPayment');
+        const modalPayment = document.getElementById('modalPayment');
+        const closeModalPayment = document.getElementById('closeModalPayment');
+        const paymentTotal = document.getElementById('paymentTotal');
+        const paymentGrandTotal = document.getElementById('paymentGrandTotal');
+        const paymentCash = document.getElementById('paymentCash');
+        const paymentCard = document.getElementById('paymentCard');
+        const paymentTransfer = document.getElementById('paymentTransfer');
+        const paymentEwallet = document.getElementById('paymentEwallet');
+        const shortageDisplay = document.getElementById('shortageDisplay');
+        const shortageAmount = document.getElementById('shortageAmount');
+        const changeAmount = document.getElementById('changeAmount');
+        const prosesPembayaranBtn = document.getElementById('prosesPembayaranBtn');
+        const confirmPiutangModal = document.getElementById('confirmPiutangModal');
+        const shortageConfirm = document.getElementById('shortageConfirm');
+        const confirmPiutangBtn = document.getElementById('confirmPiutangBtn');
+        const closeConfirmPiutang = document.getElementById('closeConfirmPiutang');
+        const connectPrinterBtn = document.getElementById('connectPrinterBtn');
+        const connectBtnText = document.getElementById('connectBtnText');
+        const printerStatusLight = document.getElementById('printerStatusLight');
+        const printerStatusText = document.getElementById('printerStatusText');
+        const printReceiptBtn = document.getElementById('printReceiptBtn');
+        const loginBtn = document.getElementById('loginBtn');
+        const syncBtn = document.getElementById('syncBtn');
 
         // ========== FUNGSI FORMAT RUPIAH ==========
         function formatRupiah(angka) {
@@ -1216,12 +1279,252 @@
             }
         }
 
+        // ========== FUNGSI PRINTER (BARU) ==========
+        function savePrinterConnection() {
+            try {
+                const connectionData = {
+                    isPrinterConnected: isPrinterConnected,
+                    timestamp: new Date().toISOString()
+                };
+                localStorage.setItem('printerConnection', JSON.stringify(connectionData));
+            } catch (e) {
+                console.error('Error saving printer connection:', e);
+            }
+        }
+
+        function updatePrinterStatus(connected) {
+            isPrinterConnected = connected;
+            if (connected) {
+                printerStatusLight.classList.add('connected');
+                printerStatusText.textContent = 'Online';
+                connectBtnText.textContent = 'Disconnect';
+                printReceiptBtn.disabled = false;
+            } else {
+                printerStatusLight.classList.remove('connected');
+                printerStatusText.textContent = 'Offline';
+                connectBtnText.textContent = 'Connect';
+                printReceiptBtn.disabled = true;
+            }
+            savePrinterConnection();
+        }
+
+        function handlePrinterDisconnect() {
+            console.log('Printer disconnected');
+            if (printerWriter) {
+                try { printerWriter.releaseLock(); } catch (e) {}
+                printerWriter = null;
+            }
+            if (printerPort) {
+                try { printerPort.close(); } catch (e) {}
+                printerPort = null;
+            }
+            updatePrinterStatus(false);
+        }
+
+        async function autoReconnectPrinter() {
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                return;
+            }
+            try {
+                if (!("serial" in navigator)) {
+                    return;
+                }
+                const ports = await navigator.serial.getPorts();
+                if (ports.length === 0) {
+                    return;
+                }
+                printerPort = ports[0];
+                if (printerPort.readable || printerPort.writable) {
+                    printerWriter = printerPort.writable.getWriter();
+                    updatePrinterStatus(true);
+                    reconnectAttempts = 0;
+                    printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+                    return;
+                }
+                await printerPort.open({ baudRate: 9600 });
+                printerWriter = printerPort.writable.getWriter();
+                updatePrinterStatus(true);
+                reconnectAttempts = 0;
+                printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+            } catch (error) {
+                console.error("Auto-reconnect error:", error);
+                reconnectAttempts++;
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    setTimeout(autoReconnectPrinter, 2000);
+                }
+            }
+        }
+
+        function initPrinterConnection() {
+            try {
+                const savedConnection = localStorage.getItem('printerConnection');
+                if (savedConnection) {
+                    const connectionData = JSON.parse(savedConnection);
+                    const savedTime = new Date(connectionData.timestamp);
+                    const currentTime = new Date();
+                    const minutesDifference = (currentTime - savedTime) / (1000 * 60);
+                    if (connectionData.isPrinterConnected && minutesDifference < 5) {
+                        // Coba reconnect
+                        setTimeout(() => {
+                            autoReconnectPrinter();
+                        }, 1000);
+                    } else {
+                        updatePrinterStatus(false);
+                        localStorage.removeItem('printerConnection');
+                    }
+                } else {
+                    updatePrinterStatus(false);
+                }
+            } catch (e) {
+                console.error('Error loading printer connection:', e);
+                updatePrinterStatus(false);
+            }
+        }
+
+        async function connectToPrinter() {
+            try {
+                if (!("serial" in navigator)) {
+                    alert("Browser tidak mendukung Web Serial API. Gunakan Chrome/Edge.");
+                    return false;
+                }
+                printerPort = await navigator.serial.requestPort();
+                await printerPort.open({ baudRate: 9600 });
+                printerWriter = printerPort.writable.getWriter();
+                updatePrinterStatus(true);
+                printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+                return true;
+            } catch (error) {
+                console.error("Connection error:", error);
+                if (error.name === 'NotFoundError') {
+                    alert("Tidak ada printer yang dipilih");
+                } else {
+                    alert("Gagal terhubung ke printer: " + error.message);
+                }
+                updatePrinterStatus(false);
+                return false;
+            }
+        }
+
+        async function disconnectFromPrinter() {
+            try {
+                if (printerWriter) {
+                    printerWriter.releaseLock();
+                    printerWriter = null;
+                }
+                if (printerPort) {
+                    await printerPort.close();
+                    printerPort = null;
+                }
+                updatePrinterStatus(false);
+            } catch (error) {
+                console.error("Disconnection error:", error);
+                updatePrinterStatus(false);
+            }
+        }
+
+        async function togglePrinter() {
+            if (isPrinterConnected) {
+                await disconnectFromPrinter();
+            } else {
+                await connectToPrinter();
+            }
+        }
+
+        async function doPrint(dataToPrint) {
+            if (!isPrinterConnected || !printerWriter) {
+                alert('Printer tidak terhubung');
+                return;
+            }
+            try {
+                const encoder = new TextEncoder();
+
+                let dateStr;
+                const now = new Date();
+                switch (printerConfig.dateFormat) {
+                    case 'DD/MM/YYYY':
+                        dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        break;
+                    case 'MM/DD/YYYY':
+                        dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+                        break;
+                    case 'YYYY-MM-DD':
+                        dateStr = now.toISOString().split('T')[0];
+                        break;
+                    case 'DD MMM YYYY':
+                        dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/\./g, '');
+                        break;
+                    default:
+                        dateStr = now.toLocaleString('id-ID');
+                }
+
+                let receipt = '\n';
+                receipt += (printerConfig.headerText || 'TOKO MUDA') + '\n';
+                if (printerConfig.infoText) {
+                    receipt += printerConfig.infoText + '\n';
+                }
+                receipt += '===============\n';
+                receipt += `Tanggal: ${dateStr}\n`;
+
+                if (printerConfig.printCashierName && auth.currentUser) {
+                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
+                    receipt += `Kasir: ${kasir}\n`;
+                }
+
+                receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
+                receipt += '---------------\n';
+                dataToPrint.items.forEach(item => {
+                    receipt += `${item.name}\n`;
+                    receipt += `${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}\n`;
+                });
+                receipt += '---------------\n';
+                receipt += `Total    : ${formatRupiah(dataToPrint.total)}\n`;
+                receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
+                receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
+                receipt += '===============\n';
+                if (printerConfig.footerText) {
+                    receipt += printerConfig.footerText + '\n';
+                } else {
+                    receipt += 'Terima kasih\n';
+                }
+                receipt += '\n\n\n';
+
+                await printerWriter.write(encoder.encode(receipt));
+                alert('Struk berhasil dicetak');
+            } catch (error) {
+                console.error('Error printing:', error);
+                alert('Gagal mencetak: ' + error.message);
+                if (error.message.includes("closed") || error.message.includes("disconnected")) {
+                    handlePrinterDisconnect();
+                }
+            }
+        }
+
+        async function printReceipt() {
+            if (!isPrinterConnected) {
+                alert('Printer belum terhubung');
+                return;
+            }
+            if (cartItems.length > 0) {
+                const confirmMsg = "Transaksi belum diproses. Proses pembayaran sekarang?";
+                if (confirm(confirmMsg)) {
+                    await prosesPembayaranBtn.click();
+                }
+                return;
+            }
+            if (lastTransactionData) {
+                await doPrint(lastTransactionData);
+                return;
+            }
+            alert('Tidak ada data untuk dicetak.');
+        }
+
         // ========== LOAD SEMUA DATA DARI FIRESTORE ==========
         async function loadAllData() {
             try {
                 console.log('Memuat data master...');
                 await loadBarcodeConfig();
                 await loadPrinterConfig();
+                initPrinterConnection(); // Inisialisasi printer
 
                 const [produkSnap, customerSnap, gudangSnap, konversiSnap, unitSnap, qtySnap, varianSnap, paketSnap] = await Promise.all([
                     getDocs(query(produkCol, where('deleted', '==', false))),
@@ -1291,7 +1594,6 @@
                 return false;
             }
 
-            // Cek duplikasi kode (opsional)
             const existing = pendingList.find(p => p.pendingCode && p.pendingCode.toLowerCase() === pendingCode.toLowerCase());
             if (existing) {
                 pendingCodeError.textContent = 'Kode sudah digunakan.';
@@ -1360,7 +1662,6 @@
                     alert(`Produk ${item.nama} tidak ditemukan, dilewati.`);
                     continue;
                 }
-                // Cek varian jika ada
                 if (item.varianId) {
                     const varian = allVariants.find(v => v.id === item.varianId);
                     if (!varian) {
@@ -1377,14 +1678,13 @@
                     qty: item.qty,
                     qtyDasar: item.qtyDasar,
                     hargaNormal: item.hargaNormal,
-                    hargaSatuan: item.hargaNormal, // set sementara ke harga normal, nanti diupdate paket/qty
+                    hargaSatuan: item.hargaNormal,
                     subtotal: item.hargaNormal * item.qty,
                     nilaiKonversi: item.nilaiKonversi
                 });
             }
             cartItems = newCart;
 
-            // Setelah memuat, update harga paket/qty untuk semua produk
             const produkIds = [...new Set(cartItems.map(item => item.produkId))];
             for (let pid of produkIds) {
                 updateHargaProduk(pid);
@@ -1462,14 +1762,12 @@
 
             const keyword = barcodeInput.value.trim().toLowerCase();
 
-            // Deteksi perubahan filter
             if (keyword !== lastKeyword || selectedWarehouseId !== lastWarehouse) {
                 currentPage = 1;
                 lastKeyword = keyword;
                 lastWarehouse = selectedWarehouseId;
             }
 
-            // Filter produk berdasarkan gudang dan keyword
             filteredProducts = allProducts.filter(p => {
                 if (p.gudangId !== selectedWarehouseId) return false;
                 
@@ -1531,7 +1829,6 @@
             }
             feather.replace();
 
-            // Pasang event listener qty
             document.querySelectorAll('.qty-minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1564,10 +1861,8 @@
             }
 
             let html = '';
-            // Tombol Previous
             html += `<button class="page-prev" ${currentPage === 1 ? 'disabled' : ''}><i data-feather="chevron-left"></i> Prev</button>`;
 
-            // Nomor halaman (maksimal 5)
             const maxVisible = 5;
             let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
             let endPage = Math.min(totalPages, startPage + maxVisible - 1);
@@ -1579,13 +1874,11 @@
                 html += `<button class="page-number ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
             }
 
-            // Tombol Next
             html += `<button class="page-next" ${currentPage === totalPages ? 'disabled' : ''}>Next <i data-feather="chevron-right"></i></button>`;
 
             paginationDiv.innerHTML = html;
             feather.replace();
 
-            // Event listeners untuk pagination
             paginationDiv.querySelectorAll('.page-prev:not([disabled])').forEach(btn => {
                 btn.addEventListener('click', () => {
                     if (currentPage > 1) {
@@ -1620,7 +1913,6 @@
 
             const barcodeLower = barcode.toLowerCase();
 
-            // Cari di produk
             let produk = allProducts.find(p => 
                 (p.kode && p.kode.trim().toLowerCase() === barcodeLower) || 
                 (p.barcode && p.barcode.trim().toLowerCase() === barcodeLower)
@@ -1633,7 +1925,6 @@
                 return;
             }
 
-            // Cari di konversi
             for (let konv of allKonversi) {
                 if (konv.barcode && konv.barcode.trim().toLowerCase() === barcodeLower) {
                     const produk = allProducts.find(p => p.id === konv.produkId);
@@ -1646,7 +1937,6 @@
                 }
             }
 
-            // Cari di varian
             for (let varian of allVariants) {
                 if (varian.barcode && varian.barcode.trim().toLowerCase() === barcodeLower) {
                     const produk = allProducts.find(p => p.id === varian.produkId);
@@ -1659,7 +1949,6 @@
                 }
             }
 
-            // Cek barcode timbangan (13 digit)
             if (barcode.length === 13) {
                 const flex = barcode.substr(0, barcodeConfig.flexLength);
                 if (flex !== barcodeConfig.flexValue) {
@@ -1696,21 +1985,17 @@
         }
 
         // ========== FUNGSI PAKET DAN QTY BREAK ==========
-        // Menghitung harga minimal untuk jumlah unit menggunakan dynamic programming
         function hitungHargaPaket(produkId, qty) {
             const produk = allProducts.find(p => p.id === produkId);
             if (!produk) return qty * 0;
-            const hargaNormalPerUnit = produk.hargaJual; // untuk timbangan, ini adalah harga per kg
+            const hargaNormalPerUnit = produk.hargaJual;
             const pakets = allPackages.filter(p => p.produkId === produkId).sort((a,b) => a.qty - b.qty);
             if (pakets.length === 0) return qty * hargaNormalPerUnit;
 
-            // DP array untuk mendapatkan harga minimal untuk setiap jumlah
             const dp = new Array(qty + 1).fill(Infinity);
             dp[0] = 0;
             for (let i = 1; i <= qty; i++) {
-                // opsi beli normal per unit
                 dp[i] = dp[i-1] + hargaNormalPerUnit;
-                // coba paket
                 for (let p of pakets) {
                     if (i >= p.qty) {
                         dp[i] = Math.min(dp[i], dp[i - p.qty] + p.price);
@@ -1720,26 +2005,22 @@
             return dp[qty];
         }
 
-        // Mendapatkan harga satuan dari qty break berdasarkan total qty
         function getHargaQtyBreak(produkId, totalQty) {
             const breaks = allQtyBreak.filter(q => q.produkId === produkId);
             if (breaks.length === 0) return null;
-            // urut descending minQty
             breaks.sort((a, b) => b.minQty - a.minQty);
             for (let b of breaks) {
                 if (totalQty >= b.minQty) {
-                    return b.harga; // harga satuan untuk level ini
+                    return b.harga;
                 }
             }
             return null;
         }
 
-        // Memperbarui harga satuan untuk semua item dari produk tertentu berdasarkan paket dan qty break
         function updateHargaProduk(produkId) {
             const items = cartItems.filter(item => item.produkId === produkId);
             if (items.length === 0) return;
 
-            // Hitung total qty dasar dan total harga normal
             let totalQtyDasar = 0;
             let totalHargaNormal = 0;
             for (let item of items) {
@@ -1747,23 +2028,19 @@
                 totalHargaNormal += item.hargaNormal * item.qty;
             }
 
-            // Hitung harga paket
             const hargaPaket = hitungHargaPaket(produkId, totalQtyDasar);
-
-            // Hitung harga qty break
             let hargaQtyBreak = null;
             const qtyBreakHargaSatuan = getHargaQtyBreak(produkId, totalQtyDasar);
             if (qtyBreakHargaSatuan !== null) {
                 hargaQtyBreak = qtyBreakHargaSatuan * totalQtyDasar;
             }
 
-            // Tentukan harga terbaik (termurah)
             let hargaTerbaik = totalHargaNormal;
             if (hargaPaket < totalHargaNormal) hargaTerbaik = hargaPaket;
             if (hargaQtyBreak !== null && hargaQtyBreak < hargaTerbaik) hargaTerbaik = hargaQtyBreak;
 
             if (hargaTerbaik < totalHargaNormal) {
-                const faktor = hargaTerbaik / totalHargaNormal; // faktor diskon proporsional
+                const faktor = hargaTerbaik / totalHargaNormal;
                 for (let item of items) {
                     item.hargaSatuan = item.hargaNormal * faktor;
                     item.subtotal = item.hargaSatuan * item.qty;
@@ -1776,7 +2053,7 @@
             }
         }
 
-        // ========== FUNGSI CART (DENGAN DUKUNGAN VARIAN DAN PAKET) ==========
+        // ========== FUNGSI CART ==========
         async function tambahKeCart(produkId, qty, konversiId = null, varianId = null) {
             const produk = allProducts.find(p => p.id === produkId);
             if (!produk) return;
@@ -1792,7 +2069,6 @@
                 if (!varian) { alert('Varian tidak ditemukan'); return; }
                 hargaNormal = varian.hargaJual || produk.hargaJual;
                 stokTersedia = varian.stok || 0;
-                // Varian tidak memiliki konversi, jadi qtyDasar = qty
             } else if (konversiId) {
                 konversi = allKonversi.find(k => k.id === konversiId && k.produkId === produkId);
                 if (!konversi) { alert('Konversi tidak ditemukan'); return; }
@@ -1803,13 +2079,11 @@
             const qtyDasar = varian ? qty : qty * nilaiKonversi;
             if (qtyDasar <= 0) { alert('Qty harus lebih dari 0'); return; }
 
-            // Cek stok (untuk varian)
             if (varian && stokTersedia < qtyDasar) {
                 alert(`Stok varian tidak mencukupi. Stok: ${stokTersedia}`);
                 return;
             }
 
-            // Cek apakah item sudah ada di keranjang (kombinasi produk+varian+konversi)
             const existingIndex = cartItems.findIndex(item => 
                 item.produkId === produkId && 
                 item.konversiId === konversiId &&
@@ -1819,7 +2093,6 @@
             if (existingIndex >= 0) {
                 cartItems[existingIndex].qty += qty;
                 cartItems[existingIndex].qtyDasar += qtyDasar;
-                // Update harga paket/qty nanti
             } else {
                 const unit = konversi 
                     ? allUnits.find(u => u.id === konversi.unitId) 
@@ -1832,14 +2105,13 @@
                     unit: unit ? unit.nama : '',
                     qty: qty,
                     qtyDasar: qtyDasar,
-                    hargaNormal: hargaNormal, // harga satuan normal (sebelum diskon)
-                    hargaSatuan: hargaNormal, // sementara sama
+                    hargaNormal: hargaNormal,
+                    hargaSatuan: hargaNormal,
                     subtotal: hargaNormal * qty,
                     nilaiKonversi: nilaiKonversi,
                 });
             }
 
-            // Update harga dengan paket/qty untuk produk ini
             updateHargaProduk(produkId);
             updateCartBadge();
             alert(`Produk ${produk.nama} ditambahkan ke cart`);
@@ -1857,13 +2129,12 @@
                     return false;
                 }
                 item.qty = newQty;
-                item.qtyDasar = newQty; // varian tidak punya konversi
+                item.qtyDasar = newQty;
             } else {
                 const produk = allProducts.find(p => p.id === item.produkId);
                 if (!produk) return false;
 
                 const newQtyDasar = newQty * item.nilaiKonversi;
-                // Hitung total qty dasar untuk produk yang sama (tanpa varian)
                 const otherItemsQtyDasar = cartItems
                     .filter((it, i) => i !== index && it.produkId === item.produkId && !it.varianId)
                     .reduce((sum, it) => sum + it.qtyDasar, 0);
@@ -1877,7 +2148,6 @@
                 item.qtyDasar = newQtyDasar;
             }
 
-            // Update harga paket/qty untuk produk ini
             updateHargaProduk(item.produkId);
             return true;
         }
@@ -1966,7 +2236,6 @@
             const satuanList = document.getElementById('satuanList');
             satuanList.innerHTML = '';
 
-            // Bagian Varian
             if (varianList.length > 0) {
                 const varianHeader = document.createElement('h4');
                 varianHeader.textContent = 'Varian';
@@ -1993,7 +2262,6 @@
                 });
             }
 
-            // Bagian Konversi
             if (konversiList.length > 0) {
                 const konversiHeader = document.createElement('h4');
                 konversiHeader.textContent = 'Satuan Lain';
@@ -2022,7 +2290,6 @@
                 });
             }
 
-            // Event listener untuk tombol pilih varian
             document.querySelectorAll('.btn-pilih-varian').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const unitItem = e.target.closest('.unit-item');
@@ -2035,7 +2302,6 @@
                 });
             });
 
-            // Event listener untuk tombol pilih konversi
             document.querySelectorAll('.btn-pilih-konversi').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const unitItem = e.target.closest('.unit-item');
@@ -2139,7 +2405,6 @@
         // MODAL CUSTOMER
         async function loadCustomers() {
             try { 
-                // Perbaikan: getAll tidak didefinisikan, gunakan getDocs langsung
                 const snapshot = await getDocs(query(customerCol, where('deleted', '==', false)));
                 allCustomers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), outstanding: doc.data().outstanding || 0 }));
                 renderCustomerList(allCustomers); 
@@ -2254,14 +2519,12 @@
                 modalPending.classList.remove('active');
                 formPending.reset();
                 pendingCodeError.textContent = '';
-                // Kosongkan cart setelah draft tersimpan
                 cartItems = [];
                 updateCartBadge();
                 renderCartModal();
             }
         });
 
-        // btnPending sudah dihapus dari toolbar, jadi hanya floatingPending yang digunakan
         floatingPending.addEventListener('click', openPendingListModal);
 
         function openPendingListModal() {
@@ -2304,7 +2567,10 @@
             alert('Piutang ditambahkan ke cart');
         });
 
-        // ========== FUNGSI PEMBAYARAN (dengan penyesuaian varian) ==========
+        // ========== FUNGSI PEMBAYARAN ==========
+        let pendingPayments = [];
+        let pendingTotalPaid = 0;
+
         function resetPaymentPage() {
             paymentCash.value = '';
             paymentCard.value = '';
@@ -2435,7 +2701,6 @@
         async function executePayment(paidTotal, outstandingAdded) {
             try {
                 await runTransaction(dbCloud, async (transaction) => {
-                    // Kumpulkan referensi produk dan varian
                     const produkRefs = [];
                     const produkItems = [];
                     const varianRefs = [];
@@ -2454,7 +2719,6 @@
                         }
                     }
 
-                    // Baca data produk
                     const produkSnaps = await Promise.all(produkRefs.map(ref => transaction.get(ref)));
                     for (let i = 0; i < produkItems.length; i++) {
                         if (!produkSnaps[i].exists()) {
@@ -2466,7 +2730,6 @@
                         }
                     }
 
-                    // Baca data varian
                     const varianSnaps = await Promise.all(varianRefs.map(ref => transaction.get(ref)));
                     for (let i = 0; i < varianItems.length; i++) {
                         if (!varianSnaps[i].exists()) {
@@ -2478,7 +2741,6 @@
                         }
                     }
 
-                    // Update stok produk
                     for (let i = 0; i < produkItems.length; i++) {
                         const ref = produkRefs[i];
                         const produk = produkSnaps[i].data();
@@ -2486,7 +2748,6 @@
                         transaction.update(ref, { stokAwal: newStok, updatedAt: serverTimestamp() });
                     }
 
-                    // Update stok varian
                     for (let i = 0; i < varianItems.length; i++) {
                         const ref = varianRefs[i];
                         const varian = varianSnaps[i].data();
@@ -2494,17 +2755,14 @@
                         transaction.update(ref, { stok: newStok, updatedAt: serverTimestamp() });
                     }
 
-                    // Update piutang customer
                     if (selectedCustomer) {
                         const custRef = doc(customerCol, selectedCustomer.id);
                         let newOutstanding = selectedCustomer.outstanding || 0;
-                        // Kurangi outstanding jika ada item piutang di keranjang
                         for (let item of cartItems) {
                             if (item.produkId === 'piutang') {
                                 newOutstanding -= item.subtotal;
                             }
                         }
-                        // Tambah outstanding jika ada kekurangan bayar
                         if (outstandingAdded > 0) {
                             newOutstanding += outstandingAdded;
                         }
@@ -2512,7 +2770,6 @@
                         transaction.update(custRef, { outstanding: newOutstanding, updatedAt: serverTimestamp() });
                     }
 
-                    // Simpan transaksi ke koleksi sales (opsional)
                     const salesData = {
                         items: cartItems.map(item => ({
                             produkId: item.produkId,
@@ -2529,14 +2786,13 @@
                         change: paidTotal - (cartItems.reduce((sum, i) => sum + i.subtotal, 0)),
                         customerId: selectedCustomer ? selectedCustomer.id : null,
                         customerName: selectedCustomer ? selectedCustomer.nama : null,
-                        paymentMethods: pendingPayments, // array of {method, amount}
+                        paymentMethods: pendingPayments,
                         createdAt: serverTimestamp()
                     };
                     const salesRef = doc(salesCol);
                     transaction.set(salesRef, salesData);
                 });
 
-                // Simpan data struk untuk cetak
                 lastTransactionData = {
                     items: cartItems.map(item => ({
                         name: item.nama,
@@ -2552,7 +2808,6 @@
                     transactionNumber: 'TRX-' + Date.now()
                 };
 
-                // Kosongkan cart
                 cartItems = [];
                 selectedCustomer = null;
                 customerBadge.textContent = '0';
@@ -2572,7 +2827,7 @@
 
         function handlePostPayment() {
             if (confirm('Transaksi berhasil. Cetak struk sekarang?')) {
-                if (printerPort && lastTransactionData) {
+                if (isPrinterConnected && lastTransactionData) {
                     doPrint(lastTransactionData);
                 } else {
                     alert('Printer tidak terhubung atau data tidak ada');
@@ -2580,137 +2835,7 @@
             }
         }
 
-        // ========== FUNGSI PRINTER ==========
-        async function togglePrinter() {
-            if (printerPort) {
-                try {
-                    await printerPort.close();
-                    printerPort = null;
-                    updatePrinterStatus(false);
-                    alert('Printer diputuskan');
-                } catch (error) {
-                    console.error(error);
-                    alert('Gagal memutuskan printer');
-                }
-            } else {
-                if (!navigator.serial) {
-                    alert('Web Serial API tidak didukung di browser ini. Gunakan Chrome/Edge.');
-                    return;
-                }
-                try {
-                    const port = await navigator.serial.requestPort();
-                    await port.open({ baudRate: 9600 });
-                    printerPort = port;
-                    updatePrinterStatus(true);
-                    alert('Printer terhubung');
-                } catch (error) {
-                    console.error(error);
-                    alert('Gagal connect printer: ' + error.message);
-                }
-            }
-        }
-
-        function updatePrinterStatus(connected) {
-            if (connected) {
-                printerStatusLight.classList.add('connected');
-                printerStatusText.textContent = '';
-                connectBtnText.textContent = 'Disconnect';
-                printReceiptBtn.disabled = false;
-            } else {
-                printerStatusLight.classList.remove('connected');
-                printerStatusText.textContent = '';
-                connectBtnText.textContent = 'Connect';
-                printReceiptBtn.disabled = true;
-            }
-        }
-
-        async function doPrint(dataToPrint) {
-            if (!printerPort) {
-                alert('Printer tidak terhubung');
-                return;
-            }
-            try {
-                const writer = printerPort.writable.getWriter();
-                const encoder = new TextEncoder();
-
-                let dateStr;
-                const now = new Date();
-                switch (printerConfig.dateFormat) {
-                    case 'DD/MM/YYYY':
-                        dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                        break;
-                    case 'MM/DD/YYYY':
-                        dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
-                        break;
-                    case 'YYYY-MM-DD':
-                        dateStr = now.toISOString().split('T')[0];
-                        break;
-                    case 'DD MMM YYYY':
-                        dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/\./g, '');
-                        break;
-                    default:
-                        dateStr = now.toLocaleString('id-ID');
-                }
-
-                let receipt = '\n';
-                receipt += (printerConfig.headerText || 'TOKO MUDA') + '\n';
-                if (printerConfig.infoText) {
-                    receipt += printerConfig.infoText + '\n';
-                }
-                receipt += '===============\n';
-                receipt += `Tanggal: ${dateStr}\n`;
-
-                if (printerConfig.printCashierName && auth.currentUser) {
-                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
-                    receipt += `Kasir: ${kasir}\n`;
-                }
-
-                receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
-                receipt += '---------------\n';
-                dataToPrint.items.forEach(item => {
-                    receipt += `${item.name}\n`;
-                    receipt += `${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}\n`;
-                });
-                receipt += '---------------\n';
-                receipt += `Total    : ${formatRupiah(dataToPrint.total)}\n`;
-                receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
-                receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
-                receipt += '===============\n';
-                if (printerConfig.footerText) {
-                    receipt += printerConfig.footerText + '\n';
-                } else {
-                    receipt += 'Terima kasih\n';
-                }
-                receipt += '\n\n\n';
-
-                await writer.write(encoder.encode(receipt));
-                writer.releaseLock();
-                alert('Struk berhasil dicetak');
-            } catch (error) {
-                console.error('Error printing:', error);
-                alert('Gagal mencetak: ' + error.message);
-            }
-        }
-
-        async function printReceipt() {
-            if (!printerPort) {
-                alert('Printer belum terhubung');
-                return;
-            }
-            if (cartItems.length > 0) {
-                const confirmMsg = "Transaksi belum diproses. Proses pembayaran sekarang?";
-                if (confirm(confirmMsg)) {
-                    await prosesPembayaranBtn.click();
-                }
-                return;
-            }
-            if (lastTransactionData) {
-                await doPrint(lastTransactionData);
-                return;
-            }
-            alert('Tidak ada data untuk dicetak.');
-        }
-
+        // ========== PRINTER EVENT ==========
         connectPrinterBtn.addEventListener('click', togglePrinter);
         printReceiptBtn.addEventListener('click', printReceipt);
 
