@@ -760,7 +760,7 @@
                     <button data-view="list"><i data-feather="list"></i> <span>List</span></button>
                 </div>
                 <!-- Tombol Retur -->
-                <button class="btn-return" id="btnReturn" onclick="location.href='sales-return.html'">
+                <button class="btn-return" id="btnReturn" onclick="location.href='sales-returns.html'">
                     <i data-feather="corner-up-left"></i> Retur
                 </button>
             </div>
@@ -1022,7 +1022,7 @@
         }
     </script>
 
-    <!-- Script module utama (Firestore) dengan modifikasi varian dan paket, serta perbaikan error -->
+    <!-- Script module utama (Firestore) dengan perbaikan paket dan qty break -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -1163,7 +1163,7 @@
                 allVariants = varianSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 allPackages = paketSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                console.log('Data dimuat:', allProducts.length, 'produk,', allVariants.length, 'varian,', allPackages.length, 'paket');
+                console.log('Data dimuat:', allProducts.length, 'produk,', allVariants.length, 'varian,', allPackages.length, 'paket,', allQtyBreak.length, 'qtyBreak');
 
                 // Load daftar pending
                 await loadPendingFromDB();
@@ -1297,17 +1297,17 @@
                     qty: item.qty,
                     qtyDasar: item.qtyDasar,
                     hargaNormal: item.hargaNormal,
-                    hargaSatuan: item.hargaNormal, // set sementara ke harga normal, nanti diupdate paket
+                    hargaSatuan: item.hargaNormal, // set sementara ke harga normal, nanti diupdate paket/qty
                     subtotal: item.hargaNormal * item.qty,
                     nilaiKonversi: item.nilaiKonversi
                 });
             }
             cartItems = newCart;
 
-            // Setelah memuat, update harga paket untuk semua produk
+            // Setelah memuat, update harga paket/qty untuk semua produk
             const produkIds = [...new Set(cartItems.map(item => item.produkId))];
             for (let pid of produkIds) {
-                updateHargaProdukDenganPaket(pid);
+                updateHargaProduk(pid);
             }
 
             if (trans.customerId) {
@@ -1536,7 +1536,7 @@
             renderProducts();
         }
 
-        // ========== FUNGSI PAKET ==========
+        // ========== FUNGSI PAKET DAN QTY BREAK ==========
         // Menghitung harga minimal untuk jumlah unit menggunakan dynamic programming
         function hitungHargaPaket(produkId, qty) {
             const produk = allProducts.find(p => p.id === produkId);
@@ -1561,28 +1561,55 @@
             return dp[qty];
         }
 
-        // Memperbarui harga satuan untuk semua item dari produk tertentu berdasarkan paket
-        function updateHargaProdukDenganPaket(produkId) {
+        // Mendapatkan harga satuan dari qty break berdasarkan total qty
+        function getHargaQtyBreak(produkId, totalQty) {
+            const breaks = allQtyBreak.filter(q => q.produkId === produkId);
+            if (breaks.length === 0) return null;
+            // urut descending minQty
+            breaks.sort((a, b) => b.minQty - a.minQty);
+            for (let b of breaks) {
+                if (totalQty >= b.minQty) {
+                    return b.harga; // harga satuan untuk level ini
+                }
+            }
+            return null;
+        }
+
+        // Memperbarui harga satuan untuk semua item dari produk tertentu berdasarkan paket dan qty break
+        function updateHargaProduk(produkId) {
             const items = cartItems.filter(item => item.produkId === produkId);
             if (items.length === 0) return;
 
             // Hitung total qty dasar dan total harga normal
-            let totalQty = 0;
+            let totalQtyDasar = 0;
             let totalHargaNormal = 0;
             for (let item of items) {
-                totalQty += item.qtyDasar;
+                totalQtyDasar += item.qtyDasar;
                 totalHargaNormal += item.hargaNormal * item.qty;
             }
 
-            const hargaPaket = hitungHargaPaket(produkId, totalQty);
-            if (hargaPaket < totalHargaNormal) {
-                const faktor = hargaPaket / totalHargaNormal; // faktor diskon proporsional
+            // Hitung harga paket
+            const hargaPaket = hitungHargaPaket(produkId, totalQtyDasar);
+
+            // Hitung harga qty break
+            let hargaQtyBreak = null;
+            const qtyBreakHargaSatuan = getHargaQtyBreak(produkId, totalQtyDasar);
+            if (qtyBreakHargaSatuan !== null) {
+                hargaQtyBreak = qtyBreakHargaSatuan * totalQtyDasar;
+            }
+
+            // Tentukan harga terbaik (termurah)
+            let hargaTerbaik = totalHargaNormal;
+            if (hargaPaket < totalHargaNormal) hargaTerbaik = hargaPaket;
+            if (hargaQtyBreak !== null && hargaQtyBreak < hargaTerbaik) hargaTerbaik = hargaQtyBreak;
+
+            if (hargaTerbaik < totalHargaNormal) {
+                const faktor = hargaTerbaik / totalHargaNormal; // faktor diskon proporsional
                 for (let item of items) {
                     item.hargaSatuan = item.hargaNormal * faktor;
                     item.subtotal = item.hargaSatuan * item.qty;
                 }
             } else {
-                // tidak ada diskon, kembalikan ke harga normal
                 for (let item of items) {
                     item.hargaSatuan = item.hargaNormal;
                     item.subtotal = item.hargaNormal * item.qty;
@@ -1633,7 +1660,7 @@
             if (existingIndex >= 0) {
                 cartItems[existingIndex].qty += qty;
                 cartItems[existingIndex].qtyDasar += qtyDasar;
-                // Update harga paket nanti
+                // Update harga paket/qty nanti
             } else {
                 const unit = konversi 
                     ? allUnits.find(u => u.id === konversi.unitId) 
@@ -1653,8 +1680,8 @@
                 });
             }
 
-            // Update harga dengan paket untuk produk ini
-            updateHargaProdukDenganPaket(produkId);
+            // Update harga dengan paket/qty untuk produk ini
+            updateHargaProduk(produkId);
             updateCartBadge();
             alert(`Produk ${produk.nama} ditambahkan ke cart`);
         }
@@ -1691,8 +1718,8 @@
                 item.qtyDasar = newQtyDasar;
             }
 
-            // Update harga paket untuk produk ini
-            updateHargaProdukDenganPaket(item.produkId);
+            // Update harga paket/qty untuk produk ini
+            updateHargaProduk(item.produkId);
             return true;
         }
 
@@ -1749,7 +1776,7 @@
                     const item = cartItems[index];
                     const produkId = item.produkId;
                     cartItems.splice(index, 1);
-                    updateHargaProdukDenganPaket(produkId);
+                    updateHargaProduk(produkId);
                     renderCartModal();
                     updateCartBadge();
                 });
