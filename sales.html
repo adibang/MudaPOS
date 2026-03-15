@@ -324,6 +324,44 @@
             flex-shrink: 1;
         }
 
+        /* ===== PAGINATION ===== */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+        .pagination button {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
+            color: #006B54;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .pagination button:hover {
+            background: #e6f0ec;
+            border-color: #006B54;
+        }
+        .pagination button.active {
+            background: #006B54;
+            color: white;
+            border-color: #006B54;
+        }
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .pagination button i {
+            width: 16px;
+            height: 16px;
+        }
+
         /* ===== MODAL ===== */
         .modal {
             display: none;
@@ -825,6 +863,9 @@
 
         <!-- Container Produk (Grid/List) -->
         <div id="productContainer" class="product-grid"></div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="paginationControls"></div>
     </main>
 
     <!-- Floating Pending -->
@@ -961,19 +1002,19 @@
                 <div class="payment-methods-grid">
                     <div class="payment-method-item">
                         <label>Tunai</label>
-                        <input type="number" id="paymentCash" class="payment-input" min="0" step="100" placeholder="0">
+                        <input type="number" id="paymentCash" class="payment-input" min="0" step="100" value="" placeholder="0">
                     </div>
                     <div class="payment-method-item">
                         <label>Kartu</label>
-                        <input type="number" id="paymentCard" class="payment-input" min="0" step="100" placeholder="0">
+                        <input type="number" id="paymentCard" class="payment-input" min="0" step="100" value="" placeholder="0">
                     </div>
                     <div class="payment-method-item">
                         <label>Transfer</label>
-                        <input type="number" id="paymentTransfer" class="payment-input" min="0" step="100" placeholder="0">
+                        <input type="number" id="paymentTransfer" class="payment-input" min="0" step="100" value="" placeholder="0">
                     </div>
                     <div class="payment-method-item">
                         <label>E-Wallet</label>
-                        <input type="number" id="paymentEwallet" class="payment-input" min="0" step="100" placeholder="0">
+                        <input type="number" id="paymentEwallet" class="payment-input" min="0" step="100" value="" placeholder="0">
                     </div>
                 </div>
                 <div id="shortageDisplay" style="display:none; color:red; margin-bottom:10px; padding:10px; background:#fff3f3; border-radius:10px;">
@@ -1099,6 +1140,13 @@
         let pendingTotalPaid = 0;
         let lastTransactionData = null;
         let currentView = 'grid';
+
+        // ===== VARIABEL PAGINATION =====
+        let currentPage = 1;
+        const productsPerPage = 10;
+        let filteredProducts = [];
+        let lastKeyword = '';
+        let lastWarehouse = '';
 
         // Konfigurasi barcode dan printer (akan diisi dari Firestore)
         let barcodeConfig = {
@@ -1403,16 +1451,26 @@
             }
         };
 
-        // ========== RENDER PRODUK ==========
+        // ========== RENDER PRODUK (DENGAN PAGINATION) ==========
         function renderProducts() {
             const selectedWarehouseId = warehouseSelect.value;
             if (!selectedWarehouseId) {
                 productContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#999;">Silakan pilih gudang terlebih dahulu</div>';
+                document.getElementById('paginationControls').innerHTML = '';
                 return;
             }
 
             const keyword = barcodeInput.value.trim().toLowerCase();
-            let filtered = allProducts.filter(p => {
+
+            // Deteksi perubahan filter
+            if (keyword !== lastKeyword || selectedWarehouseId !== lastWarehouse) {
+                currentPage = 1;
+                lastKeyword = keyword;
+                lastWarehouse = selectedWarehouseId;
+            }
+
+            // Filter produk berdasarkan gudang dan keyword
+            filteredProducts = allProducts.filter(p => {
                 if (p.gudangId !== selectedWarehouseId) return false;
                 
                 const matchProduk = (p.nama && p.nama.toLowerCase().includes(keyword)) ||
@@ -1424,9 +1482,16 @@
                 return konversiProduk.some(k => k.barcode && k.barcode.trim().toLowerCase().includes(keyword));
             });
 
+            const totalPages = Math.ceil(filteredProducts.length / productsPerPage) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const start = (currentPage - 1) * productsPerPage;
+            const end = start + productsPerPage;
+            const productsToShow = filteredProducts.slice(start, end);
+
             if (currentView === 'grid') {
                 productContainer.className = 'product-grid';
-                productContainer.innerHTML = filtered.map(p => {
+                productContainer.innerHTML = productsToShow.map(p => {
                     const stok = p.stokAwal || 0;
                     const unit = allUnits.find(u => u.id === p.unitId);
                     const unitName = unit ? unit.nama : '';
@@ -1446,7 +1511,7 @@
                 }).join('');
             } else {
                 productContainer.className = 'product-list';
-                productContainer.innerHTML = filtered.map(p => {
+                productContainer.innerHTML = productsToShow.map(p => {
                     const stok = p.stokAwal || 0;
                     const unit = allUnits.find(u => u.id === p.unitId);
                     const unitName = unit ? unit.nama : '';
@@ -1466,6 +1531,7 @@
             }
             feather.replace();
 
+            // Pasang event listener qty
             document.querySelectorAll('.qty-minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1482,6 +1548,67 @@
                     let val = parseFloat(input.value) || 0;
                     val = val + 1;
                     input.value = val.toFixed(2);
+                });
+            });
+
+            renderPaginationControls(totalPages);
+        }
+
+        function renderPaginationControls(totalPages) {
+            const paginationDiv = document.getElementById('paginationControls');
+            if (!paginationDiv) return;
+            
+            if (filteredProducts.length === 0) {
+                paginationDiv.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            // Tombol Previous
+            html += `<button class="page-prev" ${currentPage === 1 ? 'disabled' : ''}><i data-feather="chevron-left"></i> Prev</button>`;
+
+            // Nomor halaman (maksimal 5)
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage + 1 < maxVisible) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="page-number ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+            }
+
+            // Tombol Next
+            html += `<button class="page-next" ${currentPage === totalPages ? 'disabled' : ''}>Next <i data-feather="chevron-right"></i></button>`;
+
+            paginationDiv.innerHTML = html;
+            feather.replace();
+
+            // Event listeners untuk pagination
+            paginationDiv.querySelectorAll('.page-prev:not([disabled])').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        renderProducts();
+                    }
+                });
+            });
+            paginationDiv.querySelectorAll('.page-next:not([disabled])').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        renderProducts();
+                    }
+                });
+            });
+            paginationDiv.querySelectorAll('.page-number').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const page = parseInt(e.target.dataset.page);
+                    if (page !== currentPage) {
+                        currentPage = page;
+                        renderProducts();
+                    }
                 });
             });
         }
@@ -2179,10 +2306,10 @@
 
         // ========== FUNGSI PEMBAYARAN (dengan penyesuaian varian) ==========
         function resetPaymentPage() {
-            paymentCash.value = '0';
-            paymentCard.value = '0';
-            paymentTransfer.value = '0';
-            paymentEwallet.value = '0';
+            paymentCash.value = '';
+            paymentCard.value = '';
+            paymentTransfer.value = '';
+            paymentEwallet.value = '';
             paymentTotal.textContent = 'Rp 0';
             paymentGrandTotal.textContent = 'Rp 0';
             changeAmount.textContent = 'Kembalian: Rp 0';
