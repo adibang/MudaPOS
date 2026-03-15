@@ -1430,6 +1430,7 @@
             }
         }
 
+        // ========== FUNGSI DO PRINT YANG TELAH DIMODIFIKASI ==========
         async function doPrint(dataToPrint) {
             if (!isPrinterConnected || !printerWriter) {
                 alert('Printer tidak terhubung');
@@ -1437,7 +1438,29 @@
             }
             try {
                 const encoder = new TextEncoder();
+                const lineWidth = 32; // default untuk 58mm
 
+                // Helper functions
+                const centerText = (text, width) => {
+                    const padding = Math.max(0, width - text.length);
+                    const leftPad = Math.floor(padding / 2);
+                    const rightPad = padding - leftPad;
+                    return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
+                };
+
+                const formatRupiah = (angka) => {
+                    return 'Rp ' + angka.toLocaleString('id-ID');
+                };
+
+                // Header
+                let receipt = '\n';
+                receipt += centerText(printerConfig.headerText || 'TOKO MUDA', lineWidth) + '\n';
+                if (printerConfig.infoText) {
+                    receipt += centerText(printerConfig.infoText, lineWidth) + '\n';
+                }
+                receipt += '='.repeat(lineWidth) + '\n';
+
+                // Date and transaction number
                 let dateStr;
                 const now = new Date();
                 switch (printerConfig.dateFormat) {
@@ -1456,35 +1479,36 @@
                     default:
                         dateStr = now.toLocaleString('id-ID');
                 }
-
-                let receipt = '\n';
-                receipt += (printerConfig.headerText || 'TOKO MUDA') + '\n';
-                if (printerConfig.infoText) {
-                    receipt += printerConfig.infoText + '\n';
-                }
-                receipt += '===============\n';
                 receipt += `Tanggal: ${dateStr}\n`;
-
-                if (printerConfig.printCashierName && auth.currentUser) {
-                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
-                    receipt += `Kasir: ${kasir}\n`;
-                }
-
                 receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
-                receipt += '---------------\n';
+                receipt += '-'.repeat(lineWidth) + '\n';
+
+                // Items
                 dataToPrint.items.forEach(item => {
-                    receipt += `${item.name}\n`;
-                    receipt += `${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}\n`;
+                    // Format detail: qty unit x price = subtotal
+                    const detail = `${item.qty} ${item.unit || 'pcs'} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}`;
+                    // Nama produk, potong jika terlalu panjang
+                    const maxNameWidth = 12; // sisa untuk detail 20
+                    let name = item.name;
+                    if (name.length > maxNameWidth) {
+                        name = name.substring(0, maxNameWidth - 3) + '...';
+                    }
+                    // Pad nama ke kiri dengan lebar maxNameWidth
+                    const namePadded = name.padEnd(maxNameWidth, ' ');
+                    // Gabungkan dengan detail yang rata kanan dalam lebar 20
+                    const detailPadded = detail.padStart(20, ' ');
+                    receipt += namePadded + detailPadded + '\n';
                 });
-                receipt += '---------------\n';
+
+                receipt += '-'.repeat(lineWidth) + '\n';
                 receipt += `Total    : ${formatRupiah(dataToPrint.total)}\n`;
                 receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
                 receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
-                receipt += '===============\n';
+                receipt += '='.repeat(lineWidth) + '\n';
                 if (printerConfig.footerText) {
-                    receipt += printerConfig.footerText + '\n';
+                    receipt += centerText(printerConfig.footerText, lineWidth) + '\n';
                 } else {
-                    receipt += 'Terima kasih\n';
+                    receipt += centerText('Terima kasih', lineWidth) + '\n';
                 }
                 receipt += '\n\n\n';
 
