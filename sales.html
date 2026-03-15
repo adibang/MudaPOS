@@ -2610,6 +2610,37 @@
         }
 
         // ========== FUNGSI BUNDLE ==========
+        // ========== FUNGSI UNTUK MENDAPATKAN DAFTAR ITEM (PRODUK + VARIAN) DARI PROMO ==========
+        function getBundleItemDetails(produkIds) {
+            const items = [];
+            produkIds.forEach(pid => {
+                const produk = allProducts.find(p => p.id === pid);
+                if (!produk) return;
+                // Tambahkan produk dasar
+                items.push({
+                    produkId: pid,
+                    varianId: null,
+                    nama: produk.nama,
+                    hargaJual: produk.hargaJual,
+                    stok: produk.stokAwal || 0,
+                    unit: (allUnits.find(u => u.id === produk.unitId)?.nama) || ''
+                });
+                // Tambahkan varian
+                const varianList = allVariants.filter(v => v.produkId === pid);
+                varianList.forEach(varian => {
+                    items.push({
+                        produkId: pid,
+                        varianId: varian.id,
+                        nama: `${produk.nama} - ${varian.namaVarian}`,
+                        hargaJual: varian.hargaJual || produk.hargaJual,
+                        stok: varian.stok || 0,
+                        unit: (allUnits.find(u => u.id === varian.unitId)?.nama) || (allUnits.find(u => u.id === produk.unitId)?.nama) || ''
+                    });
+                });
+            });
+            return items;
+        }
+
         function renderBundleModal() {
             const modalContent = modalBundle.querySelector('.modal-content');
             if (bundleState === 'list') {
@@ -2651,7 +2682,12 @@
                         const promoId = e.currentTarget.dataset.promoid;
                         selectedPromo = allPromos.find(p => p.id === promoId);
                         bundleState = 'select';
-                        bundleSelectedItems = selectedPromo.produkIds.map(id => ({ produkId: id, qty: 0 }));
+                        // Inisialisasi bundleSelectedItems dengan semua varian, qty 0
+                        bundleSelectedItems = getBundleItemDetails(selectedPromo.produkIds).map(d => ({ 
+                            produkId: d.produkId, 
+                            varianId: d.varianId, 
+                            qty: 0 
+                        }));
                         bundleSearchKeyword = '';
                         renderPromoProductSelection();
                     });
@@ -2666,12 +2702,15 @@
         function renderPromoProductSelection() {
             if (!selectedPromo) return;
 
-            let produkList = allProducts.filter(p => selectedPromo.produkIds.includes(p.id));
+            // Dapatkan detail item (produk + varian)
+            const itemDetails = getBundleItemDetails(selectedPromo.produkIds);
+            // Simpan di window agar bisa diakses oleh fungsi lain
+            window.bundleItemDetails = itemDetails;
+
+            // Filter berdasarkan keyword pencarian
+            let filteredItems = itemDetails;
             if (bundleSearchKeyword) {
-                produkList = produkList.filter(p => 
-                    p.nama.toLowerCase().includes(bundleSearchKeyword) || 
-                    (p.kode && p.kode.toLowerCase().includes(bundleSearchKeyword))
-                );
+                filteredItems = itemDetails.filter(d => d.nama.toLowerCase().includes(bundleSearchKeyword));
             }
 
             let html = `
@@ -2688,27 +2727,24 @@
                     <div id="bundleProductsContainer" class="product-grid" style="max-height:50vh; overflow-y:auto;">
             `;
 
-            if (produkList.length === 0) {
+            if (filteredItems.length === 0) {
                 html += '<p style="text-align:center; padding:20px;">Tidak ada produk dalam promo ini.</p>';
             } else {
-                produkList.forEach(produk => {
-                    const stok = produk.stokAwal || 0;
-                    const unit = allUnits.find(u => u.id === produk.unitId);
-                    const unitName = unit ? unit.nama : '';
-                    const selectedItem = bundleSelectedItems.find(item => item.produkId === produk.id);
-                    const qty = selectedItem ? selectedItem.qty : 0;
+                filteredItems.forEach(d => {
+                    const selected = bundleSelectedItems.find(s => s.produkId === d.produkId && s.varianId === d.varianId);
+                    const qty = selected ? selected.qty : 0;
                     html += `
-                        <div class="product-card" data-id="${produk.id}">
+                        <div class="product-card" data-produk-id="${d.produkId}" data-varian-id="${d.varianId || ''}">
                             <div class="product-icon"><i data-feather="box" width="32"></i></div>
-                            <div class="product-name" title="${produk.nama}">${produk.nama}</div>
+                            <div class="product-name" title="${d.nama}">${d.nama}</div>
                             <div class="product-price-stock">
-                                <span>Rp ${(produk.hargaJual || 0).toLocaleString()}</span>
-                                <span>Stok: ${stok} ${unitName}</span>
+                                <span>Rp ${(d.hargaJual || 0).toLocaleString()}</span>
+                                <span>Stok: ${d.stok} ${d.unit}</span>
                             </div>
                             <div class="qty-control">
-                                <button class="qty-minus" data-produk="${produk.id}">-</button>
-                                <input type="number" class="qty-input" data-produk="${produk.id}" step="0.001" min="0" value="${qty}">
-                                <button class="qty-plus" data-produk="${produk.id}">+</button>
+                                <button class="qty-minus" data-produk-id="${d.produkId}" data-varian-id="${d.varianId || ''}">-</button>
+                                <input type="number" class="qty-input" data-produk-id="${d.produkId}" data-varian-id="${d.varianId || ''}" step="0.001" min="0" value="${qty}">
+                                <button class="qty-plus" data-produk-id="${d.produkId}" data-varian-id="${d.varianId || ''}">+</button>
                             </div>
                         </div>
                     `;
@@ -2727,31 +2763,27 @@
             modalBundle.querySelector('.modal-content').innerHTML = html;
             feather.replace();
 
-            // Event listener tombol kembali
             document.getElementById('btnBackToPromoList').addEventListener('click', () => {
                 bundleState = 'list';
                 selectedPromo = null;
                 bundleSelectedItems = [];
-                renderBundleModal(); // kembali ke daftar promo
+                renderBundleModal();
             });
 
-            // Event listener pencarian
             document.getElementById('bundleSearchInput').addEventListener('input', (e) => {
                 bundleSearchKeyword = e.target.value.toLowerCase();
                 renderPromoProductSelection();
             });
 
-            // Pasang event untuk kontrol qty
             attachBundleQtyEvents();
 
-            // Event listener tombol Tambah ke Keranjang
             document.getElementById('btnAddBundleToCart').addEventListener('click', () => {
                 const currentTotal = bundleSelectedItems.reduce((sum, item) => sum + item.qty, 0);
                 if (currentTotal < selectedPromo.minimalQty) {
                     alert(`Jumlah item (${currentTotal}) kurang dari minimal (${selectedPromo.minimalQty})`);
                     return;
                 }
-                addBundleToCart(); // panggil fungsi yang sudah diperbaiki
+                addBundleToCart();
             });
 
             document.getElementById('closeModalBundle').addEventListener('click', () => {
@@ -2763,11 +2795,12 @@
             document.querySelectorAll('#bundleProductsContainer .qty-minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const produkId = e.target.dataset.produk;
-                    const item = bundleSelectedItems.find(i => i.produkId === produkId);
+                    const produkId = e.target.dataset.produkId;
+                    const varianId = e.target.dataset.varianId === '' ? null : e.target.dataset.varianId;
+                    const item = bundleSelectedItems.find(i => i.produkId === produkId && i.varianId === varianId);
                     if (item) {
                         item.qty = Math.max(0, item.qty - 1);
-                        updateBundleQtyInput(produkId, item.qty);
+                        updateBundleQtyInput(produkId, varianId, item.qty);
                         updateBundleTotalDisplay();
                     }
                 });
@@ -2775,11 +2808,12 @@
             document.querySelectorAll('#bundleProductsContainer .qty-plus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const produkId = e.target.dataset.produk;
-                    const item = bundleSelectedItems.find(i => i.produkId === produkId);
+                    const produkId = e.target.dataset.produkId;
+                    const varianId = e.target.dataset.varianId === '' ? null : e.target.dataset.varianId;
+                    const item = bundleSelectedItems.find(i => i.produkId === produkId && i.varianId === varianId);
                     if (item) {
                         item.qty += 1;
-                        updateBundleQtyInput(produkId, item.qty);
+                        updateBundleQtyInput(produkId, varianId, item.qty);
                         updateBundleTotalDisplay();
                     }
                 });
@@ -2787,9 +2821,10 @@
             document.querySelectorAll('#bundleProductsContainer .qty-input').forEach(input => {
                 input.addEventListener('change', (e) => {
                     e.stopPropagation();
-                    const produkId = e.target.dataset.produk;
+                    const produkId = e.target.dataset.produkId;
+                    const varianId = e.target.dataset.varianId === '' ? null : e.target.dataset.varianId;
                     const newQty = parseFloat(e.target.value) || 0;
-                    const item = bundleSelectedItems.find(i => i.produkId === produkId);
+                    const item = bundleSelectedItems.find(i => i.produkId === produkId && i.varianId === varianId);
                     if (item) {
                         item.qty = newQty;
                         updateBundleTotalDisplay();
@@ -2798,8 +2833,9 @@
             });
         }
 
-        function updateBundleQtyInput(produkId, qty) {
-            const input = document.querySelector(`#bundleProductsContainer .qty-input[data-produk="${produkId}"]`);
+        function updateBundleQtyInput(produkId, varianId, qty) {
+            const selector = `#bundleProductsContainer .qty-input[data-produk-id="${produkId}"][data-varian-id="${varianId || ''}"]`;
+            const input = document.querySelector(selector);
             if (input) input.value = qty;
         }
 
@@ -2821,41 +2857,39 @@
                     return;
                 }
 
-                // Hitung ulang total qty
                 const totalQty = bundleSelectedItems.reduce((sum, item) => sum + item.qty, 0);
                 if (totalQty < selectedPromo.minimalQty) {
                     alert(`Jumlah item (${totalQty}) kurang dari minimal (${selectedPromo.minimalQty})`);
                     return;
                 }
 
-                // Cek stok setiap produk
+                const itemDetails = window.bundleItemDetails || [];
                 for (let item of bundleSelectedItems) {
                     if (item.qty === 0) continue;
-                    const produk = allProducts.find(p => p.id === item.produkId);
-                    if (!produk) {
-                        alert(`Produk dengan ID ${item.produkId} tidak ditemukan`);
+                    const detail = itemDetails.find(d => d.produkId === item.produkId && d.varianId === item.varianId);
+                    if (!detail) {
+                        alert(`Detail produk tidak ditemukan`);
                         return;
                     }
-                    if (produk.stokAwal < item.qty) {
-                        alert(`Stok ${produk.nama} tidak mencukupi. Stok: ${produk.stokAwal}`);
+                    if (detail.stok < item.qty) {
+                        alert(`Stok ${detail.nama} tidak mencukupi. Stok: ${detail.stok}`);
                         return;
                     }
                 }
 
-                // Buat daftar item anak
                 const childItems = bundleSelectedItems
                     .filter(item => item.qty > 0)
                     .map(item => {
-                        const produk = allProducts.find(p => p.id === item.produkId);
+                        const detail = itemDetails.find(d => d.produkId === item.produkId && d.varianId === item.varianId);
                         return {
                             produkId: item.produkId,
+                            varianId: item.varianId,
                             qty: item.qty,
-                            nama: produk.nama,
-                            hargaNormal: produk.hargaJual
+                            nama: detail.nama,
+                            hargaNormal: detail.hargaJual
                         };
                     });
 
-                // Tambahkan ke keranjang
                 cartItems.push({
                     type: 'bundle',
                     promoId: selectedPromo.id,
@@ -2868,7 +2902,7 @@
 
                 updateCartBadge();
                 renderCartModal();
-                modalBundle.classList.remove('active'); // Tutup modal
+                modalBundle.classList.remove('active');
                 alert('Promo bundle ditambahkan ke keranjang');
             } catch (error) {
                 console.error('Error addBundleToCart:', error);
@@ -3325,13 +3359,19 @@
                     for (let item of cartItems) {
                         if (item.type === 'bundle') {
                             for (let child of item.childItems) {
-                                const ref = doc(produkCol, child.produkId);
-                                produkRefs.push(ref);
-                                produkItems.push({
-                                    produkId: child.produkId,
-                                    qtyDasar: child.qty,
-                                    nama: child.nama
-                                });
+                                if (child.varianId) {
+                                    const ref = doc(varianCol, child.varianId);
+                                    varianRefs.push(ref);
+                                    varianItems.push(child); // child memiliki qty dan nama
+                                } else {
+                                    const ref = doc(produkCol, child.produkId);
+                                    produkRefs.push(ref);
+                                    produkItems.push({
+                                        produkId: child.produkId,
+                                        qtyDasar: child.qty,
+                                        nama: child.nama
+                                    });
+                                }
                             }
                         } else if (item.produkId === 'piutang') {
                             continue;
@@ -3399,12 +3439,12 @@
 
                     const salesData = {
                         items: cartItems.map(item => ({
-                            produkId: item.produkId,
-                            varianId: item.varianId,
-                            konversiId: item.konversiId,
+                            produkId: item.produkId || null,
+                            varianId: item.varianId || null,
+                            konversiId: item.konversiId || null,
                             nama: item.nama,
                             qty: item.qty,
-                            unit: item.unit,
+                            unit: item.unit || '',
                             hargaSatuan: item.hargaSatuan,
                             subtotal: item.subtotal
                         })),
