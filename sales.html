@@ -2623,7 +2623,9 @@
                     nama: produk.nama,
                     hargaJual: produk.hargaJual,
                     stok: produk.stokAwal || 0,
-                    unit: (allUnits.find(u => u.id === produk.unitId)?.nama) || ''
+                    unit: (allUnits.find(u => u.id === produk.unitId)?.nama) || '',
+                    kode: produk.kode || '',               // <-- tambah kode produk
+                    barcode: produk.barcode || ''           // <-- tambah barcode produk
                 });
                 // Tambahkan varian
                 const varianList = allVariants.filter(v => v.produkId === pid);
@@ -2634,7 +2636,9 @@
                         nama: `${produk.nama} - ${varian.namaVarian}`,
                         hargaJual: varian.hargaJual || produk.hargaJual,
                         stok: varian.stok || 0,
-                        unit: (allUnits.find(u => u.id === varian.unitId)?.nama) || (allUnits.find(u => u.id === produk.unitId)?.nama) || ''
+                        unit: (allUnits.find(u => u.id === varian.unitId)?.nama) || (allUnits.find(u => u.id === produk.unitId)?.nama) || '',
+                        kode: produk.kode || '',               // <-- kode produk (bisa ditambahkan kode varian jika ada)
+                        barcode: varian.barcode || produk.barcode || '' // <-- prioritaskan barcode varian
                     });
                 });
             });
@@ -2704,13 +2708,17 @@
 
             // Dapatkan detail item (produk + varian)
             const itemDetails = getBundleItemDetails(selectedPromo.produkIds);
-            // Simpan di window agar bisa diakses oleh fungsi lain
             window.bundleItemDetails = itemDetails;
 
-            // Filter berdasarkan keyword pencarian
+            // Filter berdasarkan keyword pencarian (perluas dengan kode dan barcode)
             let filteredItems = itemDetails;
             if (bundleSearchKeyword) {
-                filteredItems = itemDetails.filter(d => d.nama.toLowerCase().includes(bundleSearchKeyword));
+                const keyword = bundleSearchKeyword.toLowerCase();
+                filteredItems = itemDetails.filter(d => 
+                    d.nama.toLowerCase().includes(keyword) ||
+                    (d.kode && d.kode.toLowerCase().includes(keyword)) ||
+                    (d.barcode && d.barcode.toLowerCase().includes(keyword))
+                );
             }
 
             let html = `
@@ -2762,6 +2770,13 @@
 
             modalBundle.querySelector('.modal-content').innerHTML = html;
             feather.replace();
+
+            // Kembalikan fokus ke input pencarian
+            const searchInput = document.getElementById('bundleSearchInput');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+            }
 
             document.getElementById('btnBackToPromoList').addEventListener('click', () => {
                 bundleState = 'list';
