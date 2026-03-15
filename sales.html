@@ -702,6 +702,36 @@
             .warehouse-select { min-width:70px; }
             .view-toggle button span { display:none; }
         }
+
+        /* ===== PERBAIKAN TAMPILAN TOMBOL DI MODAL CART ===== */
+        .cart-footer button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+        .cart-footer .btn-secondary {
+            background: #ccc;
+            color: #333;
+        }
+        .cart-footer .btn-secondary:hover {
+            background: #b3b3b3;
+        }
+        .cart-footer .btn-checkout {
+            background: #006B54;
+            color: white;
+            font-weight: 600;
+            margin: 0; /* hilangkan margin yang mengganggu */
+        }
+        .cart-footer .btn-checkout:hover {
+            background: #004d3b;
+        }
     </style>
 </head>
 <body>
