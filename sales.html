@@ -1430,7 +1430,6 @@
             }
         }
 
-        // ========== FUNGSI CETAK STRUK DENGAN ALIGNMENT ==========
         async function doPrint(dataToPrint) {
             if (!isPrinterConnected || !printerWriter) {
                 alert('Printer tidak terhubung');
@@ -1438,24 +1437,7 @@
             }
             try {
                 const encoder = new TextEncoder();
-                const parts = [];
 
-                // Helper untuk menambahkan teks dengan newline
-                function addLine(text) {
-                    parts.push(encoder.encode(text + '\n'));
-                }
-
-                // Helper untuk mengatur alignment (ESC a n)
-                function setAlign(align) {
-                    const esc = 0x1B;
-                    const a = 0x61;
-                    let n = 0; // left
-                    if (align === 'center') n = 1;
-                    else if (align === 'right') n = 2;
-                    parts.push(new Uint8Array([esc, a, n]));
-                }
-
-                // Format tanggal sesuai konfigurasi
                 let dateStr;
                 const now = new Date();
                 switch (printerConfig.dateFormat) {
@@ -1475,62 +1457,38 @@
                         dateStr = now.toLocaleString('id-ID');
                 }
 
-                // Nama kasir
-                let kasir = '';
-                if (printerConfig.printCashierName && auth.currentUser) {
-                    kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
-                }
-
-                // ===== BAGIAN HEADER (RATA TENGAH) =====
-                setAlign('center');
-                addLine(printerConfig.headerText || 'TOKO MUDA');
-                // infoText bisa berisi alamat dan kontak, dipisah baris
+                let receipt = '\n';
+                receipt += (printerConfig.headerText || 'TOKO MUDA') + '\n';
                 if (printerConfig.infoText) {
-                    const lines = printerConfig.infoText.split('\n');
-                    lines.forEach(line => addLine(line));
+                    receipt += printerConfig.infoText + '\n';
                 }
-                addLine('=========='); // separator pertama
+                receipt += '===============\n';
+                receipt += `Tanggal: ${dateStr}\n`;
 
-                // ===== BAGIAN TRANSAKSI (RATA KIRI) =====
-                setAlign('left');
-                addLine(`Tanggal: ${dateStr}`);
-                if (kasir) {
-                    addLine(`Kasir: ${kasir}`);
+                if (printerConfig.printCashierName && auth.currentUser) {
+                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
+                    receipt += `Kasir: ${kasir}\n`;
                 }
-                addLine(`No.    : ${dataToPrint.transactionNumber}`);
-                addLine('---------------'); // separator antar bagian
+
+                receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
+                receipt += '---------------\n';
                 dataToPrint.items.forEach(item => {
-                    addLine(`${item.name}`);
-                    addLine(`${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}`);
+                    receipt += `${item.name}\n`;
+                    receipt += `${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}\n`;
                 });
-                addLine('---------------');
-                addLine(`Total    : ${formatRupiah(dataToPrint.total)}`);
-                addLine(`Bayar    : ${formatRupiah(dataToPrint.paidAmount)}`);
-                addLine(`Kembali  : ${formatRupiah(dataToPrint.change)}`);
-
-                // ===== BAGIAN FOOTER (RATA TENGAH) =====
-                setAlign('center');
-                addLine('=========='); // separator penutup
+                receipt += '---------------\n';
+                receipt += `Total    : ${formatRupiah(dataToPrint.total)}\n`;
+                receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
+                receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
+                receipt += '===============\n';
                 if (printerConfig.footerText) {
-                    const lines = printerConfig.footerText.split('\n');
-                    lines.forEach(line => addLine(line));
+                    receipt += printerConfig.footerText + '\n';
                 } else {
-                    addLine('Terima kasih');
+                    receipt += 'Terima kasih\n';
                 }
-                // Tambah beberapa baris kosong untuk potong kertas
-                addLine('');
-                addLine('');
+                receipt += '\n\n\n';
 
-                // Gabungkan semua bagian
-                const totalLength = parts.reduce((acc, arr) => acc + arr.length, 0);
-                const output = new Uint8Array(totalLength);
-                let offset = 0;
-                for (let part of parts) {
-                    output.set(part, offset);
-                    offset += part.length;
-                }
-
-                await printerWriter.write(output);
+                await printerWriter.write(encoder.encode(receipt));
                 alert('Struk berhasil dicetak');
             } catch (error) {
                 console.error('Error printing:', error);
@@ -1539,6 +1497,25 @@
                     handlePrinterDisconnect();
                 }
             }
+        }
+
+        async function printReceipt() {
+            if (!isPrinterConnected) {
+                alert('Printer belum terhubung');
+                return;
+            }
+            if (cartItems.length > 0) {
+                const confirmMsg = "Transaksi belum diproses. Proses pembayaran sekarang?";
+                if (confirm(confirmMsg)) {
+                    await prosesPembayaranBtn.click();
+                }
+                return;
+            }
+            if (lastTransactionData) {
+                await doPrint(lastTransactionData);
+                return;
+            }
+            alert('Tidak ada data untuk dicetak.');
         }
 
         // ========== LOAD SEMUA DATA DARI FIRESTORE ==========
