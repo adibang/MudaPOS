@@ -1430,7 +1430,14 @@
             }
         }
 
-        // ========== FUNGSI DO PRINT YANG TELAH DIMODIFIKASI ==========
+        // ========== FUNGSI BARU UNTUK FORMAT STRUK ==========
+        function centerText(text, width) {
+            const padding = Math.max(0, width - text.length);
+            const leftPad = Math.floor(padding / 2);
+            const rightPad = padding - leftPad;
+            return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
+        }
+
         async function doPrint(dataToPrint) {
             if (!isPrinterConnected || !printerWriter) {
                 alert('Printer tidak terhubung');
@@ -1438,29 +1445,13 @@
             }
             try {
                 const encoder = new TextEncoder();
-                const lineWidth = 32; // default untuk 58mm
 
-                // Helper functions
-                const centerText = (text, width) => {
-                    const padding = Math.max(0, width - text.length);
-                    const leftPad = Math.floor(padding / 2);
-                    const rightPad = padding - leftPad;
-                    return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
-                };
-
-                const formatRupiah = (angka) => {
-                    return 'Rp ' + angka.toLocaleString('id-ID');
-                };
-
-                // Header
-                let receipt = '\n';
-                receipt += centerText(printerConfig.headerText || 'TOKO MUDA', lineWidth) + '\n';
-                if (printerConfig.infoText) {
-                    receipt += centerText(printerConfig.infoText, lineWidth) + '\n';
+                // Tentukan lebar baris berdasarkan ukuran kertas
+                let lineWidth = 32; // default 58mm
+                if (printerConfig.paperSize === '80mm') {
+                    lineWidth = 48;
                 }
-                receipt += '='.repeat(lineWidth) + '\n';
 
-                // Date and transaction number
                 let dateStr;
                 const now = new Date();
                 switch (printerConfig.dateFormat) {
@@ -1479,25 +1470,43 @@
                     default:
                         dateStr = now.toLocaleString('id-ID');
                 }
+
+                let receipt = '\n';
+
+                // Header (rata tengah)
+                if (printerConfig.headerText) {
+                    const headerLines = printerConfig.headerText.split('\n');
+                    headerLines.forEach(line => {
+                        receipt += centerText(line, lineWidth) + '\n';
+                    });
+                }
+
+                // Informasi tambahan (rata tengah)
+                if (printerConfig.infoText) {
+                    const infoLines = printerConfig.infoText.split('\n');
+                    infoLines.forEach(line => {
+                        receipt += centerText(line, lineWidth) + '\n';
+                    });
+                }
+
+                // Garis pemisah (rata kiri, tapi kita buat selebar lineWidth)
+                receipt += '='.repeat(lineWidth) + '\n';
+
+                // Informasi transaksi (rata kiri)
                 receipt += `Tanggal: ${dateStr}\n`;
+
+                if (printerConfig.printCashierName && auth.currentUser) {
+                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
+                    receipt += `Kasir: ${kasir}\n`;
+                }
+
                 receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
                 receipt += '-'.repeat(lineWidth) + '\n';
 
-                // Items
+                // Data produk (rata kiri)
                 dataToPrint.items.forEach(item => {
-                    // Format detail: qty unit x price = subtotal
-                    const detail = `${item.qty} ${item.unit || 'pcs'} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}`;
-                    // Nama produk, potong jika terlalu panjang
-                    const maxNameWidth = 12; // sisa untuk detail 20
-                    let name = item.name;
-                    if (name.length > maxNameWidth) {
-                        name = name.substring(0, maxNameWidth - 3) + '...';
-                    }
-                    // Pad nama ke kiri dengan lebar maxNameWidth
-                    const namePadded = name.padEnd(maxNameWidth, ' ');
-                    // Gabungkan dengan detail yang rata kanan dalam lebar 20
-                    const detailPadded = detail.padStart(20, ' ');
-                    receipt += namePadded + detailPadded + '\n';
+                    receipt += `${item.name}\n`;
+                    receipt += `${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}\n`;
                 });
 
                 receipt += '-'.repeat(lineWidth) + '\n';
@@ -1505,11 +1514,17 @@
                 receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
                 receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
                 receipt += '='.repeat(lineWidth) + '\n';
+
+                // Footer (rata tengah)
                 if (printerConfig.footerText) {
-                    receipt += centerText(printerConfig.footerText, lineWidth) + '\n';
+                    const footerLines = printerConfig.footerText.split('\n');
+                    footerLines.forEach(line => {
+                        receipt += centerText(line, lineWidth) + '\n';
+                    });
                 } else {
                     receipt += centerText('Terima kasih', lineWidth) + '\n';
                 }
+
                 receipt += '\n\n\n';
 
                 await printerWriter.write(encoder.encode(receipt));
