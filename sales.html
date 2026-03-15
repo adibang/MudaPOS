@@ -390,7 +390,7 @@
             background: #006B54;
             color: white;
             border: none;
-            padding: 0.5rem 1rem;
+            padding: 1rem 1rem;
             border-radius: 20px;
             cursor: pointer;
         }
@@ -398,7 +398,7 @@
             background: #ccc;
             color: #333;
             border: none;
-            padding: 0.5rem 1rem;
+            padding: 1rem 1rem;
             border-radius: 20px;
             cursor: pointer;
         }
@@ -474,6 +474,11 @@
             color: #dc3545;
             padding: 0.2rem;
         }
+        #modalCart strong {
+            color: #006B54;
+            font-size: 1.1rem;
+            padding: 1rem 1rem;
+        }
         #modalCart .cart-footer {
             display: flex;
             justify-content: space-between;
@@ -482,15 +487,11 @@
             background: #f9f9f9;
             border-top: 1px solid #e0e0e0;
         }
-        #modalCart .cart-footer strong {
-            color: #006B54;
-            font-size: 1.1rem;
-        }
         .btn-checkout {
             background: #006B54;
             color: white;
             border: none;
-            padding: 0.6rem 1.5rem;
+            padding: 1rem 1rem;
             border-radius: 20px;
             font-weight: 600;
             cursor: pointer;
@@ -2095,6 +2096,10 @@
                 modalPending.classList.remove('active');
                 formPending.reset();
                 pendingCodeError.textContent = '';
+                // Kosongkan cart setelah draft tersimpan
+                cartItems = [];
+                updateCartBadge();
+                renderCartModal();
             }
         });
 
