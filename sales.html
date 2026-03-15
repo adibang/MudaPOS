@@ -903,6 +903,26 @@
             cursor: not-allowed;
             background: #ccc;
         }
+
+        /* ===== TOMBOL KEMBALI WARNA KUNING ===== */
+        .btn-back {
+            background: #ffc107;
+            color: #333;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: center;
+            font-size: 1rem;
+            transition: background 0.2s;
+            margin-bottom: 10px;
+        }
+        .btn-back:hover {
+            background: #e0a800;
+        }
     </style>
 </head>
 <body>
@@ -2660,7 +2680,7 @@
                     <button class="close-modal" id="closeModalBundle">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <button id="btnBackToPromoList" class="btn-secondary" style="margin-bottom:10px;"><i data-feather="arrow-left"></i> Kembali</button>
+                    <button id="btnBackToPromoList" class="btn-back"><i data-feather="arrow-left"></i> Kembali</button>
                     <div class="search-box" style="margin-bottom:15px;">
                         <i data-feather="search"></i>
                         <input type="text" id="bundleSearchInput" placeholder="Cari produk..." value="${bundleSearchKeyword}">
@@ -2707,23 +2727,31 @@
             modalBundle.querySelector('.modal-content').innerHTML = html;
             feather.replace();
 
+            // Event listener tombol kembali
             document.getElementById('btnBackToPromoList').addEventListener('click', () => {
                 bundleState = 'list';
                 selectedPromo = null;
                 bundleSelectedItems = [];
-                renderBundleModal();
+                renderBundleModal(); // kembali ke daftar promo
             });
 
+            // Event listener pencarian
             document.getElementById('bundleSearchInput').addEventListener('input', (e) => {
                 bundleSearchKeyword = e.target.value.toLowerCase();
                 renderPromoProductSelection();
             });
 
+            // Pasang event untuk kontrol qty
             attachBundleQtyEvents();
 
+            // Event listener tombol Tambah ke Keranjang
             document.getElementById('btnAddBundleToCart').addEventListener('click', () => {
-                if (totalQty < selectedPromo.minimalQty) return;
-                addBundleToCart();
+                const currentTotal = bundleSelectedItems.reduce((sum, item) => sum + item.qty, 0);
+                if (currentTotal < selectedPromo.minimalQty) {
+                    alert(`Jumlah item (${currentTotal}) kurang dari minimal (${selectedPromo.minimalQty})`);
+                    return;
+                }
+                addBundleToCart(); // panggil fungsi yang sudah diperbaiki
             });
 
             document.getElementById('closeModalBundle').addEventListener('click', () => {
@@ -2787,42 +2815,65 @@
         }
 
         function addBundleToCart() {
-            for (let item of bundleSelectedItems) {
-                if (item.qty === 0) continue;
-                const produk = allProducts.find(p => p.id === item.produkId);
-                if (!produk) continue;
-                if (produk.stokAwal < item.qty) {
-                    alert(`Stok ${produk.nama} tidak mencukupi. Stok: ${produk.stokAwal}`);
+            try {
+                if (!selectedPromo) {
+                    alert('Promo tidak dipilih');
                     return;
                 }
-            }
 
-            const childItems = [];
-            for (let item of bundleSelectedItems) {
-                if (item.qty === 0) continue;
-                const produk = allProducts.find(p => p.id === item.produkId);
-                childItems.push({
-                    produkId: item.produkId,
-                    qty: item.qty,
-                    nama: produk.nama,
-                    hargaNormal: produk.hargaJual
+                // Hitung ulang total qty
+                const totalQty = bundleSelectedItems.reduce((sum, item) => sum + item.qty, 0);
+                if (totalQty < selectedPromo.minimalQty) {
+                    alert(`Jumlah item (${totalQty}) kurang dari minimal (${selectedPromo.minimalQty})`);
+                    return;
+                }
+
+                // Cek stok setiap produk
+                for (let item of bundleSelectedItems) {
+                    if (item.qty === 0) continue;
+                    const produk = allProducts.find(p => p.id === item.produkId);
+                    if (!produk) {
+                        alert(`Produk dengan ID ${item.produkId} tidak ditemukan`);
+                        return;
+                    }
+                    if (produk.stokAwal < item.qty) {
+                        alert(`Stok ${produk.nama} tidak mencukupi. Stok: ${produk.stokAwal}`);
+                        return;
+                    }
+                }
+
+                // Buat daftar item anak
+                const childItems = bundleSelectedItems
+                    .filter(item => item.qty > 0)
+                    .map(item => {
+                        const produk = allProducts.find(p => p.id === item.produkId);
+                        return {
+                            produkId: item.produkId,
+                            qty: item.qty,
+                            nama: produk.nama,
+                            hargaNormal: produk.hargaJual
+                        };
+                    });
+
+                // Tambahkan ke keranjang
+                cartItems.push({
+                    type: 'bundle',
+                    promoId: selectedPromo.id,
+                    nama: selectedPromo.nama,
+                    hargaSatuan: selectedPromo.harga,
+                    qty: 1,
+                    subtotal: selectedPromo.harga,
+                    childItems: childItems
                 });
+
+                updateCartBadge();
+                renderCartModal();
+                modalBundle.classList.remove('active'); // Tutup modal
+                alert('Promo bundle ditambahkan ke keranjang');
+            } catch (error) {
+                console.error('Error addBundleToCart:', error);
+                alert('Terjadi kesalahan: ' + error.message);
             }
-
-            cartItems.push({
-                type: 'bundle',
-                promoId: selectedPromo.id,
-                nama: selectedPromo.nama,
-                hargaSatuan: selectedPromo.harga,
-                qty: 1,
-                subtotal: selectedPromo.harga,
-                childItems: childItems
-            });
-
-            updateCartBadge();
-            renderCartModal();
-            modalBundle.classList.remove('active');
-            alert('Promo bundle ditambahkan ke keranjang');
         }
 
         // ========== FUNGSI CREATE PROMO (DENGAN PAGINATION) ==========
