@@ -642,6 +642,14 @@
                 <h2 style="font-size:1.3rem;">Daftar Produk</h2>
                 <button class="btn-history" id="historyBtnSection"><i data-feather="clock"></i> History Transfer</button>
             </div>
+            <!-- Filter Gudang -->
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;">
+                <label for="filterGudang" style="font-weight: 500;">Gudang:</label>
+                <select id="filterGudang" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 20px; min-width: 200px;">
+                    <option value="">Semua Gudang</option>
+                </select>
+                <button class="btn" id="resetFilterGudang" style="padding: 0.5rem 1rem;">Reset</button>
+            </div>
             <div class="search-bar">
                 <input type="text" id="searchProduk" placeholder="Cari berdasarkan kode, nama, atau barcode produk...">
                 <button class="btn" id="clearSearchProduk">Clear</button>
@@ -1125,6 +1133,7 @@
                 gudangSnap.docs.forEach(doc => {
                     gudangMap[doc.id] = doc.data().nama;
                 });
+                populateGudangFilter(); // isi dropdown setelah data gudang dimuat
             } catch (error) {
                 console.error('loadDataForModals error:', error);
             }
@@ -1283,6 +1292,29 @@
             }
         };
 
+        // ========== FILTER GUDANG PADA DAFTAR PRODUK ==========
+        let selectedGudangFilter = ''; // State untuk filter gudang
+
+        function populateGudangFilter() {
+            const select = document.getElementById('filterGudang');
+            if (!select) return;
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Semua Gudang</option>';
+            Object.entries(gudangMap).forEach(([id, nama]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = nama;
+                select.appendChild(option);
+            });
+            // Kembalikan nilai yang sebelumnya dipilih jika masih ada
+            if (currentValue && gudangMap[currentValue]) {
+                select.value = currentValue;
+            } else {
+                select.value = '';
+            }
+            selectedGudangFilter = select.value;
+        }
+
         // ========== SUBSCRIBE KATEGORI ==========
         let unsubKategori = null;
         function subscribeDaftarKategori() {
@@ -1331,6 +1363,7 @@
                 snapshot.docs.forEach(doc => {
                     gudangMap[doc.id] = doc.data().nama;
                 });
+                populateGudangFilter(); // Update dropdown filter gudang
                 if (sections.daftarGudang.classList.contains('active')) {
                     renderGudangTable(lastGudangDocs);
                 }
@@ -1744,7 +1777,12 @@
         let produkSearchTerm = '';
 
         function buildProdukBaseQuery() {
-            return query(produkCol, where('deleted', '==', false), orderBy('nama'));
+            let constraints = [where('deleted', '==', false)];
+            if (selectedGudangFilter) {
+                constraints.push(where('gudangId', '==', selectedGudangFilter));
+            }
+            constraints.push(orderBy('nama'));
+            return query(produkCol, ...constraints);
         }
 
         async function executeProdukSearchQuery(direction = 'next') {
@@ -1910,6 +1948,31 @@
 
         document.getElementById('nextPageProduk').addEventListener('click', () => {
             loadProdukPage('next');
+        });
+
+        // ========== EVENT LISTENER FILTER GUDANG ==========
+        document.getElementById('filterGudang')?.addEventListener('change', (e) => {
+            selectedGudangFilter = e.target.value;
+            // Reset pagination produk
+            produkPageSnapshots = [];
+            produkCurrentPageIndex = 0;
+            produkLastVisible = null;
+            produkFirstVisible = null;
+            loadProdukPage('next');
+        });
+
+        document.getElementById('resetFilterGudang')?.addEventListener('click', () => {
+            const select = document.getElementById('filterGudang');
+            if (select) {
+                select.value = '';
+                selectedGudangFilter = '';
+                // Reset pagination
+                produkPageSnapshots = [];
+                produkCurrentPageIndex = 0;
+                produkLastVisible = null;
+                produkFirstVisible = null;
+                loadProdukPage('next');
+            }
         });
 
         // ========== EDIT PRODUK ==========
