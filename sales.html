@@ -128,6 +128,7 @@
             border-radius: 20px;
             padding: 0 0.5rem;
             height: 38px;
+            position: relative;
         }
         .search-box input {
             width: 100%;
@@ -136,9 +137,32 @@
             outline: none;
             font-size: 0.95rem;
             background: transparent;
+            padding-right: 30px; /* ruang untuk tombol clear */
         }
         .search-box i {
             color: #999;
+        }
+        .search-box .clear-search {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .search-box .clear-search:hover {
+            background: #f0f0f0;
+            color: #333;
         }
         .action-icons {
             display: flex;
@@ -1329,7 +1353,7 @@
         let selectedPromo = null;
         let bundleSelectedItems = [];
         let bundleSearchKeyword = '';
-        let bundleSearchTimeout; // <-- tambahkan variabel timeout
+        let bundleSearchTimeout;
 
         // ===== VARIABEL PAGINATION UNTUK MODAL CREATE PROMO =====
         let promoProductsPage = 1;
@@ -2625,8 +2649,8 @@
                     hargaJual: produk.hargaJual,
                     stok: produk.stokAwal || 0,
                     unit: (allUnits.find(u => u.id === produk.unitId)?.nama) || '',
-                    kode: produk.kode || '',               // <-- tambah kode produk
-                    barcode: produk.barcode || ''           // <-- tambah barcode produk
+                    kode: produk.kode || '',
+                    barcode: produk.barcode || ''
                 });
                 // Tambahkan varian
                 const varianList = allVariants.filter(v => v.produkId === pid);
@@ -2638,8 +2662,8 @@
                         hargaJual: varian.hargaJual || produk.hargaJual,
                         stok: varian.stok || 0,
                         unit: (allUnits.find(u => u.id === varian.unitId)?.nama) || (allUnits.find(u => u.id === produk.unitId)?.nama) || '',
-                        kode: produk.kode || '',               // <-- kode produk (bisa ditambahkan kode varian jika ada)
-                        barcode: varian.barcode || produk.barcode || '' // <-- prioritaskan barcode varian
+                        kode: produk.kode || '',
+                        barcode: varian.barcode || produk.barcode || ''
                     });
                 });
             });
@@ -2687,7 +2711,6 @@
                         const promoId = e.currentTarget.dataset.promoid;
                         selectedPromo = allPromos.find(p => p.id === promoId);
                         bundleState = 'select';
-                        // Inisialisasi bundleSelectedItems dengan semua varian, qty 0
                         bundleSelectedItems = getBundleItemDetails(selectedPromo.produkIds).map(d => ({ 
                             produkId: d.produkId, 
                             varianId: d.varianId, 
@@ -2707,11 +2730,9 @@
         function renderPromoProductSelection() {
             if (!selectedPromo) return;
 
-            // Dapatkan detail item (produk + varian)
             const itemDetails = getBundleItemDetails(selectedPromo.produkIds);
             window.bundleItemDetails = itemDetails;
 
-            // Filter berdasarkan keyword pencarian (perluas dengan kode dan barcode)
             let filteredItems = itemDetails;
             if (bundleSearchKeyword) {
                 const keyword = bundleSearchKeyword.toLowerCase();
@@ -2732,6 +2753,9 @@
                     <div class="search-box" style="margin-bottom:15px;">
                         <i data-feather="search"></i>
                         <input type="text" id="bundleSearchInput" placeholder="Cari produk..." value="${bundleSearchKeyword}">
+                        <button class="clear-search" id="clearBundleSearch" style="display: none;" onclick="event.stopPropagation();">
+                            <i data-feather="x"></i>
+                        </button>
                     </div>
                     <div id="bundleProductsContainer" class="product-grid" style="max-height:50vh; overflow-y:auto;">
             `;
@@ -2772,8 +2796,37 @@
             modalBundle.querySelector('.modal-content').innerHTML = html;
             feather.replace();
 
-            // Kembalikan fokus ke input pencarian
+            // Setup clear button
             const searchInput = document.getElementById('bundleSearchInput');
+            const clearBtn = document.getElementById('clearBundleSearch');
+
+            function toggleClearButton() {
+                if (searchInput.value.trim() !== '') {
+                    clearBtn.style.display = 'flex';
+                } else {
+                    clearBtn.style.display = 'none';
+                }
+            }
+
+            toggleClearButton();
+
+            searchInput.addEventListener('input', function() {
+                toggleClearButton();
+                // Debounce sudah ditangani di event listener lain
+            });
+
+            clearBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                searchInput.value = '';
+                bundleSearchKeyword = '';
+                toggleClearButton();
+                clearTimeout(bundleSearchTimeout);
+                bundleSearchTimeout = setTimeout(() => {
+                    renderPromoProductSelection();
+                }, 300);
+            });
+
+            // Kembalikan fokus ke input pencarian
             if (searchInput) {
                 searchInput.focus();
                 searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
@@ -2786,7 +2839,6 @@
                 renderBundleModal();
             });
 
-            // Event input dengan debounce 300ms
             document.getElementById('bundleSearchInput').addEventListener('input', (e) => {
                 bundleSearchKeyword = e.target.value.toLowerCase();
                 clearTimeout(bundleSearchTimeout);
@@ -3382,7 +3434,7 @@
                                 if (child.varianId) {
                                     const ref = doc(varianCol, child.varianId);
                                     varianRefs.push(ref);
-                                    varianItems.push(child); // child memiliki qty dan nama
+                                    varianItems.push(child);
                                 } else {
                                     const ref = doc(produkCol, child.produkId);
                                     produkRefs.push(ref);
