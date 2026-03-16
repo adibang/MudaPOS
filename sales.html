@@ -1329,6 +1329,7 @@
         let selectedPromo = null;
         let bundleSelectedItems = [];
         let bundleSearchKeyword = '';
+        let bundleSearchTimeout; // <-- tambahkan variabel timeout
 
         // ===== VARIABEL PAGINATION UNTUK MODAL CREATE PROMO =====
         let promoProductsPage = 1;
@@ -2785,9 +2786,13 @@
                 renderBundleModal();
             });
 
+            // Event input dengan debounce 300ms
             document.getElementById('bundleSearchInput').addEventListener('input', (e) => {
                 bundleSearchKeyword = e.target.value.toLowerCase();
-                renderPromoProductSelection();
+                clearTimeout(bundleSearchTimeout);
+                bundleSearchTimeout = setTimeout(() => {
+                    renderPromoProductSelection();
+                }, 300);
             });
 
             attachBundleQtyEvents();
