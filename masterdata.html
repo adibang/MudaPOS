@@ -106,6 +106,8 @@
         .btn-outline:hover { background:#e6f0ec; }
         .btn-primary { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:20px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; }
         .btn-primary:hover { background:#004d3b; }
+        .btn-history { background:#17a2b8; color:white; border:none; padding:0.5rem 1rem; border-radius:20px; font-weight:500; font-size:0.9rem; cursor:pointer; display:inline-flex; align-items:center; gap:0.3rem; margin-left:1rem; }
+        .btn-history:hover { background:#138496; }
         .table-responsive { overflow-x:auto; margin-top:1rem; }
         table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:600px; }
         th, td { padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
@@ -113,8 +115,8 @@
         tr:hover { background:#f5f5f5; }
         .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; border-radius:20px; }
         .btn-icon.delete { color:#dc3545; }
-        .btn-icon.transfer { color:#17a2b8; } /* warna untuk transfer */
-        .btn-icon.copy { color:#ffc107; } /* warna untuk copy */
+        .btn-icon.transfer { color:#17a2b8; }
+        .btn-icon.copy { color:#ffc107; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
@@ -387,6 +389,13 @@
         .transfer-item label { font-weight: 600; display: block; margin-bottom: 0.2rem; }
         .transfer-item input { width: 100%; padding: 0.4rem; border: 1px solid #ccc; border-radius: 10px; }
         .transfer-variant-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.3rem; }
+
+        /* History page */
+        .history-filter { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .history-filter select, .history-filter input { padding: 0.5rem; border: 1px solid #ddd; border-radius: 20px; }
+        .badge { padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-transfer { background: #17a2b8; color: white; }
+        .badge-copy { background: #ffc107; color: #333; }
     </style>
 </head>
 <body>
@@ -415,6 +424,7 @@
                     <li><a id="submenuDaftarUnit"><i data-feather="list"></i> Daftar unit</a></li>
                     <li><a id="submenuTambahGudang"><i data-feather="plus-circle"></i> Tambah gudang</a></li>
                     <li><a id="submenuDaftarGudang"><i data-feather="list"></i> Daftar gudang</a></li>
+                    <li><a id="submenuHistoryTransfer"><i data-feather="clock"></i> History Transfer</a></li>
                 </ul>
             </li>
             <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
@@ -440,6 +450,7 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
+            <button class="btn-history" id="historyBtn" style="display:none;"><i data-feather="clock"></i> History Transfer</button>
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
@@ -494,7 +505,7 @@
         <h1 class="page-title">Master Data</h1>
 
         <!-- ========== SECTION TAMBAH PRODUK ========== -->
-        <div id="tambahProdukSection" class="content-section active">
+        <div id="tambahProdukSection" class="content-section">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;" id="formProdukTitle">Tambah Produk Baru</h2>
             <form id="formTambahProduk">
                 <input type="hidden" id="produkId" value="">
@@ -626,8 +637,11 @@
         </div>
 
         <!-- ========== SECTION DAFTAR PRODUK ========== -->
-        <div id="daftarProdukSection" class="content-section">
-            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Produk</h2>
+        <div id="daftarProdukSection" class="content-section active">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:1.2rem;">
+                <h2 style="font-size:1.3rem;">Daftar Produk</h2>
+                <button class="btn-history" id="historyBtnSection"><i data-feather="clock"></i> History Transfer</button>
+            </div>
             <div class="search-bar">
                 <input type="text" id="searchProduk" placeholder="Cari berdasarkan kode, nama, atau barcode produk...">
                 <button class="btn" id="clearSearchProduk">Clear</button>
@@ -642,6 +656,43 @@
                 <button id="prevPageProduk" disabled><i data-feather="chevron-left"></i> Sebelumnya</button>
                 <span id="pageInfoProduk">Halaman 1</span>
                 <button id="nextPageProduk" disabled>Selanjutnya <i data-feather="chevron-right"></i></button>
+            </div>
+        </div>
+
+        <!-- ========== SECTION HISTORY TRANSFER ========== -->
+        <div id="historyTransferSection" class="content-section">
+            <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">History Transfer & Copy Produk</h2>
+            <div class="history-filter">
+                <select id="historyTypeFilter">
+                    <option value="">Semua Tipe</option>
+                    <option value="transfer">Transfer</option>
+                    <option value="copy">Copy</option>
+                </select>
+                <input type="text" id="historySearch" placeholder="Cari produk atau gudang...">
+                <button class="btn" id="clearHistoryFilter">Clear</button>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Tipe</th>
+                            <th>Produk</th>
+                            <th>Dari Gudang</th>
+                            <th>Ke Gudang</th>
+                            <th>Detail</th>
+                            <th>User</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTransferBody">
+                        <tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="paginationHistory">
+                <button id="prevPageHistory" disabled><i data-feather="chevron-left"></i> Sebelumnya</button>
+                <span id="pageInfoHistory">Halaman 1</span>
+                <button id="nextPageHistory" disabled>Selanjutnya <i data-feather="chevron-right"></i></button>
             </div>
         </div>
 
@@ -818,14 +869,14 @@
         window.showSection = function(sectionName) { };
     </script>
 
-    <!-- Script module utama (Firestore + Scanner + Varian + Paket + Transfer/Copy) -->
+    <!-- Script module utama (Firestore + Scanner + Varian + Paket + Transfer/Copy + History) -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { 
             collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, 
             onSnapshot, query, where, orderBy, serverTimestamp, 
-            enableIndexedDbPersistence, runTransaction, increment, limit, startAfter, writeBatch 
+            enableIndexedDbPersistence, increment, limit, startAfter, writeBatch 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
@@ -966,7 +1017,7 @@
         const qtyCol = collection(dbCloud, 'qtyBreak');
         const varianCol = collection(dbCloud, 'productVariants');
         const paketCol = collection(dbCloud, 'productPackages');
-        const transferHistoryCol = collection(dbCloud, 'transferHistory'); // koleksi history
+        const transferHistoryCol = collection(dbCloud, 'transferHistory');
 
         // Elemen DOM
         const produkIdInput = document.getElementById('produkId');
@@ -976,6 +1027,8 @@
         const qtyBreakContainer = document.getElementById('qtyBreakContainer');
         const paketContainer = document.getElementById('paketContainer');
         const loginBtn = document.getElementById('loginBtn');
+        const historyBtn = document.getElementById('historyBtn');
+        const historyBtnSection = document.getElementById('historyBtnSection');
 
         // Navigasi section
         const sections = {
@@ -986,7 +1039,8 @@
             tambahUnit: document.getElementById('tambahUnitSection'),
             daftarUnit: document.getElementById('daftarUnitSection'),
             tambahGudang: document.getElementById('tambahGudangSection'),
-            daftarGudang: document.getElementById('daftarGudangSection')
+            daftarGudang: document.getElementById('daftarGudangSection'),
+            historyTransfer: document.getElementById('historyTransferSection')
         };
         const submenus = {
             tambahProduk: document.getElementById('submenuTambahProduk'),
@@ -996,7 +1050,8 @@
             tambahUnit: document.getElementById('submenuTambahUnit'),
             daftarUnit: document.getElementById('submenuDaftarUnit'),
             tambahGudang: document.getElementById('submenuTambahGudang'),
-            daftarGudang: document.getElementById('submenuDaftarGudang')
+            daftarGudang: document.getElementById('submenuDaftarGudang'),
+            historyTransfer: document.getElementById('submenuHistoryTransfer')
         };
 
         // Variabel penyimpan data terakhir untuk snapshot
@@ -1023,6 +1078,8 @@
                 renderUnitTable(lastUnitDocs);
             } else if (sectionName === 'daftarGudang' && lastGudangDocs.length > 0) {
                 renderGudangTable(lastGudangDocs);
+            } else if (sectionName === 'historyTransfer') {
+                loadHistoryPage('next');
             }
         }
 
@@ -1035,6 +1092,14 @@
             }
         }
         window.showSection = showSection;
+
+        // Tombol history di header dan section
+        if (historyBtn) {
+            historyBtn.addEventListener('click', () => showSection('historyTransfer'));
+        }
+        if (historyBtnSection) {
+            historyBtnSection.addEventListener('click', () => showSection('historyTransfer'));
+        }
 
         // ========== DATA UNTUK MAPPING ==========
         let kategoriMap = {};
@@ -1975,7 +2040,7 @@
                 unitId: document.getElementById('unitId').value,
                 diskon: parseFloat(document.getElementById('diskon').value),
                 gudangId: document.getElementById('gudangId').value,
-                stokAwal: totalStokDariVarian > 0 ? totalStokDariVarian : parseInt(document.getElementById('stokAwal').value), // jika ada varian, pakai total varian; jika tidak, pakai stok awal manual
+                stokAwal: totalStokDariVarian > 0 ? totalStokDariVarian : parseInt(document.getElementById('stokAwal').value),
                 stokMinimal: parseInt(document.getElementById('stokMinimal').value),
                 produkTimbangan: document.getElementById('produkTimbangan').checked,
                 updatedAt: serverTimestamp()
@@ -2294,7 +2359,7 @@
             const autoCreate = document.getElementById('transferAutoCreate')?.checked || false;
 
             try {
-                // Cek apakah produk sudah ada di gudang tujuan (berdasarkan nama, kode, barcode)
+                // Cek apakah produk sudah ada di gudang tujuan (berdasarkan nama)
                 let produkTujuanRef = null;
                 const produkTujuanQuery = query(
                     produkCol,
@@ -2311,7 +2376,7 @@
                     delete newProdukData.createdAt;
                     delete newProdukData.updatedAt;
                     newProdukData.gudangId = gudangTujuanId;
-                    newProdukData.stokAwal = 0; // stok awal 0, nanti ditambah
+                    newProdukData.stokAwal = 0;
                     newProdukData.createdAt = serverTimestamp();
                     newProdukData.updatedAt = serverTimestamp();
                     newProdukData.deleted = false;
@@ -2331,9 +2396,6 @@
                         await addDoc(varianCol, newVarian);
                     }
 
-                    // Copy konversi, qty, paket (sederhanakan, tidak di-copy dulu untuk transfer)
-                    // Bisa ditambahkan jika diperlukan
-
                     produkTujuanRef = newProdukRef;
                 } else {
                     alert('Produk belum ada di gudang tujuan. Centang "Buat produk baru" untuk membuatnya.');
@@ -2342,12 +2404,14 @@
 
                 // Proses transfer stok
                 const batch = writeBatch(dbCloud);
+                
+                // Deklarasi transferDetails
+                let transferDetails = [];
 
                 // Kurangi stok sumber
                 if (transferVarians.length > 0) {
                     // Kurangi stok per varian
                     const qtyInputs = document.querySelectorAll('.transfer-qty-varian');
-                    const transferDetails = [];
                     for (let input of qtyInputs) {
                         const qty = parseInt(input.value) || 0;
                         if (qty > 0) {
@@ -2377,7 +2441,7 @@
                                 newVarian.createdAt = serverTimestamp();
                                 newVarian.updatedAt = serverTimestamp();
                                 newVarian.deleted = false;
-                                const newVarianRef = doc(varianCol); // akan di-set via batch
+                                const newVarianRef = doc(varianCol);
                                 batch.set(newVarianRef, newVarian);
                             }
 
@@ -2423,7 +2487,7 @@
 
                 alert('Transfer stok berhasil');
                 closeTransferModal();
-                loadProdukPage('next'); // refresh daftar produk
+                loadProdukPage('next');
             } catch (error) {
                 alert('Gagal transfer: ' + error.message);
             }
@@ -2492,7 +2556,7 @@
                 newProdukData.createdAt = serverTimestamp();
                 newProdukData.updatedAt = serverTimestamp();
                 newProdukData.deleted = false;
-                const newProdukRef = doc(produkCol); // akan diisi batch
+                const newProdukRef = doc(produkCol);
                 batch.set(newProdukRef, newProdukData);
 
                 // Copy varian
@@ -2580,6 +2644,136 @@
             }
         });
 
+        // ========== PAGINATION HISTORY ==========
+        let historyLastVisible = null;
+        let historyFirstVisible = null;
+        let historyPageSnapshots = [];
+        let historyCurrentPageIndex = 0;
+        const historyPageSize = 10;
+        let historyTypeFilter = '';
+        let historySearchTerm = '';
+
+        function buildHistoryBaseQuery() {
+            let constraints = [orderBy('timestamp', 'desc')];
+            if (historyTypeFilter) {
+                constraints.unshift(where('type', '==', historyTypeFilter));
+            }
+            return query(transferHistoryCol, ...constraints);
+        }
+
+        async function loadHistoryPage(direction = 'next') {
+            try {
+                const baseQuery = buildHistoryBaseQuery();
+                let q = query(baseQuery, limit(historyPageSize));
+                
+                if (direction === 'next' && historyLastVisible) {
+                    q = query(q, startAfter(historyLastVisible));
+                } else if (direction === 'prev' && historyCurrentPageIndex > 0) {
+                    const prevSnapshot = historyPageSnapshots[historyCurrentPageIndex - 1];
+                    if (prevSnapshot) {
+                        renderHistoryTable(prevSnapshot.docs);
+                        historyCurrentPageIndex--;
+                        historyLastVisible = prevSnapshot.docs[prevSnapshot.docs.length - 1];
+                        historyFirstVisible = prevSnapshot.docs[0];
+                        document.getElementById('pageInfoHistory').textContent = `Halaman ${historyCurrentPageIndex + 1}`;
+                        document.getElementById('prevPageHistory').disabled = historyCurrentPageIndex === 0;
+                        document.getElementById('nextPageHistory').disabled = prevSnapshot.docs.length < historyPageSize;
+                    }
+                    return;
+                }
+
+                const snapshot = await getDocs(q);
+                const docs = snapshot.docs;
+
+                if (direction === 'next') {
+                    historyPageSnapshots.push(snapshot);
+                    historyCurrentPageIndex = historyPageSnapshots.length - 1;
+                }
+                historyLastVisible = docs[docs.length - 1];
+                historyFirstVisible = docs[0];
+
+                renderHistoryTable(docs);
+
+                document.getElementById('pageInfoHistory').textContent = `Halaman ${historyCurrentPageIndex + 1}`;
+                document.getElementById('prevPageHistory').disabled = historyCurrentPageIndex === 0;
+                document.getElementById('nextPageHistory').disabled = docs.length < historyPageSize;
+            } catch (error) {
+                console.error('Gagal memuat history:', error);
+                document.getElementById('historyTransferBody').innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            }
+        }
+
+        function renderHistoryTable(docs) {
+            const tbody = document.getElementById('historyTransferBody');
+            if (docs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada data history</td></tr>';
+                return;
+            }
+
+            let html = '';
+            docs.forEach(doc => {
+                const h = doc.data();
+                const tanggal = h.timestamp?.toDate ? h.timestamp.toDate().toLocaleString('id-ID') : '-';
+                const dariGudang = gudangMap[h.fromGudangId] || '-';
+                const keGudang = gudangMap[h.toGudangId] || '-';
+                let detail = '';
+                if (h.items && h.items.length > 0) {
+                    if (h.items[0].varianNama) {
+                        detail = h.items.map(i => `${i.varianNama}: ${i.qty}`).join(', ');
+                    } else {
+                        detail = `Jumlah: ${h.items[0].qty}`;
+                    }
+                } else {
+                    detail = '-';
+                }
+                const badgeClass = h.type === 'transfer' ? 'badge-transfer' : 'badge-copy';
+                html += `<tr>
+                    <td>${tanggal}</td>
+                    <td><span class="badge ${badgeClass}">${h.type}</span></td>
+                    <td>${h.produkNama || '-'}</td>
+                    <td>${dariGudang}</td>
+                    <td>${keGudang}</td>
+                    <td>${detail}</td>
+                    <td>${h.user || '-'}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+            feather.replace();
+        }
+
+        // Filter history
+        document.getElementById('historyTypeFilter')?.addEventListener('change', (e) => {
+            historyTypeFilter = e.target.value;
+            historyPageSnapshots = [];
+            historyCurrentPageIndex = 0;
+            historyLastVisible = null;
+            loadHistoryPage('next');
+        });
+
+        document.getElementById('historySearch')?.addEventListener('input', (e) => {
+            historySearchTerm = e.target.value.toLowerCase();
+            // Implementasi pencarian bisa ditambahkan di sini
+        });
+
+        document.getElementById('clearHistoryFilter')?.addEventListener('click', () => {
+            document.getElementById('historyTypeFilter').value = '';
+            document.getElementById('historySearch').value = '';
+            historyTypeFilter = '';
+            historySearchTerm = '';
+            historyPageSnapshots = [];
+            historyCurrentPageIndex = 0;
+            historyLastVisible = null;
+            loadHistoryPage('next');
+        });
+
+        document.getElementById('prevPageHistory')?.addEventListener('click', () => {
+            loadHistoryPage('prev');
+        });
+
+        document.getElementById('nextPageHistory')?.addEventListener('click', () => {
+            loadHistoryPage('next');
+        });
+
         // ========== INITIAL LOAD ==========
         await initLocalDB();
 
@@ -2600,6 +2794,9 @@
             }
             if (sections.daftarGudang.classList.contains('active') && lastGudangDocs.length > 0) {
                 renderGudangTable(lastGudangDocs);
+            }
+            if (sections.historyTransfer.classList.contains('active')) {
+                loadHistoryPage('next');
             }
         }
     </script>
