@@ -113,6 +113,8 @@
         tr:hover { background:#f5f5f5; }
         .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; border-radius:20px; }
         .btn-icon.delete { color:#dc3545; }
+        .btn-icon.transfer { color:#17a2b8; } /* warna untuk transfer */
+        .btn-icon.copy { color:#ffc107; } /* warna untuk copy */
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
@@ -378,6 +380,13 @@
             .form-group input, .form-group select, .form-group textarea { max-width:350px; }
             .field-select input[readonly] { max-width:350px; }
         }
+
+        /* Modal Transfer / Copy */
+        .transfer-modal .modal-content { max-width: 600px; }
+        .transfer-item { margin-bottom: 1rem; padding: 0.5rem; background: #f8f9fa; border-radius: 10px; }
+        .transfer-item label { font-weight: 600; display: block; margin-bottom: 0.2rem; }
+        .transfer-item input { width: 100%; padding: 0.4rem; border: 1px solid #ccc; border-radius: 10px; }
+        .transfer-variant-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.3rem; }
     </style>
 </head>
 <body>
@@ -443,6 +452,40 @@
             <input type="password" id="loginPassword" placeholder="Password">
             <button id="loginSubmit">Masuk</button>
             <div id="loginError">Username atau password salah</div>
+        </div>
+    </div>
+
+    <!-- Modal Transfer Stok -->
+    <div class="modal-select transfer-modal" id="transferModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Transfer Stok Antar Gudang</h3>
+                <button class="close-modal" onclick="closeTransferModal()">&times;</button>
+            </div>
+            <div id="transferContent">
+                <!-- akan diisi secara dinamis -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeTransferModal()">Batal</button>
+                <button class="btn-primary" id="transferSubmit">Proses Transfer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Copy Produk -->
+    <div class="modal-select" id="copyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Copy Produk ke Gudang Lain</h3>
+                <button class="close-modal" onclick="closeCopyModal()">&times;</button>
+            </div>
+            <div id="copyContent">
+                <!-- akan diisi secara dinamis -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeCopyModal()">Batal</button>
+                <button class="btn-primary" id="copySubmit">Copy Produk</button>
+            </div>
         </div>
     </div>
 
@@ -775,7 +818,7 @@
         window.showSection = function(sectionName) { };
     </script>
 
-    <!-- Script module utama (Firestore + Scanner + Varian + Paket) -->
+    <!-- Script module utama (Firestore + Scanner + Varian + Paket + Transfer/Copy) -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -922,7 +965,8 @@
         const konversiCol = collection(dbCloud, 'konversiUnit');
         const qtyCol = collection(dbCloud, 'qtyBreak');
         const varianCol = collection(dbCloud, 'productVariants');
-        const paketCol = collection(dbCloud, 'productPackages'); // koleksi paket
+        const paketCol = collection(dbCloud, 'productPackages');
+        const transferHistoryCol = collection(dbCloud, 'transferHistory'); // koleksi history
 
         // Elemen DOM
         const produkIdInput = document.getElementById('produkId');
@@ -1766,6 +1810,8 @@
                     <td>
                         <button class="btn-icon edit" onclick="editProduk('${doc.id}')"><i data-feather="edit-2"></i></button>
                         <button class="btn-icon delete" onclick="hapusProduk('${doc.id}')"><i data-feather="trash-2"></i></button>
+                        <button class="btn-icon transfer" onclick="openTransferModal('${doc.id}')"><i data-feather="arrow-right-circle"></i></button>
+                        <button class="btn-icon copy" onclick="openCopyModal('${doc.id}')"><i data-feather="copy"></i></button>
                     </td>
                 </tr>`;
             });
@@ -2163,6 +2209,374 @@
                 try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
             } else {
                 try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
+            }
+        });
+
+        // ========== FUNGSI TRANSFER DAN COPY ==========
+        // Modal transfer
+        const transferModal = document.getElementById('transferModal');
+        const transferContent = document.getElementById('transferContent');
+        const transferSubmit = document.getElementById('transferSubmit');
+        let transferProdukId = null;
+        let transferProdukData = null;
+        let transferVarians = [];
+
+        window.openTransferModal = async (produkId) => {
+            transferProdukId = produkId;
+            try {
+                const produkRef = doc(produkCol, produkId);
+                const produkSnap = await getDoc(produkRef);
+                if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
+                transferProdukData = produkSnap.data();
+
+                // Ambil varian
+                const varianSnap = await getDocs(query(varianCol, where('produkId', '==', produkId), where('deleted', '==', false)));
+                transferVarians = varianSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                // Tampilkan form transfer
+                let html = `
+                    <div class="transfer-item">
+                        <label>Produk: ${transferProdukData.nama}</label>
+                        <label>Gudang Asal: ${gudangMap[transferProdukData.gudangId]}</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Pilih Gudang Tujuan</label>
+                        <select id="transferGudangTujuan" class="form-control">
+                            <option value="">-- Pilih Gudang --</option>
+                            ${Object.entries(gudangMap).filter(([id]) => id !== transferProdukData.gudangId).map(([id, nama]) => `<option value="${id}">${nama}</option>`).join('')}
+                        </select>
+                    </div>
+                `;
+
+                if (transferVarians.length > 0) {
+                    html += '<h4>Varian dan Stok</h4>';
+                    transferVarians.forEach((v, idx) => {
+                        html += `
+                            <div class="transfer-variant-row">
+                                <span>${v.namaVarian}</span>
+                                <span>Stok tersedia: ${v.stok || 0}</span>
+                                <input type="number" class="transfer-qty-varian" data-varian-id="${v.id}" data-max="${v.stok || 0}" placeholder="Jumlah" min="0" max="${v.stok || 0}" value="0">
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `
+                        <div class="transfer-item">
+                            <label>Stok tersedia: ${transferProdukData.stokAwal || 0}</label>
+                            <input type="number" id="transferQtyProduk" placeholder="Jumlah transfer" min="0" max="${transferProdukData.stokAwal || 0}" value="0">
+                        </div>
+                    `;
+                }
+
+                html += '<label><input type="checkbox" id="transferAutoCreate"> Buat produk baru jika belum ada di gudang tujuan</label>';
+
+                transferContent.innerHTML = html;
+                transferModal.classList.add('active');
+            } catch (error) {
+                alert('Gagal memuat data: ' + error.message);
+            }
+        };
+
+        window.closeTransferModal = () => {
+            transferModal.classList.remove('active');
+            transferProdukId = null;
+            transferProdukData = null;
+            transferVarians = [];
+        };
+
+        transferSubmit.addEventListener('click', async () => {
+            if (!transferProdukId || !transferProdukData) return;
+            const gudangTujuanId = document.getElementById('transferGudangTujuan').value;
+            if (!gudangTujuanId) {
+                alert('Pilih gudang tujuan');
+                return;
+            }
+            const autoCreate = document.getElementById('transferAutoCreate')?.checked || false;
+
+            try {
+                // Cek apakah produk sudah ada di gudang tujuan (berdasarkan nama, kode, barcode)
+                let produkTujuanRef = null;
+                const produkTujuanQuery = query(
+                    produkCol,
+                    where('nama', '==', transferProdukData.nama),
+                    where('gudangId', '==', gudangTujuanId),
+                    where('deleted', '==', false)
+                );
+                const produkTujuanSnap = await getDocs(produkTujuanQuery);
+                if (!produkTujuanSnap.empty) {
+                    produkTujuanRef = doc(produkCol, produkTujuanSnap.docs[0].id);
+                } else if (autoCreate) {
+                    // Copy produk ke tujuan
+                    const newProdukData = { ...transferProdukData };
+                    delete newProdukData.createdAt;
+                    delete newProdukData.updatedAt;
+                    newProdukData.gudangId = gudangTujuanId;
+                    newProdukData.stokAwal = 0; // stok awal 0, nanti ditambah
+                    newProdukData.createdAt = serverTimestamp();
+                    newProdukData.updatedAt = serverTimestamp();
+                    newProdukData.deleted = false;
+                    const newProdukRef = await addDoc(produkCol, newProdukData);
+
+                    // Copy varian
+                    for (let v of transferVarians) {
+                        const newVarian = { ...v };
+                        delete newVarian.id;
+                        delete newVarian.createdAt;
+                        delete newVarian.updatedAt;
+                        newVarian.produkId = newProdukRef.id;
+                        newVarian.stok = 0;
+                        newVarian.createdAt = serverTimestamp();
+                        newVarian.updatedAt = serverTimestamp();
+                        newVarian.deleted = false;
+                        await addDoc(varianCol, newVarian);
+                    }
+
+                    // Copy konversi, qty, paket (sederhanakan, tidak di-copy dulu untuk transfer)
+                    // Bisa ditambahkan jika diperlukan
+
+                    produkTujuanRef = newProdukRef;
+                } else {
+                    alert('Produk belum ada di gudang tujuan. Centang "Buat produk baru" untuk membuatnya.');
+                    return;
+                }
+
+                // Proses transfer stok
+                const batch = writeBatch(dbCloud);
+
+                // Kurangi stok sumber
+                if (transferVarians.length > 0) {
+                    // Kurangi stok per varian
+                    const qtyInputs = document.querySelectorAll('.transfer-qty-varian');
+                    const transferDetails = [];
+                    for (let input of qtyInputs) {
+                        const qty = parseInt(input.value) || 0;
+                        if (qty > 0) {
+                            const varianId = input.dataset.varianId;
+                            const max = parseInt(input.dataset.max);
+                            if (qty > max) throw new Error(`Jumlah transfer melebihi stok varian`);
+
+                            // Kurangi stok varian sumber
+                            const varianRef = doc(varianCol, varianId);
+                            batch.update(varianRef, { stok: increment(-qty), updatedAt: serverTimestamp() });
+
+                            // Tambah stok varian tujuan (cari varian dengan nama sama)
+                            const varianTujuanQuery = query(varianCol, where('produkId', '==', produkTujuanRef.id), where('namaVarian', '==', transferVarians.find(v => v.id === varianId)?.namaVarian), where('deleted', '==', false));
+                            const varianTujuanSnap = await getDocs(varianTujuanQuery);
+                            if (!varianTujuanSnap.empty) {
+                                const varianTujuanRef = doc(varianCol, varianTujuanSnap.docs[0].id);
+                                batch.update(varianTujuanRef, { stok: increment(qty), updatedAt: serverTimestamp() });
+                            } else {
+                                // Buat varian baru di tujuan
+                                const sourceVarian = transferVarians.find(v => v.id === varianId);
+                                const newVarian = { ...sourceVarian };
+                                delete newVarian.id;
+                                delete newVarian.createdAt;
+                                delete newVarian.updatedAt;
+                                newVarian.produkId = produkTujuanRef.id;
+                                newVarian.stok = qty;
+                                newVarian.createdAt = serverTimestamp();
+                                newVarian.updatedAt = serverTimestamp();
+                                newVarian.deleted = false;
+                                const newVarianRef = doc(varianCol); // akan di-set via batch
+                                batch.set(newVarianRef, newVarian);
+                            }
+
+                            transferDetails.push({
+                                varianId,
+                                varianNama: transferVarians.find(v => v.id === varianId)?.namaVarian,
+                                qty
+                            });
+                        }
+                    }
+                } else {
+                    const qty = parseInt(document.getElementById('transferQtyProduk').value) || 0;
+                    if (qty <= 0) throw new Error('Jumlah transfer harus lebih dari 0');
+                    if (qty > (transferProdukData.stokAwal || 0)) throw new Error('Jumlah transfer melebihi stok');
+
+                    // Kurangi stok sumber
+                    batch.update(doc(produkCol, transferProdukId), { stokAwal: increment(-qty), updatedAt: serverTimestamp() });
+
+                    // Tambah stok tujuan
+                    batch.update(produkTujuanRef, { stokAwal: increment(qty), updatedAt: serverTimestamp() });
+
+                    transferDetails = [{ qty }];
+                }
+
+                // Catat history transfer
+                const historyData = {
+                    produkId: transferProdukId,
+                    produkNama: transferProdukData.nama,
+                    fromGudangId: transferProdukData.gudangId,
+                    toGudangId: gudangTujuanId,
+                    type: 'transfer',
+                    items: transferVarians.length > 0 ? transferVarians.map(v => ({ varianId: v.id, varianNama: v.namaVarian, qty: 0 })).map(item => {
+                        const found = transferDetails.find(d => d.varianId === item.varianId);
+                        return { ...item, qty: found ? found.qty : 0 };
+                    }) : [{ qty: transferDetails[0]?.qty || 0 }],
+                    timestamp: serverTimestamp(),
+                    user: localUser ? localUser.name : 'unknown'
+                };
+                const historyRef = doc(transferHistoryCol);
+                batch.set(historyRef, historyData);
+
+                await batch.commit();
+
+                alert('Transfer stok berhasil');
+                closeTransferModal();
+                loadProdukPage('next'); // refresh daftar produk
+            } catch (error) {
+                alert('Gagal transfer: ' + error.message);
+            }
+        });
+
+        // Modal copy produk
+        const copyModal = document.getElementById('copyModal');
+        const copyContent = document.getElementById('copyContent');
+        const copySubmit = document.getElementById('copySubmit');
+        let copyProdukId = null;
+        let copyProdukData = null;
+
+        window.openCopyModal = async (produkId) => {
+            copyProdukId = produkId;
+            try {
+                const produkRef = doc(produkCol, produkId);
+                const produkSnap = await getDoc(produkRef);
+                if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
+                copyProdukData = produkSnap.data();
+
+                let html = `
+                    <div class="transfer-item">
+                        <label>Produk: ${copyProdukData.nama}</label>
+                        <label>Gudang Asal: ${gudangMap[copyProdukData.gudangId]}</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Pilih Gudang Tujuan</label>
+                        <select id="copyGudangTujuan" class="form-control">
+                            <option value="">-- Pilih Gudang --</option>
+                            ${Object.entries(gudangMap).filter(([id]) => id !== copyProdukData.gudangId).map(([id, nama]) => `<option value="${id}">${nama}</option>`).join('')}
+                        </select>
+                    </div>
+                    <label><input type="checkbox" id="copyIncludeStock"> Salin juga stok awal (jika tidak dicentang, stok diatur 0)</label>
+                `;
+                copyContent.innerHTML = html;
+                copyModal.classList.add('active');
+            } catch (error) {
+                alert('Gagal memuat data: ' + error.message);
+            }
+        };
+
+        window.closeCopyModal = () => {
+            copyModal.classList.remove('active');
+            copyProdukId = null;
+            copyProdukData = null;
+        };
+
+        copySubmit.addEventListener('click', async () => {
+            if (!copyProdukId || !copyProdukData) return;
+            const gudangTujuanId = document.getElementById('copyGudangTujuan').value;
+            if (!gudangTujuanId) {
+                alert('Pilih gudang tujuan');
+                return;
+            }
+            const includeStock = document.getElementById('copyIncludeStock')?.checked || false;
+
+            try {
+                const batch = writeBatch(dbCloud);
+
+                // Buat produk baru
+                const newProdukData = { ...copyProdukData };
+                delete newProdukData.createdAt;
+                delete newProdukData.updatedAt;
+                newProdukData.gudangId = gudangTujuanId;
+                if (!includeStock) newProdukData.stokAwal = 0;
+                newProdukData.createdAt = serverTimestamp();
+                newProdukData.updatedAt = serverTimestamp();
+                newProdukData.deleted = false;
+                const newProdukRef = doc(produkCol); // akan diisi batch
+                batch.set(newProdukRef, newProdukData);
+
+                // Copy varian
+                const varianSnap = await getDocs(query(varianCol, where('produkId', '==', copyProdukId), where('deleted', '==', false)));
+                for (let vDoc of varianSnap.docs) {
+                    const v = vDoc.data();
+                    const newVarian = { ...v };
+                    delete newVarian.createdAt;
+                    delete newVarian.updatedAt;
+                    newVarian.produkId = newProdukRef.id;
+                    if (!includeStock) newVarian.stok = 0;
+                    newVarian.createdAt = serverTimestamp();
+                    newVarian.updatedAt = serverTimestamp();
+                    newVarian.deleted = false;
+                    const newVarianRef = doc(varianCol);
+                    batch.set(newVarianRef, newVarian);
+                }
+
+                // Copy konversi
+                const konvSnap = await getDocs(query(konversiCol, where('produkId', '==', copyProdukId), where('deleted', '==', false)));
+                for (let kDoc of konvSnap.docs) {
+                    const k = kDoc.data();
+                    const newKonv = { ...k };
+                    delete newKonv.createdAt;
+                    delete newKonv.updatedAt;
+                    newKonv.produkId = newProdukRef.id;
+                    newKonv.createdAt = serverTimestamp();
+                    newKonv.updatedAt = serverTimestamp();
+                    newKonv.deleted = false;
+                    const newKonvRef = doc(konversiCol);
+                    batch.set(newKonvRef, newKonv);
+                }
+
+                // Copy qty break
+                const qtySnap = await getDocs(query(qtyCol, where('produkId', '==', copyProdukId), where('deleted', '==', false)));
+                for (let qDoc of qtySnap.docs) {
+                    const q = qDoc.data();
+                    const newQ = { ...q };
+                    delete newQ.createdAt;
+                    delete newQ.updatedAt;
+                    newQ.produkId = newProdukRef.id;
+                    newQ.createdAt = serverTimestamp();
+                    newQ.updatedAt = serverTimestamp();
+                    newQ.deleted = false;
+                    const newQRef = doc(qtyCol);
+                    batch.set(newQRef, newQ);
+                }
+
+                // Copy paket
+                const paketSnap = await getDocs(query(paketCol, where('produkId', '==', copyProdukId), where('deleted', '==', false)));
+                for (let pDoc of paketSnap.docs) {
+                    const p = pDoc.data();
+                    const newP = { ...p };
+                    delete newP.createdAt;
+                    delete newP.updatedAt;
+                    newP.produkId = newProdukRef.id;
+                    newP.createdAt = serverTimestamp();
+                    newP.updatedAt = serverTimestamp();
+                    newP.deleted = false;
+                    const newPRef = doc(paketCol);
+                    batch.set(newPRef, newP);
+                }
+
+                // Catat history copy
+                const historyData = {
+                    produkId: copyProdukId,
+                    produkNama: copyProdukData.nama,
+                    fromGudangId: copyProdukData.gudangId,
+                    toGudangId: gudangTujuanId,
+                    type: 'copy',
+                    items: [],
+                    timestamp: serverTimestamp(),
+                    user: localUser ? localUser.name : 'unknown'
+                };
+                const historyRef = doc(transferHistoryCol);
+                batch.set(historyRef, historyData);
+
+                await batch.commit();
+
+                alert('Produk berhasil dicopy ke gudang tujuan');
+                closeCopyModal();
+                loadProdukPage('next');
+            } catch (error) {
+                alert('Gagal copy produk: ' + error.message);
             }
         });
 
