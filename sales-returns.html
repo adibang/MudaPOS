@@ -213,7 +213,7 @@
                 <table class="items-table">
                     <thead>
                         <tr>
-                            <th>Produk</th>
+                            <th>Produk / Varian</th>
                             <th>Qty Terjual</th>
                             <th>Harga Jual</th>
                             <th>Qty Retur</th>
@@ -275,6 +275,7 @@
         const returPenjualanCol = collection(dbCloud, 'returPenjualan');
         const salesCol = collection(dbCloud, 'sales');
         const produkCol = collection(dbCloud, 'produk');
+        const varianCol = collection(dbCloud, 'productVariants'); // tambahan untuk varian
         const customerCol = collection(dbCloud, 'customer');
         const financeTransCol = collection(dbCloud, 'financeTransactions');
 
@@ -416,8 +417,10 @@
                 const snap = await getDoc(doc(salesCol, id));
                 if (!snap.exists()) throw new Error('Transaksi tidak ditemukan');
                 selectedSale = { id: snap.id, ...snap.data() };
-                returItems = selectedSale.items.map(item => ({
+                // Inisialisasi returItems, pastikan setiap item menyimpan varianId jika ada
+                returItems = (selectedSale.items || []).map(item => ({
                     ...item,
+                    varianId: item.varianId || null,  // tambahkan varianId
                     returQty: 0,
                     subtotalRetur: 0
                 }));
@@ -447,9 +450,11 @@
             `;
             let html = '';
             returItems.forEach((item, idx) => {
+                // Tampilkan nama item (jika varian, nama sudah mencakup produk+varian atau gunakan item.nama)
+                const namaTampil = item.nama || (item.varianId ? 'Varian' : 'Produk');
                 html += `
                     <tr data-index="${idx}">
-                        <td>${item.nama}</td>
+                        <td>${namaTampil}</td>
                         <td>${item.qty}</td>
                         <td>Rp ${(item.hargaSatuan || 0).toLocaleString()}</td>
                         <td><input type="number" class="retur-qty" value="0" min="0" max="${item.qty}" step="1" data-index="${idx}"></td>
@@ -514,6 +519,7 @@
                         customerName: s.customerName,
                         items: itemsRetur.map(item => ({
                             produkId: item.produkId,
+                            varianId: item.varianId || null,  // simpan varianId jika ada
                             nama: item.nama,
                             qty: item.returQty,
                             hargaJual: item.hargaSatuan,
@@ -526,16 +532,26 @@
                     const returRef = doc(returPenjualanCol);
                     transaction.set(returRef, returData);
 
-                    // 2. Update stok produk (tambah)
+                    // 2. Update stok (tambah) – bedakan produk dan varian
                     for (let item of itemsRetur) {
-                        const produkRef = doc(produkCol, item.produkId);
-                        const produkSnap = await transaction.get(produkRef);
-                        if (!produkSnap.exists()) throw new Error(`Produk ${item.nama} tidak ditemukan`);
-                        const stokLama = produkSnap.data().stokAwal || 0;
-                        transaction.update(produkRef, { stokAwal: stokLama + item.returQty });
+                        if (item.varianId) {
+                            // Update stok varian
+                            const varianRef = doc(varianCol, item.varianId);
+                            const varianSnap = await transaction.get(varianRef);
+                            if (!varianSnap.exists()) throw new Error(`Varian ${item.nama} tidak ditemukan`);
+                            const stokLama = varianSnap.data().stok || 0;
+                            transaction.update(varianRef, { stok: stokLama + item.returQty });
+                        } else {
+                            // Update stok produk
+                            const produkRef = doc(produkCol, item.produkId);
+                            const produkSnap = await transaction.get(produkRef);
+                            if (!produkSnap.exists()) throw new Error(`Produk ${item.nama} tidak ditemukan`);
+                            const stokLama = produkSnap.data().stokAwal || 0;
+                            transaction.update(produkRef, { stokAwal: stokLama + item.returQty });
+                        }
                     }
 
-                    // 3. Update transaksi asal
+                    // 3. Update transaksi asal (sales)
                     const salesRef = doc(salesCol, s.id);
                     const salesSnap = await transaction.get(salesRef);
                     if (!salesSnap.exists()) throw new Error('Transaksi asal tidak ditemukan');
