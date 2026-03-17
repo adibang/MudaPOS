@@ -223,7 +223,7 @@
                 <table class="items-table">
                     <thead>
                         <tr>
-                            <th>Produk</th>
+                            <th>Produk / Varian</th>
                             <th>Qty Dibeli</th>
                             <th>Harga Beli</th>
                             <th>Qty Retur</th>
@@ -294,6 +294,7 @@
         const returPembelianCol = collection(dbCloud, 'returPembelian');
         const purchaseCol = collection(dbCloud, 'purchase');
         const produkCol = collection(dbCloud, 'produk');
+        const varianCol = collection(dbCloud, 'productVariants'); // tambahan
         const supplierCol = collection(dbCloud, 'supplier');
         const financeTransCol = collection(dbCloud, 'financeTransactions');
 
@@ -390,16 +391,11 @@
                 const q = query(purchaseCol, orderBy('tanggal', 'desc'));
                 const snap = await getDocs(q);
                 let purchases = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (keyword.trim()) {
-                    const lower = keyword.toLowerCase();
-                    // Karena purchase mungkin tidak punya nama supplier langsung, kita perlu fetch supplier
-                    // Untuk sederhana, kita filter di sisi client setelah ambil data supplier nanti.
-                }
-                // Tampilkan semua, karena kita belum punya nama supplier di sini
+                // Tampilkan semua, kita filter nanti berdasarkan nama supplier
                 if (purchases.length === 0) {
                     daftarTransaksiBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Tidak ada transaksi</td></tr>';
                 } else {
-                    // Kita perlu nama supplier, fetch satu per satu? Bisa pakai Promise.all
+                    // Kita perlu nama supplier, fetch satu per satu
                     const rows = await Promise.all(purchases.map(async p => {
                         let supplierName = '-';
                         if (p.supplierId) {
@@ -457,8 +453,10 @@
                         selectedPurchase.supplierName = suppSnap.data().nama;
                     }
                 }
+                // Inisialisasi returItems, pastikan setiap item menyimpan varianId jika ada
                 returItems = (selectedPurchase.items || []).map(item => ({
                     ...item,
+                    varianId: item.varianId || null, // tambahkan varianId
                     returQty: 0,
                     subtotalRetur: 0
                 }));
@@ -484,9 +482,11 @@
             `;
             let html = '';
             returItems.forEach((item, idx) => {
+                // Tampilkan nama item (jika varian, nama sudah mencakup produk+varian atau gunakan item.nama)
+                const namaTampil = item.nama || (item.varianId ? 'Varian' : 'Produk');
                 html += `
                     <tr data-index="${idx}">
-                        <td>${item.nama || 'Produk'}</td>
+                        <td>${namaTampil}</td>
                         <td>${item.qty}</td>
                         <td>Rp ${(item.hargaBeli || 0).toLocaleString()}</td>
                         <td><input type="number" class="retur-qty" value="0" min="0" max="${item.qty}" step="1" data-index="${idx}"></td>
@@ -550,7 +550,8 @@
                         supplierId: p.supplierId,
                         supplierName: p.supplierName,
                         items: itemsRetur.map(item => ({
-                            produkId: item.produkId || item.id, // sesuaikan field id
+                            produkId: item.produkId || item.id,
+                            varianId: item.varianId || null, // simpan varianId
                             nama: item.nama,
                             qty: item.returQty,
                             hargaBeli: item.hargaBeli,
@@ -563,14 +564,24 @@
                     const returRef = doc(returPembelianCol);
                     transaction.set(returRef, returData);
 
-                    // 2. Update stok produk (kurangi, karena barang keluar)
+                    // 2. Update stok (kurangi) – bedakan produk dan varian
                     for (let item of itemsRetur) {
-                        const produkId = item.produkId || item.id;
-                        const produkRef = doc(produkCol, produkId);
-                        const produkSnap = await transaction.get(produkRef);
-                        if (!produkSnap.exists()) throw new Error(`Produk ${item.nama} tidak ditemukan`);
-                        const stokLama = produkSnap.data().stokAwal || 0;
-                        transaction.update(produkRef, { stokAwal: stokLama - item.returQty });
+                        if (item.varianId) {
+                            // Update stok varian
+                            const varianRef = doc(varianCol, item.varianId);
+                            const varianSnap = await transaction.get(varianRef);
+                            if (!varianSnap.exists()) throw new Error(`Varian ${item.nama} tidak ditemukan`);
+                            const stokLama = varianSnap.data().stok || 0;
+                            transaction.update(varianRef, { stok: stokLama - item.returQty });
+                        } else {
+                            // Update stok produk
+                            const produkId = item.produkId || item.id;
+                            const produkRef = doc(produkCol, produkId);
+                            const produkSnap = await transaction.get(produkRef);
+                            if (!produkSnap.exists()) throw new Error(`Produk ${item.nama} tidak ditemukan`);
+                            const stokLama = produkSnap.data().stokAwal || 0;
+                            transaction.update(produkRef, { stokAwal: stokLama - item.returQty });
+                        }
                     }
 
                     // 3. Update transaksi asal
