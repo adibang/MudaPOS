@@ -184,7 +184,7 @@
         <!-- Pencarian dan Tombol Tambah Produk -->
         <div class="search-section">
             <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Cari produk (kode, nama, barcode...)">
+                <input type="text" id="searchInput" placeholder="Cari produk atau varian (kode, nama, barcode...)">
                 <button id="searchBtn"><i data-feather="search"></i> Cari</button>
             </div>
             <a href="masterdata.html#tambahProduk" class="btn-add-product" id="addProductBtn">
@@ -211,7 +211,7 @@
                 <table class="cart-table" id="cartTable">
                     <thead>
                         <tr>
-                            <th>Produk</th>
+                            <th>Produk / Varian</th>
                             <th>Harga Beli</th>
                             <th>Qty</th>
                             <th>Subtotal</th>
@@ -300,7 +300,7 @@
         }
     </script>
 
-    <!-- Script module untuk logika purchase (Firestore) dengan pagination -->
+    <!-- Script module untuk logika purchase (Firestore) dengan pagination dan varian -->
     <script type="module">
         console.log('Script module dimulai...');
 
@@ -316,6 +316,7 @@
 
         // ========== REFERENSI KOLEKSI ==========
         const produkCol = collection(dbCloud, 'produk');
+        const varianCol = collection(dbCloud, 'productVariants');
         const supplierCol = collection(dbCloud, 'supplier');
         const gudangCol = collection(dbCloud, 'gudang');
         const konversiCol = collection(dbCloud, 'konversiUnit');
@@ -324,6 +325,7 @@
         console.log('Koleksi Firestore siap');
 
         // ========== STATE KERANJANG ==========
+        // Item keranjang: { id (produkId atau varianId), type: 'product'|'variant', produkId (untuk varian), nama, kode, hargaBeli, qty }
         let cart = [];
 
         // ========== STATE PAGINATION ==========
@@ -335,7 +337,8 @@
 
         // ========== DATA MASTER ==========
         let allKonversi = [];
-        let productsCache = new Map(); // id -> data produk
+        // Cache untuk produk dan varian (key: 'produk_'+id atau 'varian_'+id)
+        let itemsCache = new Map();
 
         // ========== ELEMEN DOM ==========
         const supplierSelect = document.getElementById('supplierSelect');
@@ -405,18 +408,19 @@
             }
         }
 
-        // ========== FUNGSI MEMBANGUN QUERY DASAR ==========
-        function buildBaseQuery() {
+        // ========== FUNGSI MEMBANGUN QUERY DASAR PRODUK ==========
+        function buildBaseProductQuery() {
             return query(produkCol, where('deleted', '==', false), orderBy('nama'));
         }
 
-        // ========== FUNGSI UNTUK MENJALANKAN QUERY PENCARIAN ==========
+        // ========== FUNGSI UNTUK MENJALANKAN QUERY PENCARIAN (PRODUK DAN VARIAN) ==========
         async function executeSearchQuery(direction = 'next') {
             const searchTerm = currentSearchTerm.toLowerCase().trim();
-            const baseQuery = buildBaseQuery();
+            const baseProductQuery = buildBaseProductQuery();
 
             if (!searchTerm) {
-                let q = query(baseQuery, limit(pageSize));
+                // Tanpa pencarian: hanya tampilkan produk (dengan pagination)
+                let q = query(baseProductQuery, limit(pageSize));
                 if (direction === 'next' && lastVisible) {
                     q = query(q, startAfter(lastVisible));
                 } else if (direction === 'prev' && currentPageIndex > 0) {
@@ -424,84 +428,107 @@
                 }
                 return { type: 'normal', query: q };
             } else {
-                const fields = ['nama', 'kode', 'barcode'];
-                const queries = fields.map(field => {
-                    return query(
-                        baseQuery,
-                        where(field, '>=', searchTerm),
-                        where(field, '<=', searchTerm + '\uf8ff'),
-                        limit(pageSize)
-                    );
-                });
+                // Dengan pencarian: cari di produk dan varian
+                const productQueries = [
+                    query(baseProductQuery, where('nama', '>=', searchTerm), where('nama', '<=', searchTerm + '\uf8ff'), limit(pageSize)),
+                    query(baseProductQuery, where('kode', '>=', searchTerm), where('kode', '<=', searchTerm + '\uf8ff'), limit(pageSize)),
+                    query(baseProductQuery, where('barcode', '>=', searchTerm), where('barcode', '<=', searchTerm + '\uf8ff'), limit(pageSize))
+                ];
 
-                // Cari di konversi berdasarkan barcode
-                const konversiMatches = allKonversi.filter(k => 
-                    k.barcode && k.barcode.toLowerCase().includes(searchTerm)
-                );
-                const produkIdsFromKonversi = [...new Set(konversiMatches.map(k => k.produkId))];
+                // Cari varian berdasarkan namaVarian atau barcode
+                const varianQueries = [
+                    query(varianCol, where('namaVarian', '>=', searchTerm), where('namaVarian', '<=', searchTerm + '\uf8ff'), where('deleted', '==', false), limit(pageSize)),
+                    query(varianCol, where('barcode', '>=', searchTerm), where('barcode', '<=', searchTerm + '\uf8ff'), where('deleted', '==', false), limit(pageSize))
+                ];
 
-                // Jika ada produkId dari konversi, buat query untuk masing-masing produk (maksimal 10)
-                const konversiQueries = [];
-                if (produkIdsFromKonversi.length > 0) {
-                    const ids = produkIdsFromKonversi.slice(0, 10);
-                    for (let id of ids) {
-                        konversiQueries.push(query(baseQuery, where('__name__', '==', id)));
-                    }
-                }
-
-                return { type: 'search', queries: [...queries, ...konversiQueries] };
+                // Gabungkan semua query
+                const allQueries = [...productQueries, ...varianQueries];
+                return { type: 'search', queries: allQueries };
             }
         }
 
-        // ========== LOAD HALAMAN PRODUK ==========
+        // ========== LOAD HALAMAN PRODUK + VARIAN ==========
         async function loadProductsPage(direction = 'next') {
             try {
                 const exec = await executeSearchQuery(direction);
-                let docs = [];
+                let docs = []; // array of { type: 'product'|'variant', ref, data }
 
                 if (exec.type === 'normal' && exec.useSnapshot) {
                     const prevSnapshot = pageSnapshots[currentPageIndex - 1];
                     if (prevSnapshot) {
-                        docs = prevSnapshot.docs;
+                        docs = prevSnapshot.docs.map(doc => ({ type: 'product', ref: doc, data: doc.data() }));
                         currentPageIndex--;
-                        lastVisible = docs[docs.length - 1];
+                        lastVisible = docs.length > 0 ? docs[docs.length-1].ref : null;
                     } else {
                         return;
                     }
                 } else if (exec.type === 'normal') {
                     const snapshot = await getDocs(exec.query);
-                    docs = snapshot.docs;
+                    docs = snapshot.docs.map(doc => ({ type: 'product', ref: doc, data: doc.data() }));
                     if (direction === 'next') {
                         pageSnapshots.push(snapshot);
                         currentPageIndex = pageSnapshots.length - 1;
                     }
-                    lastVisible = docs[docs.length - 1];
+                    lastVisible = docs.length > 0 ? docs[docs.length-1].ref : null;
                 } else {
                     // Mode pencarian
                     const snapshots = await Promise.all(exec.queries.map(q => getDocs(q)));
-                    const docsMap = new Map();
-                    snapshots.forEach(snap => {
-                        snap.docs.forEach(doc => {
-                            if (!docsMap.has(doc.id)) {
-                                docsMap.set(doc.id, doc);
+                    const itemsMap = new Map(); // key: `${type}_${id}`
+                    for (const snap of snapshots) {
+                        if (snap.metadata.fromCache) continue; // optional
+                        for (const doc of snap.docs) {
+                            // Tentukan tipe dari path koleksi
+                            const type = doc.ref.parent.id === 'produk' ? 'product' : 'variant';
+                            const key = `${type}_${doc.id}`;
+                            if (!itemsMap.has(key)) {
+                                // Untuk varian, kita juga perlu data produk induk (untuk menampilkan nama produk)
+                                let produkData = null;
+                                if (type === 'variant') {
+                                    const vData = doc.data();
+                                    const produkId = vData.produkId;
+                                    if (produkId) {
+                                        // Coba ambil dari cache dulu
+                                        const cached = itemsCache.get(`product_${produkId}`);
+                                        if (cached) {
+                                            produkData = cached.data;
+                                        } else {
+                                            try {
+                                                const prodSnap = await getDoc(doc(produkCol, produkId));
+                                                if (prodSnap.exists()) {
+                                                    produkData = prodSnap.data();
+                                                    itemsCache.set(`product_${produkId}`, { type: 'product', id: produkId, data: produkData });
+                                                }
+                                            } catch (e) {
+                                                console.warn('Gagal ambil produk induk', e);
+                                            }
+                                        }
+                                    }
+                                }
+                                itemsMap.set(key, { type, ref: doc, data: doc.data(), produkData });
                             }
-                        });
+                        }
+                    }
+                    // Ubah map menjadi array dan batasi jumlah
+                    docs = Array.from(itemsMap.values());
+                    docs.sort((a, b) => {
+                        const namaA = a.type === 'product' ? a.data.nama : (a.produkData?.nama + ' - ' + a.data.namaVarian) || '';
+                        const namaB = b.type === 'product' ? b.data.nama : (b.produkData?.nama + ' - ' + b.data.namaVarian) || '';
+                        return namaA.localeCompare(namaB);
                     });
-                    docs = Array.from(docsMap.values());
-                    docs.sort((a, b) => a.get('nama').localeCompare(b.get('nama')));
                     docs = docs.slice(0, pageSize);
-                    // Reset pagination
+                    // Reset pagination karena pencarian tidak menggunakan pagination Firestore
                     pageSnapshots = [];
                     currentPageIndex = 0;
                     lastVisible = null;
                 }
 
                 // Simpan ke cache
-                docs.forEach(doc => {
-                    productsCache.set(doc.id, { id: doc.id, ...doc.data() });
+                docs.forEach(item => {
+                    const key = item.type === 'product' ? `product_${item.ref.id}` : `variant_${item.ref.id}`;
+                    itemsCache.set(key, item);
                 });
 
-                renderProducts(docs);
+                renderItems(docs);
 
                 // Update tombol pagination
                 if (exec.type === 'search') {
@@ -514,29 +541,41 @@
                     pageInfo.textContent = `Halaman ${currentPageIndex + 1}`;
                 }
             } catch (error) {
-                console.error('Gagal memuat produk:', error);
+                console.error('Gagal memuat produk/varian:', error);
                 productListContainer.innerHTML = `<div style="grid-column:1/-1; color:red;">Gagal memuat: ${error.message}</div>`;
             }
         }
 
-        // ========== RENDER PRODUK ==========
-        function renderProducts(docs) {
-            if (docs.length === 0) {
-                productListContainer.innerHTML = '<div style="grid-column:1/-1; text-align:center;">Tidak ada produk</div>';
+        // ========== RENDER ITEM HASIL PENCARIAN ==========
+        function renderItems(items) {
+            if (items.length === 0) {
+                productListContainer.innerHTML = '<div style="grid-column:1/-1; text-align:center;">Tidak ada produk atau varian</div>';
                 return;
             }
 
-            productListContainer.innerHTML = docs.map(doc => {
-                const p = doc.data();
+            productListContainer.innerHTML = items.map(item => {
+                let namaTampil, kodeTampil, hargaJual;
+                if (item.type === 'product') {
+                    const p = item.data;
+                    namaTampil = p.nama;
+                    kodeTampil = p.kode || p.barcode || '-';
+                    hargaJual = p.hargaJual || 0;
+                } else {
+                    const v = item.data;
+                    const namaProduk = item.produkData?.nama || '(produk tidak diketahui)';
+                    namaTampil = `${namaProduk} - ${v.namaVarian}`;
+                    kodeTampil = v.barcode || '-';
+                    hargaJual = v.hargaJual || 0;
+                }
                 return `
-                    <div class="product-card" data-id="${doc.id}">
-                        <div class="nama">${p.nama}</div>
-                        <div class="kode">${p.kode || p.barcode || '-'}</div>
-                        <div class="harga">Harga Jual: Rp ${(p.hargaJual || 0).toLocaleString()}</div>
+                    <div class="product-card" data-type="${item.type}" data-id="${item.ref.id}" data-produkid="${item.type==='variant' ? item.data.produkId : ''}">
+                        <div class="nama">${namaTampil}</div>
+                        <div class="kode">${kodeTampil}</div>
+                        <div class="harga">Harga Jual: Rp ${hargaJual.toLocaleString()}</div>
                         <div class="qty-control">
-                            <button class="minus" data-id="${doc.id}">-</button>
-                            <input type="number" class="qty" value="1" min="1" data-id="${doc.id}">
-                            <button class="plus" data-id="${doc.id}">+</button>
+                            <button class="minus">-</button>
+                            <input type="number" class="qty" value="1" min="1">
+                            <button class="plus">+</button>
                         </div>
                     </div>
                 `;
@@ -547,8 +586,8 @@
             document.querySelectorAll('.product-card .minus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const id = btn.dataset.id;
-                    const input = document.querySelector(`.product-card .qty[data-id="${id}"]`);
+                    const card = btn.closest('.product-card');
+                    const input = card.querySelector('.qty');
                     let val = parseInt(input.value) || 1;
                     if (val > 1) input.value = val - 1;
                 });
@@ -556,8 +595,8 @@
             document.querySelectorAll('.product-card .plus').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const id = btn.dataset.id;
-                    const input = document.querySelector(`.product-card .qty[data-id="${id}"]`);
+                    const card = btn.closest('.product-card');
+                    const input = card.querySelector('.qty');
                     let val = parseInt(input.value) || 1;
                     input.value = val + 1;
                 });
@@ -567,7 +606,9 @@
             document.querySelectorAll('.product-card').forEach(card => {
                 card.addEventListener('click', async (e) => {
                     if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+                    const type = card.dataset.type;
                     const id = card.dataset.id;
+                    const produkId = card.dataset.produkid || id; // untuk varian, produkId sudah ada
                     const qtyInput = card.querySelector('.qty');
                     const qty = parseInt(qtyInput.value) || 1;
                     const hargaBeli = prompt('Masukkan harga beli per unit (Rp):', '0');
@@ -577,38 +618,58 @@
                         alert('Harga beli harus angka positif');
                         return;
                     }
-                    await tambahKeCart(id, qty, harga);
+                    await tambahKeCart(type, id, produkId, qty, harga);
                 });
             });
         }
 
         // ========== TAMBAH KE KERANJANG ==========
-        async function tambahKeCart(produkId, qty, hargaBeli) {
-            let produk = productsCache.get(produkId);
-            if (!produk) {
+        async function tambahKeCart(type, itemId, produkId, qty, hargaBeli) {
+            // Ambil data item dari cache atau Firestore
+            let itemData = itemsCache.get(`${type}_${itemId}`);
+            if (!itemData) {
                 try {
-                    const produkSnap = await getDoc(doc(produkCol, produkId));
-                    if (!produkSnap.exists()) {
-                        alert('Produk tidak ditemukan');
+                    const ref = type === 'product' ? doc(produkCol, itemId) : doc(varianCol, itemId);
+                    const snap = await getDoc(ref);
+                    if (!snap.exists()) {
+                        alert('Item tidak ditemukan');
                         return;
                     }
-                    produk = { id: produkId, ...produkSnap.data() };
-                    productsCache.set(produkId, produk);
+                    let produkData = null;
+                    if (type === 'variant') {
+                        const v = snap.data();
+                        const prodId = v.produkId;
+                        const prodSnap = await getDoc(doc(produkCol, prodId));
+                        if (prodSnap.exists()) {
+                            produkData = prodSnap.data();
+                        }
+                    }
+                    itemData = { type, id: itemId, data: snap.data(), produkData };
+                    itemsCache.set(`${type}_${itemId}`, itemData);
                 } catch (error) {
-                    console.error('Gagal mengambil produk:', error);
-                    alert('Gagal mengambil data produk');
+                    console.error('Gagal mengambil item:', error);
+                    alert('Gagal mengambil data item');
                     return;
                 }
             }
 
-            const existing = cart.find(item => item.id === produkId);
+            const nama = type === 'product' 
+                ? itemData.data.nama 
+                : `${itemData.produkData?.nama || '?'} - ${itemData.data.namaVarian}`;
+            const kode = type === 'product' 
+                ? (itemData.data.kode || itemData.data.barcode || '-') 
+                : (itemData.data.barcode || '-');
+
+            const existing = cart.find(item => item.id === itemId && item.type === type);
             if (existing) {
                 existing.qty += qty;
             } else {
                 cart.push({
-                    id: produkId,
-                    nama: produk.nama,
-                    kode: produk.kode || produk.barcode || '-',
+                    id: itemId,
+                    type: type,
+                    produkId: type === 'product' ? itemId : itemData.data.produkId,
+                    nama: nama,
+                    kode: kode,
                     hargaBeli: hargaBeli,
                     qty: qty
                 });
@@ -778,12 +839,18 @@
             try {
                 console.log('Menyimpan transaksi...');
                 await runTransaction(dbCloud, async (transaction) => {
-                    // 1. Lakukan semua operasi baca (get) terlebih dahulu
-                    const produkRefs = cart.map(item => doc(produkCol, item.id));
-                    const produkSnaps = await Promise.all(produkRefs.map(ref => transaction.get(ref)));
+                    // 1. Baca semua dokumen yang akan diupdate (produk atau varian)
+                    const itemRefs = cart.map(item => {
+                        if (item.type === 'product') {
+                            return doc(produkCol, item.id);
+                        } else {
+                            return doc(varianCol, item.id);
+                        }
+                    });
+                    const itemSnaps = await Promise.all(itemRefs.map(ref => transaction.get(ref)));
                     for (let i = 0; i < cart.length; i++) {
-                        if (!produkSnaps[i].exists()) {
-                            throw new Error(`Produk ${cart[i].nama} tidak ditemukan`);
+                        if (!itemSnaps[i].exists()) {
+                            throw new Error(`${cart[i].nama} tidak ditemukan`);
                         }
                     }
 
@@ -794,6 +861,8 @@
                         warehouseId: warehouseSelect.value,
                         items: cart.map(item => ({ 
                             id: item.id,
+                            type: item.type,
+                            produkId: item.produkId,
                             nama: item.nama,
                             kode: item.kode,
                             hargaBeli: item.hargaBeli,
@@ -810,29 +879,26 @@
                         createdAt: serverTimestamp()
                     };
 
-                    // 3. Simpan purchase (tulis)
+                    // 3. Simpan purchase
                     const purchaseRef = doc(purchaseCol);
                     transaction.set(purchaseRef, purchaseData);
 
-                    // 4. Update produk (tulis)
+                    // 4. Update stok untuk setiap item (produk atau varian)
                     for (let i = 0; i < cart.length; i++) {
                         const item = cart[i];
-                        const produk = produkSnaps[i].data();
-                        const stokLama = produk.stokAwal || 0;
-                        const hargaDasarLama = produk.hargaDasar || 0;
-                        const qty = item.qty;
-                        const hargaBeli = item.hargaBeli;
-
-                        const totalNilaiLama = stokLama * hargaDasarLama;
-                        const totalNilaiBaru = qty * hargaBeli;
-                        const stokBaru = stokLama + qty;
-                        const hargaDasarBaru = stokBaru === 0 ? 0 : (totalNilaiLama + totalNilaiBaru) / stokBaru;
-
-                        transaction.update(produkRefs[i], {
-                            stokAwal: stokBaru,
-                            hargaDasar: hargaDasarBaru,
-                            updatedAt: serverTimestamp()
-                        });
+                        const snap = itemSnaps[i];
+                        const data = snap.data();
+                        const currentStock = data.stokAwal || data.stok || 0;
+                        const newStock = currentStock + item.qty;
+                        const updateData = { updatedAt: serverTimestamp() };
+                        if (item.type === 'product') {
+                            updateData.stokAwal = newStock;
+                            // Opsional: update harga dasar rata-rata? Untuk produk tanpa varian, kita bisa hitung ulang
+                            // Tapi untuk varian, kita tidak perlu update harga dasar produk utama
+                        } else {
+                            updateData.stok = newStock;
+                        }
+                        transaction.update(itemRefs[i], updateData);
                     }
                 });
 
