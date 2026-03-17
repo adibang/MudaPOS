@@ -275,7 +275,7 @@
         const returPenjualanCol = collection(dbCloud, 'returPenjualan');
         const salesCol = collection(dbCloud, 'sales');
         const produkCol = collection(dbCloud, 'produk');
-        const varianCol = collection(dbCloud, 'productVariants'); // tambahan untuk varian
+        const varianCol = collection(dbCloud, 'productVariants'); // TAMBAHAN
         const customerCol = collection(dbCloud, 'customer');
         const financeTransCol = collection(dbCloud, 'financeTransactions');
 
@@ -417,10 +417,10 @@
                 const snap = await getDoc(doc(salesCol, id));
                 if (!snap.exists()) throw new Error('Transaksi tidak ditemukan');
                 selectedSale = { id: snap.id, ...snap.data() };
-                // Inisialisasi returItems, pastikan setiap item menyimpan varianId jika ada
+                // Inisialisasi returItems dengan menyertakan varianId jika ada
                 returItems = (selectedSale.items || []).map(item => ({
                     ...item,
-                    varianId: item.varianId || null,  // tambahkan varianId
+                    varianId: item.varianId || null,  // TAMBAHAN
                     returQty: 0,
                     subtotalRetur: 0
                 }));
@@ -450,8 +450,8 @@
             `;
             let html = '';
             returItems.forEach((item, idx) => {
-                // Tampilkan nama item (jika varian, nama sudah mencakup produk+varian atau gunakan item.nama)
-                const namaTampil = item.nama || (item.varianId ? 'Varian' : 'Produk');
+                // Tampilkan nama (asumsi sudah mencakup varian jika perlu)
+                const namaTampil = item.nama || 'Produk';
                 html += `
                     <tr data-index="${idx}">
                         <td>${namaTampil}</td>
@@ -519,7 +519,7 @@
                         customerName: s.customerName,
                         items: itemsRetur.map(item => ({
                             produkId: item.produkId,
-                            varianId: item.varianId || null,  // simpan varianId jika ada
+                            varianId: item.varianId || null,  // TAMBAHAN
                             nama: item.nama,
                             qty: item.returQty,
                             hargaJual: item.hargaSatuan,
@@ -551,7 +551,7 @@
                         }
                     }
 
-                    // 3. Update transaksi asal (sales)
+                    // 3. Update transaksi asal (sama seperti sebelumnya)
                     const salesRef = doc(salesCol, s.id);
                     const salesSnap = await transaction.get(salesRef);
                     if (!salesSnap.exists()) throw new Error('Transaksi asal tidak ditemukan');
