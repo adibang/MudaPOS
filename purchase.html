@@ -37,6 +37,27 @@
         .overlay.active { display:block; }
         .main-content { padding:1.5rem; max-width:1400px; margin:0 auto; }
         .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+        .btn-return {
+            background: #ffc107;
+            color: #333;
+            border: none;
+            border-radius: 20px;
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn-return:hover {
+            background: #e0a800;
+        }
+        .btn-return i {
+            width: 18px;
+            height: 18px;
+        }
 
         /* Komponen Purchase */
         .search-section { display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; align-items:center; }
@@ -44,8 +65,8 @@
         .search-box input { flex:1; border:none; padding:0.6rem 1rem; font-size:1rem; outline:none; }
         .search-box button { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; cursor:pointer; display:flex; align-items:center; gap:0.3rem; }
         .search-box button:hover { background:#004d3b; }
-        .btn-add-product { background:#ffc107; color:#333; border:none; padding:0.6rem 1.2rem; border-radius:20px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; text-decoration:none; }
-        .btn-add-product:hover { background:#e0a800; }
+        .btn-add-product { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:20px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; text-decoration:none; }
+        .btn-add-product:hover { background:#004d3b; }
         
         .product-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:1rem; margin-bottom:1rem; }
         .product-card { background:white; border-radius:20px; padding:1rem; box-shadow:0 2px 4px rgba(0,0,0,0.03); border:1px solid #f0f0f0; cursor:pointer; transition:0.2s; }
@@ -162,7 +183,7 @@
     <main class="main-content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem;">
             <h1 class="page-title" style="margin-bottom:0;">Purchase Order</h1>
-            <a href="purchase-returns.html" class="btn-add-product"><i data-feather="corner-up-left"></i> Retur</a>
+            <a href="purchase-returns.html" class="btn-return"><i data-feather="corner-up-left"></i> Retur</a>
         </div>
 
         <!-- Supplier dan Warehouse -->
