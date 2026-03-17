@@ -14,7 +14,7 @@
         .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
         .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
         .menu-toggle:hover { background:#f0f0f0; }
-        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:20%; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
         .btn-login:hover { background:#004d3b; }
         .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
         .sidebar.open { transform:translateX(0); }
@@ -23,12 +23,12 @@
         .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
         .sidebar-menu { list-style:none; }
         .sidebar-menu li { margin-bottom:0.2rem; }
-        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:20px; font-weight:500; font-size:0.95rem; cursor:pointer; }
         .sidebar-menu .menu-link:hover { background:#f0f5f3; }
         .sidebar-menu .menu-link i { color:#006B54; width:18px; }
         .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
         .has-submenu.open .submenu { display:block; }
-        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:20px; font-size:0.9rem; cursor:pointer; }
         .submenu a:hover { background:#e6f0ec; color:#006B54; }
         .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
         .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
@@ -40,23 +40,23 @@
 
         /* Komponen Purchase */
         .search-section { display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; align-items:center; }
-        .search-box { flex:1; min-width:250px; display:flex; background:white; border:1px solid #ddd; border-radius:8px; overflow:hidden; }
+        .search-box { flex:1; min-width:250px; display:flex; background:white; border:1px solid #ddd; border-radius:20px; overflow:hidden; }
         .search-box input { flex:1; border:none; padding:0.6rem 1rem; font-size:1rem; outline:none; }
         .search-box button { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; cursor:pointer; display:flex; align-items:center; gap:0.3rem; }
         .search-box button:hover { background:#004d3b; }
-        .btn-add-product { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; text-decoration:none; }
-        .btn-add-product:hover { background:#004d3b; }
+        .btn-add-product { background:#ffc107; color:#333; border:none; padding:0.6rem 1.2rem; border-radius:20px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; text-decoration:none; }
+        .btn-add-product:hover { background:#e0a800; }
         
         .product-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:1rem; margin-bottom:1rem; }
-        .product-card { background:white; border-radius:10px; padding:1rem; box-shadow:0 2px 4px rgba(0,0,0,0.03); border:1px solid #f0f0f0; cursor:pointer; transition:0.2s; }
+        .product-card { background:white; border-radius:20px; padding:1rem; box-shadow:0 2px 4px rgba(0,0,0,0.03); border:1px solid #f0f0f0; cursor:pointer; transition:0.2s; }
         .product-card:hover { border-color:#006B54; box-shadow:0 4px 8px rgba(0,107,84,0.1); }
         .product-card .nama { font-weight:600; font-size:1rem; color:#333; }
         .product-card .kode { font-size:0.8rem; color:#666; margin:0.2rem 0 0.5rem; }
         .product-card .harga { color:#006B54; font-weight:500; }
         .product-card .qty-control { display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem; }
-        .product-card .qty-control button { background:#f0f0f0; border:none; width:28px; height:28px; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        .product-card .qty-control button { background:#f0f0f0; border:none; width:28px; height:28px; border-radius:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
         .product-card .qty-control button:hover { background:#006B54; color:white; }
-        .product-card .qty-control input { width:50px; text-align:center; border:1px solid #ddd; border-radius:4px; padding:0.2rem; }
+        .product-card .qty-control input { width:50px; text-align:center; border:1px solid #ddd; border-radius:20px; padding:0.2rem; }
 
         /* Pagination */
         .pagination {
@@ -82,32 +82,32 @@
             padding: 0.4rem 0.8rem;
         }
 
-        .cart-section { background:white; border-radius:12px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; margin-bottom:2rem; }
+        .cart-section { background:white; border-radius:20px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; margin-bottom:2rem; }
         .cart-section h3 { margin-bottom:1rem; color:#006B54; font-size:1.2rem; }
         .table-responsive { overflow-x: auto; }
         .cart-table { width:100%; border-collapse:collapse; min-width:800px; }
         .cart-table th, .cart-table td { padding:0.8rem 0.5rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
         .cart-table th { background:#f9f9f9; font-weight:600; color:#006B54; }
         .cart-table .qty-control { display:flex; align-items:center; gap:0.3rem; }
-        .cart-table .qty-control button { background:#f0f0f0; border:none; width:24px; height:24px; border-radius:4px; cursor:pointer; }
+        .cart-table .qty-control button { background:#f0f0f0; border:none; width:24px; height:24px; border-radius:20px; cursor:pointer; }
         .cart-table .qty-control button:hover { background:#006B54; color:white; }
-        .cart-table .qty-control input { width:50px; text-align:center; border:1px solid #ddd; border-radius:4px; padding:0.2rem; }
+        .cart-table .qty-control input { width:50px; text-align:center; border:1px solid #ddd; border-radius:20px; padding:0.2rem; }
         .cart-table .remove { color:#dc3545; cursor:pointer; }
-        .cart-table input[type="number"].harga-beli { width:100px; padding:0.2rem; border:1px solid #ddd; border-radius:4px; }
+        .cart-table input[type="number"].harga-beli { width:100px; padding:0.2rem; border:1px solid #ddd; border-radius:20px; }
 
         .transaction-details { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:1.5rem; margin-bottom:2rem; }
-        .detail-box { background:white; border-radius:12px; padding:1.5rem; border:1px solid #f0f0f0; }
+        .detail-box { background:white; border-radius:20px; padding:1.5rem; border:1px solid #f0f0f0; }
         .detail-box h4 { margin-bottom:1rem; color:#006B54; font-size:1.1rem; }
         .form-group { margin-bottom:1rem; }
         .form-group label { display:block; margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
-        .form-group select, .form-group input { width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:6px; font-size:0.95rem; }
+        .form-group select, .form-group input { width:100%; padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:20px; font-size:0.95rem; }
         .form-group select:focus, .form-group input:focus { outline:none; border-color:#006B54; }
         .total-row { display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:1rem; }
         .total-row.grand-total { font-weight:700; font-size:1.2rem; color:#006B54; border-top:1px solid #eee; padding-top:0.5rem; margin-top:0.5rem; }
-        .payment-info { background:#f9f9f9; padding:1rem; border-radius:8px; margin-top:1rem; }
+        .payment-info { background:#f9f9f9; padding:1rem; border-radius:20px; margin-top:1rem; }
         .payment-info .amount { font-size:1.3rem; font-weight:700; color:#006B54; }
 
-        .btn-save { background:#006B54; color:white; border:none; padding:0.8rem 2rem; border-radius:8px; font-weight:600; font-size:1rem; cursor:pointer; margin-top:1rem; width:100%; }
+        .btn-save { background:#006B54; color:white; border:none; padding:0.8rem 2rem; border-radius:20px; font-weight:600; font-size:1rem; cursor:pointer; margin-top:1rem; width:100%; }
         .btn-save:hover { background:#004d3b; }
 
         @media (max-width:768px) {
@@ -162,7 +162,7 @@
     <main class="main-content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem;">
             <h1 class="page-title" style="margin-bottom:0;">Purchase Order</h1>
-            <a href="purchase-returns.html" class="btn-add-product"><i data-feather="rotate-ccw"></i> Retur</a>
+            <a href="purchase-returns.html" class="btn-add-product"><i data-feather="corner-up-left"></i> Retur</a>
         </div>
 
         <!-- Supplier dan Warehouse -->
