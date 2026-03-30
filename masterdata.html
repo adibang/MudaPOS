@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>MUDA POS - Master Data</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
@@ -345,6 +345,37 @@
             cursor: pointer;
         }
 
+        /* ===== FLOATING TOTAL SKU ===== */
+        .total-sku-floating {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e2a3a;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1050;
+            backdrop-filter: blur(4px);
+            background-color: rgba(0,107,84,0.9);
+            border: 1px solid rgba(255,255,255,0.2);
+            pointer-events: none;
+            white-space: nowrap;
+            font-family: monospace;
+            letter-spacing: 0.5px;
+        }
+
+        @media (max-width: 640px) {
+            .total-sku-floating {
+                font-size: 0.75rem;
+                padding: 6px 14px;
+                bottom: 12px;
+            }
+        }
+
         /* ===== PERBAIKAN TAMPILAN MOBILE (HEMAT RUANG) ===== */
         @media (max-width: 640px) {
             .form-group label { font-size:0.8rem; margin-bottom:0.2rem; }
@@ -499,6 +530,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Floating Total SKU -->
+    <div id="totalSKUFloating" class="total-sku-floating">Total SKU: 0</div>
 
     <!-- Main Content (akan disembunyikan jika belum login lokal) -->
     <main class="main-content" id="mainContent" style="display:none;">
@@ -877,7 +911,7 @@
         window.showSection = function(sectionName) { };
     </script>
 
-    <!-- Script module utama (Firestore + Scanner + Varian + Paket + Transfer/Copy + History) -->
+    <!-- Script module utama (Firestore + Scanner + Varian + Paket + Transfer/Copy + History + Total SKU) -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -1037,6 +1071,7 @@
         const loginBtn = document.getElementById('loginBtn');
         const historyBtn = document.getElementById('historyBtn');
         const historyBtnSection = document.getElementById('historyBtnSection');
+        const totalSKUElement = document.getElementById('totalSKUFloating');
 
         // Navigasi section
         const sections = {
@@ -1080,6 +1115,7 @@
             }
             if (sectionName === 'daftarProduk') {
                 loadProdukPage('next');
+                updateTotalSKUCount(); // hitung total SKU saat masuk daftar produk
             } else if (sectionName === 'daftarKategori' && lastKategoriDocs.length > 0) {
                 renderKategoriTable(lastKategoriDocs);
             } else if (sectionName === 'daftarUnit' && lastUnitDocs.length > 0) {
@@ -1930,6 +1966,7 @@
             produkLastVisible = null;
             produkFirstVisible = null;
             loadProdukPage('next');
+            updateTotalSKUCount(); // update total SKU setelah pencarian
         });
 
         document.getElementById('clearSearchProduk').addEventListener('click', () => {
@@ -1940,6 +1977,7 @@
             produkLastVisible = null;
             produkFirstVisible = null;
             loadProdukPage('next');
+            updateTotalSKUCount();
         });
 
         document.getElementById('prevPageProduk').addEventListener('click', () => {
@@ -1959,6 +1997,7 @@
             produkLastVisible = null;
             produkFirstVisible = null;
             loadProdukPage('next');
+            updateTotalSKUCount();
         });
 
         document.getElementById('resetFilterGudang')?.addEventListener('click', () => {
@@ -1972,6 +2011,7 @@
                 produkLastVisible = null;
                 produkFirstVisible = null;
                 loadProdukPage('next');
+                updateTotalSKUCount();
             }
         });
 
@@ -2068,6 +2108,7 @@
                 });
 
                 await batch.commit();
+                updateTotalSKUCount(); // update setelah hapus
             } catch (error) {
                 alert('Gagal hapus: ' + error.message);
             }
@@ -2220,6 +2261,7 @@
                 }
 
                 alert(produkId ? 'Produk berhasil diperbarui' : 'Produk berhasil ditambahkan');
+                updateTotalSKUCount(); // update setelah tambah/edit
 
                 e.target.reset();
                 varianContainer.innerHTML = '';
@@ -2551,6 +2593,7 @@
                 alert('Transfer stok berhasil');
                 closeTransferModal();
                 loadProdukPage('next');
+                updateTotalSKUCount(); // update total SKU setelah transfer
             } catch (error) {
                 alert('Gagal transfer: ' + error.message);
             }
@@ -2702,6 +2745,7 @@
                 alert('Produk berhasil dicopy ke gudang tujuan');
                 closeCopyModal();
                 loadProdukPage('next');
+                updateTotalSKUCount(); // update total SKU setelah copy
             } catch (error) {
                 alert('Gagal copy produk: ' + error.message);
             }
@@ -2837,6 +2881,40 @@
             loadHistoryPage('next');
         });
 
+        // ========== FUNGSI UPDATE TOTAL SKU ==========
+        async function updateTotalSKUCount() {
+            if (!sections.daftarProduk.classList.contains('active')) return;
+            try {
+                let constraints = [where('deleted', '==', false)];
+                if (selectedGudangFilter) {
+                    constraints.push(where('gudangId', '==', selectedGudangFilter));
+                }
+                const searchTerm = produkSearchTerm.toLowerCase().trim();
+                if (searchTerm) {
+                    // Untuk pencarian, kita lakukan query multi-field dan hitung jumlah unik
+                    const fields = ['nama', 'kode', 'barcode'];
+                    const queries = fields.map(field => {
+                        return query(produkCol, ...constraints, where(field, '>=', searchTerm), where(field, '<=', searchTerm + '\uf8ff'));
+                    });
+                    const snapshots = await Promise.all(queries.map(q => getDocs(q)));
+                    const idSet = new Set();
+                    snapshots.forEach(snap => {
+                        snap.docs.forEach(doc => idSet.add(doc.id));
+                    });
+                    const total = idSet.size;
+                    totalSKUElement.textContent = `Total SKU: ${total}`;
+                } else {
+                    // Tanpa pencarian, hitung jumlah langsung dengan query
+                    const q = query(produkCol, ...constraints);
+                    const snapshot = await getDocs(q);
+                    totalSKUElement.textContent = `Total SKU: ${snapshot.size}`;
+                }
+            } catch (error) {
+                console.error('Gagal menghitung total SKU:', error);
+                totalSKUElement.textContent = 'Total SKU: --';
+            }
+        }
+
         // ========== INITIAL LOAD ==========
         await initLocalDB();
 
@@ -2848,6 +2926,7 @@
 
             if (sections.daftarProduk.classList.contains('active')) {
                 loadProdukPage('next');
+                updateTotalSKUCount();
             }
             if (sections.daftarKategori.classList.contains('active') && lastKategoriDocs.length > 0) {
                 renderKategoriTable(lastKategoriDocs);
