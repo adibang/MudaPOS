@@ -132,6 +132,18 @@
         .btn-save:hover {
             background: #004d3b;
         }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
         .info-text {
             font-size: 0.85rem;
             color: #666;
@@ -141,6 +153,45 @@
             border: none;
             border-top: 1px solid #eee;
             margin: 1.5rem 0;
+        }
+
+        /* ===== FOOTER ROWS ===== */
+        .footer-rows-container {
+            margin-top: 0.5rem;
+        }
+        .footer-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+        .footer-row .form-control {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        .footer-row .btn-remove {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            padding: 0.4rem;
+            border-radius: 20px;
+        }
+        .footer-row .btn-remove:hover {
+            background: #ffe6e6;
+        }
+        .btn-add-footer {
+            background: transparent;
+            border: 1px solid #006B54;
+            color: #006B54;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+        .btn-add-footer:hover {
+            background: #e6f0ec;
         }
     </style>
 </head>
@@ -266,8 +317,11 @@
             </div>
 
             <div class="form-group">
-                <label>Footer Struk (baris terakhir)</label>
-                <input type="text" id="footerText" class="form-control" placeholder="Contoh: Terima Kasih">
+                <label>Footer Struk (baris-baris terakhir)</label>
+                <div class="footer-rows-container" id="footerRowsContainer">
+                    <!-- Rows will be dynamically added -->
+                </div>
+                <button type="button" class="btn-add-footer" id="addFooterRowBtn">+ Tambah Baris Footer</button>
             </div>
 
             <hr>
@@ -275,7 +329,6 @@
         </div>
     </main>
 
-    <!-- Script sidebar -->
     <script>
         feather.replace();
 
@@ -308,7 +361,6 @@
         });
     </script>
 
-    <!-- Script module utama (Firestore) -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -336,7 +388,8 @@
         const printCashierName = document.getElementById('printCashierName');
         const headerText = document.getElementById('headerText');
         const infoText = document.getElementById('infoText');
-        const footerText = document.getElementById('footerText');
+        const footerRowsContainer = document.getElementById('footerRowsContainer');
+        const addFooterRowBtn = document.getElementById('addFooterRowBtn');
 
         const saveBarcodeBtn = document.getElementById('saveBarcodeConfig');
         const savePrinterBtn = document.getElementById('savePrinterConfig');
@@ -345,6 +398,87 @@
         const loginBtn = document.getElementById('loginBtn');
         const syncBtn = document.getElementById('syncBtn');
 
+        // ========== FUNGSI UNTUK FOOTER ROWS ==========
+        function addFooterRow(text = '', focus = false, insertAfterRow = null) {
+            const row = document.createElement('div');
+            row.className = 'footer-row';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control';
+            input.value = text;
+            input.placeholder = 'Baris footer';
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn-remove';
+            removeBtn.innerHTML = '<i data-feather="x"></i>';
+            removeBtn.title = 'Hapus baris';
+            removeBtn.addEventListener('click', () => {
+                row.remove();
+            });
+            
+            row.appendChild(input);
+            row.appendChild(removeBtn);
+            
+            // Event Enter: jika Enter ditekan, tambah baris baru setelah baris ini
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addFooterRow('', true, row);
+                }
+            });
+            
+            // Insert after specified row or at the end
+            if (insertAfterRow && insertAfterRow.parentNode === footerRowsContainer) {
+                footerRowsContainer.insertBefore(row, insertAfterRow.nextSibling);
+            } else {
+                footerRowsContainer.appendChild(row);
+            }
+            
+            if (focus) {
+                input.focus();
+            }
+            
+            feather.replace(); // refresh feather icons
+        }
+        
+        // Hapus semua baris
+        function clearFooterRows() {
+            footerRowsContainer.innerHTML = '';
+        }
+        
+        // Mendapatkan array teks footer
+        function getFooterRows() {
+            const inputs = footerRowsContainer.querySelectorAll('.footer-row .form-control');
+            const texts = [];
+            inputs.forEach(input => {
+                const val = input.value.trim();
+                if (val) texts.push(val);
+            });
+            return texts;
+        }
+        
+        // Memuat array teks ke footer rows
+        function loadFooterRows(texts) {
+            clearFooterRows();
+            if (Array.isArray(texts) && texts.length) {
+                texts.forEach(text => addFooterRow(text, false));
+            } else if (typeof texts === 'string' && texts) {
+                // Jika masih string (legacy), tambahkan sebagai satu baris
+                addFooterRow(texts, false);
+            }
+            // Jika tidak ada, tambahkan satu baris kosong sebagai default
+            if (footerRowsContainer.children.length === 0) {
+                addFooterRow('', false);
+            }
+        }
+        
+        // Tombol tambah baris
+        addFooterRowBtn.addEventListener('click', () => {
+            addFooterRow('', true);
+        });
+        
         // ========== TAB NAVIGASI ==========
         tabBarcode.addEventListener('click', () => {
             tabBarcode.classList.add('active');
@@ -399,11 +533,23 @@
                         printCashierName.checked = data.printerConfig.printCashierName || false;
                         headerText.value = data.printerConfig.headerText || '';
                         infoText.value = data.printerConfig.infoText || '';
-                        footerText.value = data.printerConfig.footerText || '';
+                        // Footer rows bisa array atau string (legacy)
+                        const footerData = data.printerConfig.footerLines;
+                        if (footerData !== undefined) {
+                            loadFooterRows(footerData);
+                        } else if (data.printerConfig.footerText) {
+                            // Jika masih menggunakan footerText string
+                            loadFooterRows([data.printerConfig.footerText]);
+                        } else {
+                            loadFooterRows([]);
+                        }
+                    } else {
+                        // Default: satu baris kosong
+                        loadFooterRows([]);
                     }
                 } else {
                     // Jika belum ada, gunakan default
-                    console.log('Dokumen settings belum ada, akan dibuat saat simpan.');
+                    loadFooterRows([]);
                 }
                 updateTotalDigits();
             } catch (error) {
@@ -459,6 +605,9 @@
                     barcodeConfig = docSnap.data().barcodeConfig;
                 }
 
+                // Kumpulkan footer lines
+                const footerLines = getFooterRows();
+                
                 await setDoc(settingsDocRef, {
                     barcodeConfig: barcodeConfig,
                     printerConfig: {
@@ -467,7 +616,7 @@
                         printCashierName: printCashierName.checked,
                         headerText: headerText.value.trim(),
                         infoText: infoText.value.trim(),
-                        footerText: footerText.value.trim()
+                        footerLines: footerLines   // simpan sebagai array
                     }
                 }, { merge: true });
 
