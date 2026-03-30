@@ -1063,8 +1063,8 @@
                 <input type="text" id="searchCustomer" placeholder="Cari nama atau kode customer...">
             </div>
             <table class="modal-table">
-                <thead><tr><th>Kode</th><th>Nama</th><th>Kontak</th><th>Piutang</th></tr></thead>
-                <tbody id="customerListBody"><tr><td colspan="4">Loading...</td></tr></tbody>
+                <thead> <tr><th>Kode</th><th>Nama</th><th>Kontak</th><th>Piutang</th></tr> </thead>
+                <tbody id="customerListBody"> <tr><td colspan="4">Loading...</td></tr> </tbody>
             </table>
         </div>
     </div>
@@ -1296,7 +1296,7 @@
         }
     </script>
 
-    <!-- Script module utama (Firestore) dengan perbaikan paket, qty break, printer reconnect, dan promo bundle -->
+    <!-- Script module utama (Firestore) dengan perbaikan footer -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -1374,7 +1374,8 @@
             printCashierName: false,
             headerText: 'TOKO MUDA',
             infoText: '',
-            footerText: 'Terima Kasih'
+            footerText: 'Terima Kasih',
+            footerLines: []   // array of strings
         };
 
         // ========== VARIABEL PRINTER ==========
@@ -1481,13 +1482,21 @@
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     if (data.printerConfig) {
+                        // Ambil footerLines (array) atau fallback ke footerText (string)
+                        let footerLines = [];
+                        if (data.printerConfig.footerLines && Array.isArray(data.printerConfig.footerLines)) {
+                            footerLines = data.printerConfig.footerLines;
+                        } else if (data.printerConfig.footerText) {
+                            footerLines = data.printerConfig.footerText.split('\n').filter(l => l.trim() !== '');
+                        }
                         printerConfig = {
                             paperSize: data.printerConfig.paperSize || '58mm',
                             dateFormat: data.printerConfig.dateFormat || 'DD/MM/YYYY',
                             printCashierName: data.printerConfig.printCashierName || false,
                             headerText: data.printerConfig.headerText || 'TOKO MUDA',
                             infoText: data.printerConfig.infoText || '',
-                            footerText: data.printerConfig.footerText || 'Terima Kasih'
+                            footerText: data.printerConfig.footerText || 'Terima Kasih',
+                            footerLines: footerLines
                         };
                     }
                 }
@@ -1719,13 +1728,19 @@
                 receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
                 receipt += '='.repeat(lineWidth) + '\n';
 
-                if (printerConfig.footerText) {
-                    const footerLines = printerConfig.footerText.split('\n');
+                // Gunakan footerLines jika ada, fallback ke split footerText
+                let footerLines = [];
+                if (printerConfig.footerLines && printerConfig.footerLines.length > 0) {
+                    footerLines = printerConfig.footerLines;
+                } else if (printerConfig.footerText) {
+                    footerLines = printerConfig.footerText.split('\n');
+                }
+                if (footerLines.length > 0) {
                     footerLines.forEach(line => {
                         receipt += centerText(line, lineWidth) + '\n';
                     });
                 } else {
-                    receipt += centerText(line, lineWidth) + '\n';
+                    receipt += centerText('Terima Kasih', lineWidth) + '\n';
                 }
                 receipt += '\n\n\n';
 
