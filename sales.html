@@ -1703,7 +1703,7 @@
                 receipt += `Tanggal: ${dateStr}\n`;
                 if (printerConfig.printCashierName && auth.currentUser) {
                     const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
-                    receipt += `Kasir: ${kasir}\n`;
+                    receipt += `Kasir  : ${kasir}\n`;
                 }
                 receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
                 receipt += '-'.repeat(lineWidth) + '\n';
@@ -1725,7 +1725,7 @@
                         receipt += centerText(line, lineWidth) + '\n';
                     });
                 } else {
-                    receipt += centerText('Terima kasih', lineWidth) + '\n';
+                    receipt += centerText(line, lineWidth) + '\n';
                 }
                 receipt += '\n\n\n';
 
