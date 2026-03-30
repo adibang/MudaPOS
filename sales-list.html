@@ -49,6 +49,7 @@
         tr:hover { background:#f5f5f5; }
         .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; }
         .btn-icon.delete { color:#dc3545; }
+        .btn-icon.print { color:#17a2b8; }
         .btn-add { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:0.4rem; text-decoration:none; margin-bottom:1rem; }
         .btn-add:hover { background:#004d3b; }
         .search-box {
@@ -147,6 +148,51 @@
             padding: 0.5rem;
             border-bottom: 1px solid #e0e0e0;
         }
+
+        /* ===== PRINTER CONTROL ===== */
+        .printer-control {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            background: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            border: 1px solid #f0f0f0;
+            width: fit-content;
+        }
+        .printer-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ff4444;
+            transition: background-color 0.3s;
+        }
+        .status-light.connected {
+            background-color: #00C851;
+        }
+        #connectPrinterBtn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #006B54;
+            color: white;
+            border: 1px solid #006B54;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        #connectPrinterBtn svg {
+            width: 16px;
+            height: 16px;
+        }
+
         @media (max-width:640px) { .main-content { padding:0.8rem; } }
     </style>
 </head>
@@ -203,6 +249,22 @@
             <a href="sales.html" class="btn-add"><i data-feather="plus-circle"></i> Transaksi Baru</a>
         </div>
 
+        <!-- Printer control -->
+        <div class="printer-control">
+            <button id="connectPrinterBtn">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <path d="M6 9V3h12v6"/>
+                    <rect x="6" y="15" width="12" height="6" rx="2"/>
+                </svg>
+                <span id="connectBtnText">Connect</span>
+            </button>
+            <div class="printer-status-indicator">
+                <span class="status-light" id="printerStatusLight"></span>
+                <span id="printerStatusText"></span>
+            </div>
+        </div>
+
         <!-- Kolom pencarian -->
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="Cari berdasarkan nomor transaksi atau customer...">
@@ -239,13 +301,11 @@
                 <h3>Detail Penjualan</h3>
                 <button class="close-modal" id="closeModalDetail">&times;</button>
             </div>
-            <div class="modal-body" id="modalDetailBody">
-                <!-- Akan diisi JavaScript -->
-            </div>
+            <div class="modal-body" id="modalDetailBody"></div>
         </div>
     </div>
 
-    <!-- Script biasa untuk sidebar -->
+    <!-- Script sidebar -->
     <script>
         feather.replace();
 
@@ -270,7 +330,7 @@
         }
     </script>
 
-    <!-- Script module untuk logika daftar penjualan (Firestore) -->
+    <!-- Script module utama (Firestore + Printer) -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -278,11 +338,12 @@
             collection, doc, getDocs, getDoc, query, orderBy, onSnapshot, deleteDoc 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        console.log('Memulai sales-list Firestore');
+        console.log('Memulai sales-list Firestore dengan printer');
 
         // Referensi koleksi
         const salesCol = collection(dbCloud, 'sales');
         const customerCol = collection(dbCloud, 'customer');
+        const settingsDocRef = doc(dbCloud, 'settings', 'appSettings');
 
         // Elemen DOM
         const tbody = document.getElementById('salesListBody');
@@ -294,38 +355,308 @@
         const modalDetail = document.getElementById('modalDetail');
         const modalDetailBody = document.getElementById('modalDetailBody');
         const closeModalDetail = document.getElementById('closeModalDetail');
+        const connectPrinterBtn = document.getElementById('connectPrinterBtn');
+        const connectBtnText = document.getElementById('connectBtnText');
+        const printerStatusLight = document.getElementById('printerStatusLight');
+        const printerStatusText = document.getElementById('printerStatusText');
 
         // Sembunyikan tombol sync
         if (syncBtn) syncBtn.style.display = 'none';
 
         // Data sales dan customer
-        let allSales = []; // untuk filter client-side
+        let allSales = [];
         let customerMap = {};
 
-        // Fungsi format tanggal
+        // Konfigurasi printer
+        let printerConfig = {
+            paperSize: '58mm',
+            dateFormat: 'DD/MM/YYYY',
+            printCashierName: false,
+            headerText: 'TOKO MUDA',
+            infoText: '',
+            footerLines: ['Terima Kasih']
+        };
+
+        // ========== PRINTER VARIABLES & FUNCTIONS ==========
+        let printerPort = null;
+        let printerWriter = null;
+        let isPrinterConnected = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 3;
+
+        function updatePrinterStatus(connected) {
+            isPrinterConnected = connected;
+            if (connected) {
+                printerStatusLight.classList.add('connected');
+                printerStatusText.textContent = 'Online';
+                connectBtnText.textContent = 'Disconnect';
+            } else {
+                printerStatusLight.classList.remove('connected');
+                printerStatusText.textContent = 'Offline';
+                connectBtnText.textContent = 'Connect';
+            }
+            savePrinterConnection();
+        }
+
+        function savePrinterConnection() {
+            try {
+                const connectionData = {
+                    isPrinterConnected: isPrinterConnected,
+                    timestamp: new Date().toISOString()
+                };
+                localStorage.setItem('printerConnection', JSON.stringify(connectionData));
+            } catch (e) {}
+        }
+
+        function handlePrinterDisconnect() {
+            if (printerWriter) {
+                try { printerWriter.releaseLock(); } catch (e) {}
+                printerWriter = null;
+            }
+            if (printerPort) {
+                try { printerPort.close(); } catch (e) {}
+                printerPort = null;
+            }
+            updatePrinterStatus(false);
+        }
+
+        async function autoReconnectPrinter() {
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+            try {
+                if (!("serial" in navigator)) return;
+                const ports = await navigator.serial.getPorts();
+                if (ports.length === 0) return;
+                printerPort = ports[0];
+                if (printerPort.readable || printerPort.writable) {
+                    printerWriter = printerPort.writable.getWriter();
+                    updatePrinterStatus(true);
+                    reconnectAttempts = 0;
+                    printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+                    return;
+                }
+                await printerPort.open({ baudRate: 9600 });
+                printerWriter = printerPort.writable.getWriter();
+                updatePrinterStatus(true);
+                reconnectAttempts = 0;
+                printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+            } catch (error) {
+                reconnectAttempts++;
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) setTimeout(autoReconnectPrinter, 2000);
+            }
+        }
+
+        function initPrinterConnection() {
+            try {
+                const saved = localStorage.getItem('printerConnection');
+                if (saved) {
+                    const conn = JSON.parse(saved);
+                    const savedTime = new Date(conn.timestamp);
+                    const minutes = (new Date() - savedTime) / (1000 * 60);
+                    if (conn.isPrinterConnected && minutes < 5) {
+                        setTimeout(autoReconnectPrinter, 1000);
+                    } else {
+                        updatePrinterStatus(false);
+                        localStorage.removeItem('printerConnection');
+                    }
+                } else {
+                    updatePrinterStatus(false);
+                }
+            } catch (e) {
+                updatePrinterStatus(false);
+            }
+        }
+
+        async function connectToPrinter() {
+            try {
+                if (!("serial" in navigator)) {
+                    alert("Browser tidak mendukung Web Serial API. Gunakan Chrome/Edge.");
+                    return false;
+                }
+                printerPort = await navigator.serial.requestPort();
+                await printerPort.open({ baudRate: 9600 });
+                printerWriter = printerPort.writable.getWriter();
+                updatePrinterStatus(true);
+                printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+                return true;
+            } catch (error) {
+                console.error("Connection error:", error);
+                if (error.name !== 'NotFoundError') alert("Gagal terhubung ke printer: " + error.message);
+                updatePrinterStatus(false);
+                return false;
+            }
+        }
+
+        async function disconnectFromPrinter() {
+            try {
+                if (printerWriter) printerWriter.releaseLock();
+                if (printerPort) await printerPort.close();
+                updatePrinterStatus(false);
+            } catch (error) {
+                console.error("Disconnect error:", error);
+                updatePrinterStatus(false);
+            }
+        }
+
+        async function togglePrinter() {
+            if (isPrinterConnected) await disconnectFromPrinter();
+            else await connectToPrinter();
+        }
+
+        connectPrinterBtn.addEventListener('click', togglePrinter);
+
+        // ========== LOAD CONFIGURATIONS ==========
+        async function loadPrinterConfig() {
+            try {
+                const docSnap = await getDoc(settingsDocRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.printerConfig) {
+                        let footerLines = [];
+                        if (data.printerConfig.footerLines && Array.isArray(data.printerConfig.footerLines)) {
+                            footerLines = data.printerConfig.footerLines;
+                        } else if (data.printerConfig.footerText) {
+                            footerLines = data.printerConfig.footerText.split('\n').filter(l => l.trim() !== '');
+                        }
+                        printerConfig = {
+                            paperSize: data.printerConfig.paperSize || '58mm',
+                            dateFormat: data.printerConfig.dateFormat || 'DD/MM/YYYY',
+                            printCashierName: data.printerConfig.printCashierName || false,
+                            headerText: data.printerConfig.headerText || 'TOKO MUDA',
+                            infoText: data.printerConfig.infoText || '',
+                            footerLines: footerLines
+                        };
+                    }
+                }
+                console.log('Printer config dimuat:', printerConfig);
+            } catch (error) {
+                console.error('Gagal muat printer config:', error);
+            }
+        }
+
+        // ========== FORMATTING ==========
+        function formatRupiah(angka) {
+            return 'Rp ' + angka.toLocaleString('id-ID');
+        }
+
+        function centerText(text, width) {
+            const padding = Math.max(0, width - text.length);
+            const leftPad = Math.floor(padding / 2);
+            const rightPad = padding - leftPad;
+            return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
+        }
+
+        function formatDateForReceipt(timestamp) {
+            if (!timestamp) return '-';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            switch (printerConfig.dateFormat) {
+                case 'DD/MM/YYYY':
+                    return date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                case 'MM/DD/YYYY':
+                    return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+                case 'YYYY-MM-DD':
+                    return date.toISOString().split('T')[0];
+                case 'DD MMM YYYY':
+                    return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/\./g, '');
+                default:
+                    return date.toLocaleString('id-ID');
+            }
+        }
+
+        async function printReceiptFromData(salesData) {
+            if (!isPrinterConnected || !printerWriter) {
+                alert('Printer tidak terhubung');
+                return;
+            }
+
+            try {
+                const encoder = new TextEncoder();
+                const lineWidth = printerConfig.paperSize === '80mm' ? 48 : 32;
+                const items = salesData.items || [];
+
+                let receipt = '\n';
+                if (printerConfig.headerText) {
+                    printerConfig.headerText.split('\n').forEach(line => {
+                        receipt += centerText(line, lineWidth) + '\n';
+                    });
+                }
+                if (printerConfig.infoText) {
+                    printerConfig.infoText.split('\n').forEach(line => {
+                        receipt += centerText(line, lineWidth) + '\n';
+                    });
+                }
+                receipt += '='.repeat(lineWidth) + '\n';
+                receipt += `Tanggal: ${formatDateForReceipt(salesData.createdAt)}\n`;
+                if (printerConfig.printCashierName && auth.currentUser) {
+                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
+                    receipt += `Kasir  : ${kasir}\n`;
+                }
+                receipt += `No.    : ${salesData.transactionNumber || salesData.id.slice(-6)}\n`;
+                receipt += '-'.repeat(lineWidth) + '\n';
+
+                items.forEach(item => {
+                    receipt += `${item.nama}\n`;
+                    receipt += `${item.qty} ${item.unit || 'pcs'} x ${formatRupiah(item.hargaSatuan)} = ${formatRupiah(item.subtotal)}\n`;
+                });
+
+                receipt += '-'.repeat(lineWidth) + '\n';
+                receipt += `Total    : ${formatRupiah(salesData.total || 0)}\n`;
+                receipt += `Bayar    : ${formatRupiah(salesData.paidAmount || 0)}\n`;
+                receipt += `Kembali  : ${formatRupiah(salesData.change || 0)}\n`;
+                receipt += '='.repeat(lineWidth) + '\n';
+
+                if (printerConfig.footerLines && printerConfig.footerLines.length) {
+                    printerConfig.footerLines.forEach(line => {
+                        receipt += centerText(line, lineWidth) + '\n';
+                    });
+                } else {
+                    receipt += centerText('Terima Kasih', lineWidth) + '\n';
+                }
+                receipt += '\n\n\n';
+
+                await printerWriter.write(encoder.encode(receipt));
+                alert('Struk berhasil dicetak');
+            } catch (error) {
+                console.error('Error printing:', error);
+                alert('Gagal mencetak: ' + error.message);
+                if (error.message.includes("closed") || error.message.includes("disconnected")) {
+                    handlePrinterDisconnect();
+                }
+            }
+        }
+
+        // ========== FUNGSI CETAK ULANG ==========
+        window.printSale = async (id) => {
+            try {
+                const docRef = doc(salesCol, id);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    alert('Data tidak ditemukan');
+                    return;
+                }
+                const data = docSnap.data();
+                await printReceiptFromData(data);
+            } catch (error) {
+                console.error('Gagal mencetak ulang:', error);
+                alert('Gagal mencetak: ' + error.message);
+            }
+        };
+
+        // ========== FUNGSI UTAMA ==========
         function formatDate(timestamp) {
             if (!timestamp) return '-';
             try {
                 const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-                return date.toLocaleDateString('id-ID', { 
-                    day: '2-digit', 
-                    month: 'short', 
-                    year: 'numeric', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                });
+                return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
             } catch {
                 return '-';
             }
         }
 
-        // Format metode pembayaran
         function formatPaymentMethods(paymentMethods) {
             if (!paymentMethods || paymentMethods.length === 0) return '-';
             return paymentMethods.map(p => p.method).join(', ');
         }
 
-        // Ambil data customer untuk mapping
         async function loadCustomers() {
             try {
                 const snapshot = await getDocs(customerCol);
@@ -333,13 +664,11 @@
                 snapshot.docs.forEach(doc => {
                     customerMap[doc.id] = doc.data().nama;
                 });
-                console.log('Customer dimuat:', customerMap);
             } catch (error) {
                 console.error('Gagal memuat customer:', error);
             }
         }
 
-        // Render tabel dengan data yang sudah difilter
         function renderTable(salesData) {
             if (salesData.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Tidak ada data</td></tr>';
@@ -352,8 +681,7 @@
                 const paidAmount = s.paidAmount || 0;
                 const change = s.change || 0;
                 const methods = formatPaymentMethods(s.paymentMethods);
-                // Gunakan ID sebagai nomor transaksi (bisa diganti dengan field transactionNumber jika ada)
-                const transactionId = s.transactionNumber || s.id.slice(-6); 
+                const transactionId = s.transactionNumber || s.id.slice(-6);
                 
                 html += `
                 <tr>
@@ -366,6 +694,7 @@
                     <td>${methods}</td>
                     <td>
                         <button class="btn-icon view" onclick="viewSale('${s.id}')" title="Lihat Detail"><i data-feather="eye"></i></button>
+                        <button class="btn-icon print" onclick="printSale('${s.id}')" title="Cetak Struk"><i data-feather="printer"></i></button>
                         <button class="btn-icon delete" onclick="deleteSale('${s.id}')" title="Hapus"><i data-feather="trash-2"></i></button>
                     </td>
                 </tr>`;
@@ -374,7 +703,6 @@
             feather.replace();
         }
 
-        // Fungsi filter
         function filterSales(keyword) {
             if (!keyword.trim()) {
                 renderTable(allSales);
@@ -389,14 +717,12 @@
             renderTable(filtered);
         }
 
-        // Subscribe ke koleksi sales
         let unsubSales = null;
         function subscribeSales() {
             if (unsubSales) unsubSales();
             const q = query(salesCol, orderBy('createdAt', 'desc'));
             unsubSales = onSnapshot(q, (snapshot) => {
                 allSales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Terapkan filter saat ini
                 filterSales(searchInput.value);
             }, (error) => {
                 console.error('Gagal memuat daftar sales:', error);
@@ -404,20 +730,17 @@
             });
         }
 
-        // Fungsi view detail
+        // Detail & hapus
         window.viewSale = async (id) => {
             try {
                 const docRef = doc(salesCol, id);
                 const docSnap = await getDoc(docRef);
-                if (!docSnap.exists()) {
-                    alert('Data tidak ditemukan');
-                    return;
-                }
+                if (!docSnap.exists()) { alert('Data tidak ditemukan'); return; }
                 const data = docSnap.data();
                 const customerName = customerMap[data.customerId] || (data.customerName || 'Umum');
                 const items = data.items || [];
                 const paymentMethods = data.paymentMethods || [];
-                
+
                 let itemsHtml = '';
                 if (items.length === 0) {
                     itemsHtml = '<tr><td colspan="5" style="text-align:center;">Tidak ada item</td></tr>';
@@ -468,17 +791,9 @@
                     <div style="overflow-x:auto;">
                         <table class="items-table">
                             <thead>
-                                <tr>
-                                    <th>Produk</th>
-                                    <th>Qty</th>
-                                    <th>Unit</th>
-                                    <th>Harga</th>
-                                    <th>Subtotal</th>
-                                </tr>
+                                <tr><th>Produk</th><th>Qty</th><th>Unit</th><th>Harga</th><th>Subtotal</th></tr>
                             </thead>
-                            <tbody>
-                                ${itemsHtml}
-                            </tbody>
+                            <tbody>${itemsHtml}</tbody>
                         </table>
                     </div>
                 `;
@@ -493,46 +808,17 @@
             if (!confirm('Yakin hapus transaksi ini?')) return;
             try {
                 await deleteDoc(doc(salesCol, id));
-                // Snapshot akan update otomatis
             } catch (error) {
                 alert('Gagal menghapus: ' + error.message);
             }
         };
 
-        // Event listener pencarian
-        searchBtn.addEventListener('click', () => {
-            filterSales(searchInput.value);
-        });
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') filterSales(searchInput.value);
-        });
-
-        // Tutup modal
+        // Event listeners
+        searchBtn.addEventListener('click', () => filterSales(searchInput.value));
+        searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') filterSales(searchInput.value); });
         closeModalDetail.addEventListener('click', () => modalDetail.classList.remove('active'));
-        window.addEventListener('click', (e) => {
-            if (e.target === modalDetail) modalDetail.classList.remove('active');
-        });
+        window.addEventListener('click', (e) => { if (e.target === modalDetail) modalDetail.classList.remove('active'); });
 
-        // Auth
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
-            } else {
-                loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
-            }
-            feather.replace();
-        });
-
-        loginBtn.addEventListener('click', async () => {
-            const user = auth.currentUser;
-            if (user) {
-                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
-            } else {
-                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
-            }
-        });
-
-        // Reset semua data sales
         resetBtn.addEventListener('click', async () => {
             if (!confirm('PERINGATAN: Semua data penjualan akan dihapus permanen. Lanjutkan?')) return;
             try {
@@ -546,8 +832,22 @@
             }
         });
 
+        // Auth
+        onAuthStateChanged(auth, (user) => {
+            if (user) loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
+            else loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            feather.replace();
+        });
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) { try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); } }
+            else { try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); } }
+        });
+
         // Initial load
         await loadCustomers();
+        await loadPrinterConfig();
+        initPrinterConnection();
         subscribeSales();
     </script>
 </body>
