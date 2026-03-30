@@ -590,7 +590,9 @@
                     const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
                     receipt += `Kasir  : ${kasir}\n`;
                 }
-                receipt += `No.    : ${salesData.transactionNumber || salesData.id.slice(-6)}\n`;
+                // Ambil nomor transaksi: prioritaskan transactionNumber, lalu ID (yang sudah kita sertakan)
+                const transactionNumber = salesData.transactionNumber || (salesData.id ? salesData.id.slice(-6) : '----');
+                receipt += `No.    : ${transactionNumber}\n`;
                 receipt += '-'.repeat(lineWidth) + '\n';
 
                 items.forEach(item => {
@@ -634,7 +636,9 @@
                     return;
                 }
                 const data = docSnap.data();
-                await printReceiptFromData(data);
+                // Sertakan ID dokumen agar bisa digunakan untuk nomor transaksi
+                const dataWithId = { ...data, id: id };
+                await printReceiptFromData(dataWithId);
             } catch (error) {
                 console.error('Gagal mencetak ulang:', error);
                 alert('Gagal mencetak: ' + error.message);
