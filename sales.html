@@ -1125,7 +1125,7 @@
         <div class="modal-content"></div>
     </div>
 
-    <!-- MODAL PILIH SATUAN / VARIAN PRODUK (detail) - DIPERBAIKI TAMPILANNYA -->
+    <!-- MODAL PILIH SATUAN / VARIAN PRODUK (detail) -->
     <div class="modal" id="modalSatuan">
         <div class="modal-content">
             <div class="modal-header">
@@ -1136,7 +1136,7 @@
         </div>
     </div>
 
-    <!-- MODAL CART (dengan tema) -->
+    <!-- MODAL CART -->
     <div class="modal" id="modalCart">
         <div class="modal-content">
             <div class="modal-header">
@@ -1288,6 +1288,7 @@
             </div>
             <div class="modal-body">
                 <form id="formCreatePromo">
+                    <input type="hidden" id="editPromoId" value="">
                     <div class="form-group">
                         <label>Nama Promo</label>
                         <input type="text" id="promoName" class="form-input" placeholder="Contoh: Promo 3 pcs 10.000" required>
@@ -1308,7 +1309,7 @@
                     </div>
                     <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
                         <button type="button" class="btn-secondary" onclick="document.getElementById('closeModalCreatePromo').click()">Batal</button>
-                        <button type="submit" class="btn-primary">Simpan Promo</button>
+                        <button type="submit" class="btn-primary" id="promoSubmitBtn">Simpan Promo</button>
                     </div>
                 </form>
             </div>
@@ -1347,7 +1348,7 @@
         }
     </script>
 
-    <!-- Script module utama (Firestore) -->
+    <!-- Script module utama (Firestore) dengan perbaikan footer dan edit/hapus promo -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -1500,6 +1501,8 @@
         const searchPromoProducts = document.getElementById('searchPromoProducts');
         const promoProductsContainer = document.getElementById('promoProductsContainer');
         const promoProductsPagination = document.getElementById('promoProductsPagination');
+        const editPromoIdInput = document.getElementById('editPromoId');
+        const promoSubmitBtn = document.getElementById('promoSubmitBtn');
 
         // ========== FUNGSI FORMAT RUPIAH ==========
         function formatRupiah(angka) {
@@ -2492,7 +2495,7 @@
             });
         }
 
-        // ========== MODAL SATUAN DAN VARIAN (DIPERBAIKI TAMPILAN) ==========
+        // ========== MODAL SATUAN DAN VARIAN ==========
         async function showVarianDanSatuanModal(produkId) {
             const varianList = allVariants.filter(v => v.produkId === produkId);
             const konversiList = allKonversi.filter(k => k.produkId === produkId && k.aktif !== false);
@@ -2689,6 +2692,42 @@
             return items;
         }
 
+        // EDIT PROMO: open modal with existing data
+        async function editPromo(promoId) {
+            const promo = allPromos.find(p => p.id === promoId);
+            if (!promo) {
+                alert('Promo tidak ditemukan');
+                return;
+            }
+            // Load produk list into checkbox container (if needed, but we already have allProducts)
+            // Set form values
+            document.getElementById('promoName').value = promo.nama;
+            document.getElementById('promoPrice').value = promo.harga;
+            document.getElementById('promoMinQty').value = promo.minimalQty;
+            editPromoIdInput.value = promoId;
+            promoSubmitBtn.textContent = 'Update Promo';
+            // Load selected products into checkboxes
+            loadProductsForPromoCreation('', promo.produkIds);
+            modalCreatePromo.classList.add('active');
+        }
+
+        // Delete promo
+        async function deletePromo(promoId) {
+            if (!confirm('Yakin ingin menghapus promo ini?')) return;
+            try {
+                await deleteDoc(doc(promoCol, promoId));
+                allPromos = allPromos.filter(p => p.id !== promoId);
+                // Re-render bundle modal if open
+                if (bundleState === 'list') {
+                    renderBundleModal();
+                }
+                alert('Promo berhasil dihapus');
+            } catch (error) {
+                console.error('Gagal hapus promo:', error);
+                alert('Gagal menghapus promo: ' + error.message);
+            }
+        }
+
         function renderBundleModal() {
             const modalContent = modalBundle.querySelector('.modal-content');
             if (bundleState === 'list') {
@@ -2712,6 +2751,10 @@
                                     <small>Harga: ${formatRupiah(promo.harga)}</small>
                                     <small>Minimal: ${promo.minimalQty} item</small>
                                 </div>
+                                <div class="pending-actions">
+                                    <button class="btn-icon edit-promo" data-promoid="${promo.id}" title="Edit"><i data-feather="edit-2"></i></button>
+                                    <button class="btn-icon delete-promo" data-promoid="${promo.id}" title="Hapus"><i data-feather="trash-2"></i></button>
+                                </div>
                             </div>
                         `;
                     });
@@ -2721,13 +2764,22 @@
                 feather.replace();
 
                 document.getElementById('btnCreateNewPromo').addEventListener('click', () => {
+                    // Reset edit mode
+                    editPromoIdInput.value = '';
+                    promoSubmitBtn.textContent = 'Simpan Promo';
+                    document.getElementById('promoName').value = '';
+                    document.getElementById('promoPrice').value = '';
+                    document.getElementById('promoMinQty').value = '3';
+                    loadProductsForPromoCreation('', []);
                     modalCreatePromo.classList.add('active');
-                    loadProductsForPromoCreation();
                 });
 
+                // Attach click for selecting promo (select for bundle)
                 document.querySelectorAll('#promoListContainer .pending-item').forEach(el => {
                     el.addEventListener('click', (e) => {
-                        const promoId = e.currentTarget.dataset.promoid;
+                        // Prevent if click on buttons inside
+                        if (e.target.closest('.edit-promo') || e.target.closest('.delete-promo')) return;
+                        const promoId = el.dataset.promoid;
                         selectedPromo = allPromos.find(p => p.id === promoId);
                         bundleState = 'select';
                         bundleSelectedItems = getBundleItemDetails(selectedPromo.produkIds).map(d => ({ 
@@ -2737,6 +2789,28 @@
                         }));
                         bundleSearchKeyword = '';
                         renderPromoProductSelection();
+                    });
+                });
+
+                // Edit buttons
+                document.querySelectorAll('.edit-promo').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const promoId = btn.dataset.promoid;
+                        editPromo(promoId);
+                    });
+                });
+
+                // Delete buttons
+                document.querySelectorAll('.delete-promo').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const promoId = btn.dataset.promoid;
+                        await deletePromo(promoId);
+                        // Re-render modal if still in list state
+                        if (bundleState === 'list') {
+                            renderBundleModal();
+                        }
                     });
                 });
 
@@ -3004,16 +3078,16 @@
             if (e.target === modalCreatePromo) modalCreatePromo.classList.remove('active');
         });
 
-        function loadProductsForPromoCreation(keyword = '') {
+        function loadProductsForPromoCreation(keyword = '', selectedProductIds = []) {
             filteredPromoProducts = allProducts.filter(p => 
                 p.nama.toLowerCase().includes(keyword.toLowerCase()) || 
                 (p.kode && p.kode.toLowerCase().includes(keyword.toLowerCase()))
             );
             promoProductsPage = 1;
-            renderPromoProductsList();
+            renderPromoProductsList(selectedProductIds);
         }
 
-        function renderPromoProductsList() {
+        function renderPromoProductsList(selectedProductIds = []) {
             const totalPages = Math.ceil(filteredPromoProducts.length / promoProductsPerPage) || 1;
             if (promoProductsPage > totalPages) promoProductsPage = totalPages;
 
@@ -3023,9 +3097,10 @@
 
             let html = '';
             productsToShow.forEach(produk => {
+                const isChecked = selectedProductIds.includes(produk.id);
                 html += `
                     <div class="product-checkbox-item">
-                        <input type="checkbox" class="promo-product-checkbox" value="${produk.id}" id="prod_${produk.id}">
+                        <input type="checkbox" class="promo-product-checkbox" value="${produk.id}" id="prod_${produk.id}" ${isChecked ? 'checked' : ''}>
                         <label for="prod_${produk.id}">
                             ${produk.nama} <small>(${produk.kode || '-'})</small>
                         </label>
@@ -3065,7 +3140,7 @@
                 btn.addEventListener('click', () => {
                     if (promoProductsPage > 1) {
                         promoProductsPage--;
-                        renderPromoProductsList();
+                        renderPromoProductsList(selectedProductIds);
                     }
                 });
             });
@@ -3073,7 +3148,7 @@
                 btn.addEventListener('click', () => {
                     if (promoProductsPage < totalPages) {
                         promoProductsPage++;
-                        renderPromoProductsList();
+                        renderPromoProductsList(selectedProductIds);
                     }
                 });
             });
@@ -3082,14 +3157,14 @@
                     const page = parseInt(e.target.dataset.page);
                     if (page !== promoProductsPage) {
                         promoProductsPage = page;
-                        renderPromoProductsList();
+                        renderPromoProductsList(selectedProductIds);
                     }
                 });
             });
         }
 
         searchPromoProducts.addEventListener('input', (e) => {
-            loadProductsForPromoCreation(e.target.value.toLowerCase());
+            loadProductsForPromoCreation(e.target.value.toLowerCase(), []);
         });
 
         formCreatePromo.addEventListener('submit', async (e) => {
@@ -3099,6 +3174,7 @@
             const minimalQty = parseInt(document.getElementById('promoMinQty').value);
             const checkboxes = document.querySelectorAll('.promo-product-checkbox:checked');
             const produkIds = Array.from(checkboxes).map(cb => cb.value);
+            const editId = editPromoIdInput.value;
 
             if (!nama) { alert('Nama promo harus diisi'); return; }
             if (isNaN(harga) || harga <= 0) { alert('Harga promo harus lebih dari 0'); return; }
@@ -3106,29 +3182,49 @@
             if (produkIds.length === 0) { alert('Pilih minimal satu produk'); return; }
 
             try {
-                const promoData = {
-                    nama,
-                    harga,
-                    minimalQty,
-                    produkIds,
-                    aktif: true,
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp()
-                };
-                const docRef = await addDoc(promoCol, promoData);
-                promoData.id = docRef.id;
-                allPromos.push(promoData);
-                alert('Promo berhasil dibuat');
+                if (editId) {
+                    // Update existing promo
+                    await setDoc(doc(promoCol, editId), {
+                        nama,
+                        harga,
+                        minimalQty,
+                        produkIds,
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
+                    // Update local array
+                    const index = allPromos.findIndex(p => p.id === editId);
+                    if (index !== -1) {
+                        allPromos[index] = { ...allPromos[index], nama, harga, minimalQty, produkIds };
+                    }
+                    alert('Promo berhasil diperbarui');
+                } else {
+                    // Create new
+                    const promoData = {
+                        nama,
+                        harga,
+                        minimalQty,
+                        produkIds,
+                        aktif: true,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                    };
+                    const docRef = await addDoc(promoCol, promoData);
+                    promoData.id = docRef.id;
+                    allPromos.push(promoData);
+                    alert('Promo berhasil dibuat');
+                }
                 modalCreatePromo.classList.remove('active');
                 formCreatePromo.reset();
+                editPromoIdInput.value = '';
+                promoSubmitBtn.textContent = 'Simpan Promo';
                 promoProductsContainer.innerHTML = '';
                 promoProductsPagination.innerHTML = '';
                 if (bundleState === 'list') {
                     renderBundleModal();
                 }
             } catch (error) {
-                console.error('Gagal membuat promo:', error);
-                alert('Gagal membuat promo: ' + error.message);
+                console.error('Gagal menyimpan promo:', error);
+                alert('Gagal menyimpan promo: ' + error.message);
             }
         });
 
