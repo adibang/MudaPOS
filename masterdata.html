@@ -2813,7 +2813,7 @@
                 document.getElementById('nextPageHistory').disabled = docs.length < historyPageSize;
             } catch (error) {
                 console.error('Gagal memuat history:', error);
-                document.getElementById('historyTransferBody').innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+                document.getElementById('historyTransferBody').innerHTML = ` <td colspan="7" style="color:red;">Gagal memuat: ${error.message} </td>`;
             }
         }
 
@@ -2922,99 +2922,123 @@
             }
         }
 
-        // ========== EXPORT KE EXCEL ==========
+        // ========== EXPORT KE EXCEL (TIDAK MENGGUNAKAN ID) ==========
         async function exportToExcel() {
             try {
-                // Ambil semua data produk
-                const produkSnap = await getDocs(query(produkCol, where('deleted', '==', false), orderBy('nama')));
-                const produkList = produkSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // Ambil semua varian
-                const varianSnap = await getDocs(query(varianCol, where('deleted', '==', false)));
-                const varianList = varianSnap.docs.map(doc => doc.data());
-
-                // Ambil semua konversi
-                const konversiSnap = await getDocs(query(konversiCol, where('deleted', '==', false)));
-                const konversiList = konversiSnap.docs.map(doc => doc.data());
-
-                // Ambil semua qty break
-                const qtySnap = await getDocs(query(qtyCol, where('deleted', '==', false)));
-                const qtyList = qtySnap.docs.map(doc => doc.data());
-
-                // Ambil semua paket
-                const paketSnap = await getDocs(query(paketCol, where('deleted', '==', false)));
-                const paketList = paketSnap.docs.map(doc => doc.data());
-
-                // Ambil kategori, unit, gudang
+                // Ambil data master
                 const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
-                const kategoriList = kategoriSnap.docs.map(doc => ({ id: doc.id, nama: doc.data().nama }));
-
+                const kategoriList = kategoriSnap.docs.map(doc => ({ nama: doc.data().nama }));
                 const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
-                const unitList = unitSnap.docs.map(doc => ({ id: doc.id, nama: doc.data().nama }));
-
+                const unitList = unitSnap.docs.map(doc => ({ nama: doc.data().nama }));
                 const gudangSnap = await getDocs(query(gudangCol, where('deleted', '==', false)));
-                const gudangList = gudangSnap.docs.map(doc => ({ id: doc.id, kode: doc.data().kode, nama: doc.data().nama, lokasi: doc.data().lokasi, kapasitas: doc.data().kapasitas }));
+                const gudangList = gudangSnap.docs.map(doc => ({ nama: doc.data().nama, kode: doc.data().kode, lokasi: doc.data().lokasi, kapasitas: doc.data().kapasitas }));
 
-                // Siapkan worksheet
-                const wsProduk = XLSX.utils.json_to_sheet(produkList.map(p => ({
-                    id: p.id,
-                    nama: p.nama,
-                    kode: p.kode,
-                    barcode: p.barcode,
-                    kategoriId: p.kategoriId,
-                    hargaDasar: p.hargaDasar,
-                    hargaJual: p.hargaJual,
-                    berat: p.berat,
-                    unitId: p.unitId,
-                    diskon: p.diskon,
-                    gudangId: p.gudangId,
-                    stokAwal: p.stokAwal,
-                    stokMinimal: p.stokMinimal,
-                    produkTimbangan: p.produkTimbangan ? 'Ya' : 'Tidak'
-                })));
+                // Ambil data produk
+                const produkSnap = await getDocs(query(produkCol, where('deleted', '==', false)));
+                const produkList = [];
+                const produkMap = new Map(); // id -> { nama, gudangId }
+                for (const doc of produkSnap.docs) {
+                    const data = doc.data();
+                    produkMap.set(doc.id, { nama: data.nama, gudangId: data.gudangId });
+                    produkList.push({
+                        nama: data.nama,
+                        kode: data.kode,
+                        barcode: data.barcode,
+                        kategoriNama: kategoriMap[data.kategoriId] || '',
+                        hargaDasar: data.hargaDasar,
+                        hargaJual: data.hargaJual,
+                        berat: data.berat,
+                        unitNama: unitMap[data.unitId] || '',
+                        diskon: data.diskon,
+                        gudangNama: gudangMap[data.gudangId] || '',
+                        stokAwal: data.stokAwal,
+                        stokMinimal: data.stokMinimal,
+                        produkTimbangan: data.produkTimbangan ? 'Ya' : 'Tidak'
+                    });
+                }
 
-                const wsVarian = XLSX.utils.json_to_sheet(varianList.map(v => ({
-                    produkId: v.produkId,
-                    namaVarian: v.namaVarian,
-                    barcode: v.barcode,
-                    hargaDasar: v.hargaDasar,
-                    hargaJual: v.hargaJual,
-                    poinCustomer: v.poinCustomer,
-                    komisiSales: v.komisiSales,
-                    stok: v.stok
-                })));
+                // Varian
+                const varianSnap = await getDocs(query(varianCol, where('deleted', '==', false)));
+                const varianList = [];
+                for (const vDoc of varianSnap.docs) {
+                    const v = vDoc.data();
+                    const prodInfo = produkMap.get(v.produkId);
+                    if (!prodInfo) continue;
+                    varianList.push({
+                        produkNama: prodInfo.nama,
+                        gudangNama: gudangMap[prodInfo.gudangId] || '',
+                        namaVarian: v.namaVarian,
+                        barcode: v.barcode,
+                        hargaDasar: v.hargaDasar,
+                        hargaJual: v.hargaJual,
+                        poinCustomer: v.poinCustomer,
+                        komisiSales: v.komisiSales,
+                        stok: v.stok
+                    });
+                }
 
-                const wsKonversi = XLSX.utils.json_to_sheet(konversiList.map(k => ({
-                    produkId: k.produkId,
-                    unitId: k.unitId,
-                    nilai: k.nilai,
-                    barcode: k.barcode,
-                    aktif: k.aktif ? 'Ya' : 'Tidak',
-                    hargaDasar: k.hargaDasar,
-                    hargaJual: k.hargaJual,
-                    poinPelanggan: k.poinPelanggan,
-                    komisiSales: k.komisiSales
-                })));
+                // Konversi
+                const konversiSnap = await getDocs(query(konversiCol, where('deleted', '==', false)));
+                const konversiList = [];
+                for (const kDoc of konversiSnap.docs) {
+                    const k = kDoc.data();
+                    const prodInfo = produkMap.get(k.produkId);
+                    if (!prodInfo) continue;
+                    konversiList.push({
+                        produkNama: prodInfo.nama,
+                        gudangNama: gudangMap[prodInfo.gudangId] || '',
+                        unitNama: unitMap[k.unitId] || '',
+                        nilai: k.nilai,
+                        barcode: k.barcode,
+                        aktif: k.aktif ? 'Ya' : 'Tidak',
+                        hargaDasar: k.hargaDasar,
+                        hargaJual: k.hargaJual,
+                        poinPelanggan: k.poinPelanggan,
+                        komisiSales: k.komisiSales
+                    });
+                }
 
-                const wsQty = XLSX.utils.json_to_sheet(qtyList.map(q => ({
-                    produkId: q.produkId,
-                    level: q.level,
-                    minQty: q.minQty,
-                    harga: q.harga
-                })));
+                // Qty Break
+                const qtySnap = await getDocs(query(qtyCol, where('deleted', '==', false)));
+                const qtyList = [];
+                for (const qDoc of qtySnap.docs) {
+                    const q = qDoc.data();
+                    const prodInfo = produkMap.get(q.produkId);
+                    if (!prodInfo) continue;
+                    qtyList.push({
+                        produkNama: prodInfo.nama,
+                        gudangNama: gudangMap[prodInfo.gudangId] || '',
+                        level: q.level,
+                        minQty: q.minQty,
+                        harga: q.harga
+                    });
+                }
 
-                const wsPaket = XLSX.utils.json_to_sheet(paketList.map(p => ({
-                    produkId: p.produkId,
-                    qty: p.qty,
-                    price: p.price,
-                    keterangan: p.keterangan
-                })));
+                // Paket
+                const paketSnap = await getDocs(query(paketCol, where('deleted', '==', false)));
+                const paketList = [];
+                for (const pDoc of paketSnap.docs) {
+                    const p = pDoc.data();
+                    const prodInfo = produkMap.get(p.produkId);
+                    if (!prodInfo) continue;
+                    paketList.push({
+                        produkNama: prodInfo.nama,
+                        gudangNama: gudangMap[prodInfo.gudangId] || '',
+                        qty: p.qty,
+                        price: p.price,
+                        keterangan: p.keterangan
+                    });
+                }
 
-                const wsKategori = XLSX.utils.json_to_sheet(kategoriList.map(k => ({ id: k.id, nama: k.nama })));
-                const wsUnit = XLSX.utils.json_to_sheet(unitList.map(u => ({ id: u.id, nama: u.nama })));
-                const wsGudang = XLSX.utils.json_to_sheet(gudangList.map(g => ({ id: g.id, kode: g.kode, nama: g.nama, lokasi: g.lokasi, kapasitas: g.kapasitas })));
+                const wsKategori = XLSX.utils.json_to_sheet(kategoriList);
+                const wsUnit = XLSX.utils.json_to_sheet(unitList);
+                const wsGudang = XLSX.utils.json_to_sheet(gudangList);
+                const wsProduk = XLSX.utils.json_to_sheet(produkList);
+                const wsVarian = XLSX.utils.json_to_sheet(varianList);
+                const wsKonversi = XLSX.utils.json_to_sheet(konversiList);
+                const wsQty = XLSX.utils.json_to_sheet(qtyList);
+                const wsPaket = XLSX.utils.json_to_sheet(paketList);
 
-                // Buat workbook
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, wsProduk, 'Produk');
                 XLSX.utils.book_append_sheet(wb, wsVarian, 'Varian');
@@ -3025,7 +3049,6 @@
                 XLSX.utils.book_append_sheet(wb, wsUnit, 'Unit');
                 XLSX.utils.book_append_sheet(wb, wsGudang, 'Gudang');
 
-                // Tulis file
                 XLSX.writeFile(wb, `master_data_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`);
                 alert('Export berhasil');
             } catch (error) {
@@ -3034,16 +3057,15 @@
             }
         }
 
-        // ========== IMPORT DARI EXCEL ==========
+        // ========== IMPORT DARI EXCEL (TIDAK MENGGUNAKAN ID) ==========
         async function importFromExcel(file) {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-                
+
                 try {
-                    // Ambil data dari sheet
                     const sheetProduk = workbook.Sheets['Produk'];
                     const sheetVarian = workbook.Sheets['Varian'];
                     const sheetKonversi = workbook.Sheets['Konversi'];
@@ -3064,26 +3086,19 @@
                     const unitRows = sheetUnit ? XLSX.utils.sheet_to_json(sheetUnit) : [];
                     const gudangRows = sheetGudang ? XLSX.utils.sheet_to_json(sheetGudang) : [];
 
-                    // Konfirmasi
                     if (!confirm(`Import akan memproses ${produkRows.length} produk. Lanjutkan?`)) return;
 
-                    // Mapping nama ke ID untuk kategori, unit, gudang (buat baru jika belum ada)
+                    // Map nama ke ID untuk kategori, unit, gudang
                     const kategoriMapImport = new Map();
-                    const unitMapImport = new Map();
-                    const gudangMapImport = new Map();
-
-                    // Proses kategori
                     for (const row of kategoriRows) {
                         const nama = row.nama;
                         if (!nama) continue;
-                        // Cek apakah sudah ada di Firestore
                         const q = query(kategoriCol, where('nama', '==', nama), where('deleted', '==', false));
                         const snap = await getDocs(q);
                         let id = null;
                         if (!snap.empty) {
                             id = snap.docs[0].id;
                         } else {
-                            // Buat baru
                             const ref = await addDoc(kategoriCol, {
                                 nama: nama,
                                 createdAt: serverTimestamp(),
@@ -3095,7 +3110,7 @@
                         kategoriMapImport.set(nama, id);
                     }
 
-                    // Proses unit
+                    const unitMapImport = new Map();
                     for (const row of unitRows) {
                         const nama = row.nama;
                         if (!nama) continue;
@@ -3116,22 +3131,24 @@
                         unitMapImport.set(nama, id);
                     }
 
-                    // Proses gudang
+                    const gudangMapImport = new Map();
                     for (const row of gudangRows) {
-                        const kode = row.kode;
                         const nama = row.nama;
-                        if (!kode || !nama) continue;
+                        if (!nama) continue;
                         const q = query(gudangCol, where('nama', '==', nama), where('deleted', '==', false));
                         const snap = await getDocs(q);
                         let id = null;
                         if (!snap.empty) {
                             id = snap.docs[0].id;
                         } else {
+                            const kode = row.kode || '';
+                            const lokasi = row.lokasi || null;
+                            const kapasitas = row.kapasitas ? parseInt(row.kapasitas) : null;
                             const ref = await addDoc(gudangCol, {
                                 kode: kode,
                                 nama: nama,
-                                lokasi: row.lokasi || null,
-                                kapasitas: row.kapasitas ? parseInt(row.kapasitas) : null,
+                                lokasi: lokasi,
+                                kapasitas: kapasitas,
                                 createdAt: serverTimestamp(),
                                 updatedAt: serverTimestamp(),
                                 deleted: false
@@ -3141,35 +3158,39 @@
                         gudangMapImport.set(nama, id);
                     }
 
+                    // Map key produk (nama_produk|gudang_nama) -> produkId
+                    const produkKeyMap = new Map();
+
                     // Proses produk
                     for (const row of produkRows) {
-                        const nama = row.nama;
-                        const kategoriNama = row.kategoriId; // nama kategori di Excel
-                        const unitNama = row.unitId;
-                        const gudangNama = row.gudangId;
-
-                        if (!nama || !kategoriNama || !unitNama || !gudangNama) {
-                            console.warn('Produk tidak lengkap:', row);
+                        const namaProduk = row.nama;
+                        const gudangNama = row.gudangNama;
+                        if (!namaProduk || !gudangNama) {
+                            console.warn('Produk tanpa nama atau gudang:', row);
                             continue;
                         }
-
+                        const kategoriNama = row.kategoriNama;
+                        const unitNama = row.unitNama;
+                        if (!kategoriNama || !unitNama) {
+                            console.warn('Produk tanpa kategori atau unit:', row);
+                            continue;
+                        }
                         const kategoriId = kategoriMapImport.get(kategoriNama);
                         const unitId = unitMapImport.get(unitNama);
                         const gudangId = gudangMapImport.get(gudangNama);
-
                         if (!kategoriId || !unitId || !gudangId) {
-                            console.warn('Referensi kategori/unit/gudang tidak ditemukan untuk produk:', nama);
+                            console.warn('Referensi kategori/unit/gudang tidak ditemukan untuk produk:', namaProduk);
                             continue;
                         }
 
-                        // Cek apakah produk sudah ada (berdasarkan nama dan gudangId)
-                        const existingQuery = query(produkCol, where('nama', '==', nama.toLowerCase()), where('gudangId', '==', gudangId), where('deleted', '==', false));
+                        const key = `${namaProduk}|${gudangNama}`;
+                        // Cek apakah produk sudah ada
+                        const existingQuery = query(produkCol, where('nama', '==', namaProduk.toLowerCase()), where('gudangId', '==', gudangId), where('deleted', '==', false));
                         const existingSnap = await getDocs(existingQuery);
                         let produkRef;
                         if (existingSnap.empty) {
-                            // Buat baru
                             produkRef = await addDoc(produkCol, {
-                                nama: nama.toLowerCase(),
+                                nama: namaProduk.toLowerCase(),
                                 kode: row.kode ? row.kode.toLowerCase() : '',
                                 barcode: row.barcode ? row.barcode.toLowerCase() : '',
                                 kategoriId: kategoriId,
@@ -3187,7 +3208,6 @@
                                 deleted: false
                             });
                         } else {
-                            // Update
                             produkRef = doc(produkCol, existingSnap.docs[0].id);
                             await setDoc(produkRef, {
                                 kode: row.kode ? row.kode.toLowerCase() : '',
@@ -3204,70 +3224,81 @@
                                 updatedAt: serverTimestamp()
                             }, { merge: true });
                         }
+                        produkKeyMap.set(key, produkRef.id);
 
-                        // Proses varian untuk produk ini
-                        const varianUntukProduk = varianRows.filter(v => v.produkId === row.id); // row.id adalah ID lama dari export, bisa tidak relevan. Lebih baik match dengan nama produk? Atau gunakan mapping sementara
-                        // Karena kita tidak punya ID lama di import, kita akan menggunakan nama varian dan produkId di sini.
-                        // Untuk varian, kita perlu menghubungkan dengan produk yang baru dibuat. Kita bisa menggunakan nama produk + gudang sebagai key, tapi karena produk sudah diidentifikasi, kita bisa menggunakan produkRef.id.
-                        // Varian dalam file Excel memiliki kolom produkId yang merupakan ID lama (tidak berguna), jadi kita perlu match berdasarkan nama produk dan nama varian.
-                        // Untuk sederhananya, kita asumsikan varian dalam file Excel memiliki kolom 'produkId' yang merupakan ID lama, kita abaikan. Kita akan mencari varian berdasarkan produkId baru dan nama varian.
-                        // Lebih baik: kita akan mengiterasi semua varian dan mencocokkan dengan produk yang baru dibuat berdasarkan nama produk (dan mungkin gudang).
-                        // Namun untuk efisiensi, kita akan hapus dulu semua varian yang ada untuk produk ini (jika update) kemudian tambah yang baru dari Excel.
-                        // Sama untuk konversi, qty, paket.
-                        
-                        // Hapus varian lama jika update
-                        const oldVarianSnap = await getDocs(query(varianCol, where('produkId', '==', produkRef.id), where('deleted', '==', false)));
-                        for (const vDoc of oldVarianSnap.docs) {
+                        // Hapus data terkait yang lama (varian, konversi, qty, paket) untuk produk ini
+                        const varianSnapOld = await getDocs(query(varianCol, where('produkId', '==', produkRef.id), where('deleted', '==', false)));
+                        for (const vDoc of varianSnapOld.docs) {
                             await setDoc(vDoc.ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                         }
-                        // Tambah varian dari Excel
-                        const varianExcel = varianRows.filter(v => v.produkId === row.id); // berdasarkan ID lama, mungkin tidak tepat. Alternatif: gunakan nama produk dan nama varian? Lebih baik gunakan nama produk dari row dan nama varian dari v, tetapi tidak ada relasi langsung di sheet varian. Jadi kita andalkan bahwa ID produk di sheet varian sesuai dengan ID di sheet produk (dari export). Maka kita perlu memetakan ID lama ke ID baru.
-                        // Kita buat map idLama -> idBaru
-                        if (!window.tempIdMap) window.tempIdMap = new Map();
-                        if (row.id) window.tempIdMap.set(row.id, produkRef.id);
-                        for (const v of varianExcel) {
-                            await addDoc(varianCol, {
-                                produkId: produkRef.id,
-                                namaVarian: v.namaVarian || '',
-                                barcode: v.barcode || '',
-                                hargaDasar: v.hargaDasar || null,
-                                hargaJual: v.hargaJual || null,
-                                poinCustomer: v.poinCustomer || null,
-                                komisiSales: v.komisiSales || null,
-                                stok: v.stok || 0,
-                                createdAt: serverTimestamp(),
-                                updatedAt: serverTimestamp(),
-                                deleted: false
-                            });
+                        const konvSnapOld = await getDocs(query(konversiCol, where('produkId', '==', produkRef.id), where('deleted', '==', false)));
+                        for (const kDoc of konvSnapOld.docs) {
+                            await setDoc(kDoc.ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                        }
+                        const qtySnapOld = await getDocs(query(qtyCol, where('produkId', '==', produkRef.id), where('deleted', '==', false)));
+                        for (const qDoc of qtySnapOld.docs) {
+                            await setDoc(qDoc.ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                        }
+                        const paketSnapOld = await getDocs(query(paketCol, where('produkId', '==', produkRef.id), where('deleted', '==', false)));
+                        for (const pDoc of paketSnapOld.docs) {
+                            await setDoc(pDoc.ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
                         }
                     }
 
-                    // Setelah semua produk diproses, kita bisa memproses konversi, qty, paket menggunakan map ID
-                    // Karena kita perlu mapping ID produk lama ke baru, kita simpan di window.tempIdMap
-                    // Proses konversi
-                    for (const k of konversiRows) {
-                        const produkIdLama = k.produkId;
-                        const produkIdBaru = window.tempIdMap.get(produkIdLama);
-                        if (!produkIdBaru) continue;
-                        // Hapus konversi lama untuk produk ini (jika ada)
-                        const oldKonvSnap = await getDocs(query(konversiCol, where('produkId', '==', produkIdBaru), where('deleted', '==', false)));
-                        for (const d of oldKonvSnap.docs) {
-                            await setDoc(d.ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                    // Proses varian
+                    for (const row of varianRows) {
+                        const produkNama = row.produkNama;
+                        const gudangNama = row.gudangNama;
+                        if (!produkNama || !gudangNama) continue;
+                        const key = `${produkNama}|${gudangNama}`;
+                        const produkId = produkKeyMap.get(key);
+                        if (!produkId) {
+                            console.warn('Varian: produk tidak ditemukan untuk', produkNama, gudangNama);
+                            continue;
                         }
-                        // Tambah konversi baru
-                        const unitNama = k.unitId; // nama unit di Excel
+                        await addDoc(varianCol, {
+                            produkId: produkId,
+                            namaVarian: row.namaVarian || '',
+                            barcode: row.barcode || '',
+                            hargaDasar: row.hargaDasar || null,
+                            hargaJual: row.hargaJual || null,
+                            poinCustomer: row.poinCustomer || null,
+                            komisiSales: row.komisiSales || null,
+                            stok: row.stok || 0,
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp(),
+                            deleted: false
+                        });
+                    }
+
+                    // Proses konversi
+                    for (const row of konversiRows) {
+                        const produkNama = row.produkNama;
+                        const gudangNama = row.gudangNama;
+                        if (!produkNama || !gudangNama) continue;
+                        const key = `${produkNama}|${gudangNama}`;
+                        const produkId = produkKeyMap.get(key);
+                        if (!produkId) {
+                            console.warn('Konversi: produk tidak ditemukan untuk', produkNama, gudangNama);
+                            continue;
+                        }
+                        const unitNama = row.unitNama;
+                        if (!unitNama) continue;
                         const unitId = unitMapImport.get(unitNama);
-                        if (!unitId) continue;
+                        if (!unitId) {
+                            console.warn('Konversi: unit tidak ditemukan', unitNama);
+                            continue;
+                        }
                         await addDoc(konversiCol, {
-                            produkId: produkIdBaru,
+                            produkId: produkId,
                             unitId: unitId,
-                            nilai: k.nilai || 0,
-                            barcode: k.barcode || '',
-                            aktif: k.aktif === 'Ya',
-                            hargaDasar: k.hargaDasar || null,
-                            hargaJual: k.hargaJual || null,
-                            poinPelanggan: k.poinPelanggan || null,
-                            komisiSales: k.komisiSales || null,
+                            nilai: row.nilai || 0,
+                            barcode: row.barcode || '',
+                            aktif: row.aktif === 'Ya',
+                            hargaDasar: row.hargaDasar || null,
+                            hargaJual: row.hargaJual || null,
+                            poinPelanggan: row.poinPelanggan || null,
+                            komisiSales: row.komisiSales || null,
                             createdAt: serverTimestamp(),
                             updatedAt: serverTimestamp(),
                             deleted: false
@@ -3275,19 +3306,21 @@
                     }
 
                     // Proses qty break
-                    for (const q of qtyRows) {
-                        const produkIdLama = q.produkId;
-                        const produkIdBaru = window.tempIdMap.get(produkIdLama);
-                        if (!produkIdBaru) continue;
-                        const oldQtySnap = await getDocs(query(qtyCol, where('produkId', '==', produkIdBaru), where('deleted', '==', false)));
-                        for (const d of oldQtySnap.docs) {
-                            await setDoc(d.ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                    for (const row of qtyRows) {
+                        const produkNama = row.produkNama;
+                        const gudangNama = row.gudangNama;
+                        if (!produkNama || !gudangNama) continue;
+                        const key = `${produkNama}|${gudangNama}`;
+                        const produkId = produkKeyMap.get(key);
+                        if (!produkId) {
+                            console.warn('QtyBreak: produk tidak ditemukan untuk', produkNama, gudangNama);
+                            continue;
                         }
                         await addDoc(qtyCol, {
-                            produkId: produkIdBaru,
-                            level: q.level || '',
-                            minQty: q.minQty || 0,
-                            harga: q.harga || 0,
+                            produkId: produkId,
+                            level: row.level || '',
+                            minQty: row.minQty || 0,
+                            harga: row.harga || 0,
                             createdAt: serverTimestamp(),
                             updatedAt: serverTimestamp(),
                             deleted: false
@@ -3295,19 +3328,21 @@
                     }
 
                     // Proses paket
-                    for (const p of paketRows) {
-                        const produkIdLama = p.produkId;
-                        const produkIdBaru = window.tempIdMap.get(produkIdLama);
-                        if (!produkIdBaru) continue;
-                        const oldPaketSnap = await getDocs(query(paketCol, where('produkId', '==', produkIdBaru), where('deleted', '==', false)));
-                        for (const d of oldPaketSnap.docs) {
-                            await setDoc(d.ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
+                    for (const row of paketRows) {
+                        const produkNama = row.produkNama;
+                        const gudangNama = row.gudangNama;
+                        if (!produkNama || !gudangNama) continue;
+                        const key = `${produkNama}|${gudangNama}`;
+                        const produkId = produkKeyMap.get(key);
+                        if (!produkId) {
+                            console.warn('Paket: produk tidak ditemukan untuk', produkNama, gudangNama);
+                            continue;
                         }
                         await addDoc(paketCol, {
-                            produkId: produkIdBaru,
-                            qty: p.qty || 0,
-                            price: p.price || 0,
-                            keterangan: p.keterangan || '',
+                            produkId: produkId,
+                            qty: row.qty || 0,
+                            price: row.price || 0,
+                            keterangan: row.keterangan || '',
                             createdAt: serverTimestamp(),
                             updatedAt: serverTimestamp(),
                             deleted: false
@@ -3317,7 +3352,7 @@
                     alert('Import selesai');
                     loadProdukPage('next');
                     updateTotalSKUCount();
-                    await loadDataForModals(); // refresh mapping
+                    await loadDataForModals();
                 } catch (error) {
                     console.error(error);
                     alert('Gagal import: ' + error.message);
