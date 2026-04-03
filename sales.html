@@ -2733,7 +2733,11 @@
         function closeConfirmPiutangModal() { confirmPiutangModal.classList.remove('active'); setPaymentInputsDisabled(false); pendingPayments = []; pendingTotalPaid = 0; }
         closeConfirmPiutang.addEventListener('click', closeConfirmPiutangModal);
         prosesPembayaranBtn.addEventListener('click', async () => {
-            if (cartItems.length === 0) { alert('Keranjang kosong'); return; }
+            if (cartItems.length === 0) {
+                alert('Keranjang kosong');
+                return;
+            }
+        
             const finalTotal = currentTotalAfterDiscount;
             const cash = parseFloat(paymentCash.value) || 0;
             const card = parseFloat(paymentCard.value) || 0;
@@ -2741,16 +2745,28 @@
             const ewallet = parseFloat(paymentEwallet.value) || 0;
             const paidTotal = cash + card + transfer + ewallet;
             const shortage = finalTotal - paidTotal;
+        
+            // Buat array metode pembayaran dari input yang diisi
+            const paymentMethods = [];
+            if (cash > 0) paymentMethods.push({ method: 'cash', amount: cash });
+            if (card > 0) paymentMethods.push({ method: 'card', amount: card });
+            if (transfer > 0) paymentMethods.push({ method: 'transfer', amount: transfer });
+            if (ewallet > 0) paymentMethods.push({ method: 'ewallet', amount: ewallet });
+        
             if (shortage > 0) {
-                if (!selectedCustomer) { alert('Untuk mencatat piutang, harus pilih pelanggan terlebih dahulu'); return; }
-                pendingPayments = [{ method: 'cash', amount: cash }, { method: 'card', amount: card }, { method: 'transfer', amount: transfer }, { method: 'ewallet', amount: ewallet }].filter(p => p.amount > 0);
+                if (!selectedCustomer) {
+                    alert('Untuk mencatat piutang, harus pilih pelanggan terlebih dahulu');
+                    return;
+                }
+                pendingPayments = paymentMethods;
                 pendingTotalPaid = paidTotal;
                 setPaymentInputsDisabled(true);
                 shortageConfirm.textContent = formatRupiah(shortage);
                 confirmPiutangModal.classList.add('active');
                 return;
             }
-            await executePayment(paidTotal, 0);
+        
+            await executePayment(paidTotal, 0, paymentMethods);
             handlePostPayment();
         });
         async function processPaymentWithPiutang() {
@@ -2758,56 +2774,110 @@
             const finalTotal = currentTotalAfterDiscount;
             const shortage = finalTotal - paid;
             closeConfirmPiutangModal();
-            await executePayment(paid, shortage);
+            await executePayment(paid, shortage, pendingPayments);
             handlePostPayment();
         }
         confirmPiutangBtn.addEventListener('click', processPaymentWithPiutang);
-        async function executePayment(paidTotal, outstandingAdded) {
+        async function executePayment(paidTotal, outstandingAdded, paymentMethods = []) {
             try {
                 await runTransaction(dbCloud, async (transaction) => {
-                    const produkRefs = []; const produkItems = []; const varianRefs = []; const varianItems = [];
+                    const produkRefs = [];
+                    const produkItems = [];
+                    const varianRefs = [];
+                    const varianItems = [];
+        
                     for (let item of cartItems) {
                         if (item.type === 'bundle') {
                             for (let child of item.childItems) {
-                                if (child.varianId) { const ref = doc(varianCol, child.varianId); varianRefs.push(ref); varianItems.push(child); }
-                                else { const ref = doc(produkCol, child.produkId); produkRefs.push(ref); produkItems.push({ produkId: child.produkId, qtyDasar: child.qty, nama: child.nama }); }
+                                if (child.varianId) {
+                                    const ref = doc(varianCol, child.varianId);
+                                    varianRefs.push(ref);
+                                    varianItems.push(child);
+                                } else {
+                                    const ref = doc(produkCol, child.produkId);
+                                    produkRefs.push(ref);
+                                    produkItems.push({
+                                        produkId: child.produkId,
+                                        qtyDasar: child.qty,
+                                        nama: child.nama
+                                    });
+                                }
                             }
-                        } else if (item.produkId === 'piutang') continue;
-                        else if (item.varianId) { const ref = doc(varianCol, item.varianId); varianRefs.push(ref); varianItems.push(item); }
-                        else { const ref = doc(produkCol, item.produkId); produkRefs.push(ref); produkItems.push(item); }
+                        } else if (item.produkId === 'piutang') {
+                            continue;
+                        } else if (item.varianId) {
+                            const ref = doc(varianCol, item.varianId);
+                            varianRefs.push(ref);
+                            varianItems.push(item);
+                        } else {
+                            const ref = doc(produkCol, item.produkId);
+                            produkRefs.push(ref);
+                            produkItems.push(item);
+                        }
                     }
+        
                     const produkSnaps = await Promise.all(produkRefs.map(ref => transaction.get(ref)));
                     for (let i = 0; i < produkItems.length; i++) {
-                        if (!produkSnaps[i].exists()) throw new Error(`Produk ${produkItems[i].nama} tidak ditemukan`);
+                        if (!produkSnaps[i].exists()) {
+                            throw new Error(`Produk ${produkItems[i].nama} tidak ditemukan`);
+                        }
                         const produk = produkSnaps[i].data();
-                        if (produk.stokAwal < produkItems[i].qtyDasar) throw new Error(`Stok ${produkItems[i].nama} tidak mencukupi. Stok: ${produk.stokAwal}, dibutuhkan: ${produkItems[i].qtyDasar}`);
+                        if (produk.stokAwal < produkItems[i].qtyDasar) {
+                            throw new Error(`Stok ${produkItems[i].nama} tidak mencukupi. Stok: ${produk.stokAwal}, dibutuhkan: ${produkItems[i].qtyDasar}`);
+                        }
                     }
+        
                     const varianSnaps = await Promise.all(varianRefs.map(ref => transaction.get(ref)));
                     for (let i = 0; i < varianItems.length; i++) {
-                        if (!varianSnaps[i].exists()) throw new Error(`Varian ${varianItems[i].nama} tidak ditemukan`);
+                        if (!varianSnaps[i].exists()) {
+                            throw new Error(`Varian ${varianItems[i].nama} tidak ditemukan`);
+                        }
                         const varian = varianSnaps[i].data();
-                        if (varian.stok < varianItems[i].qty) throw new Error(`Stok varian ${varianItems[i].nama} tidak mencukupi. Stok: ${varian.stok}, dibutuhkan: ${varianItems[i].qty}`);
+                        if (varian.stok < varianItems[i].qty) {
+                            throw new Error(`Stok varian ${varianItems[i].nama} tidak mencukupi. Stok: ${varian.stok}, dibutuhkan: ${varianItems[i].qty}`);
+                        }
                     }
+        
                     for (let i = 0; i < produkItems.length; i++) {
-                        const ref = produkRefs[i]; const produk = produkSnaps[i].data();
+                        const ref = produkRefs[i];
+                        const produk = produkSnaps[i].data();
                         const newStok = produk.stokAwal - produkItems[i].qtyDasar;
                         transaction.update(ref, { stokAwal: newStok, updatedAt: serverTimestamp() });
                     }
+        
                     for (let i = 0; i < varianItems.length; i++) {
-                        const ref = varianRefs[i]; const varian = varianSnaps[i].data();
+                        const ref = varianRefs[i];
+                        const varian = varianSnaps[i].data();
                         const newStok = varian.stok - varianItems[i].qty;
                         transaction.update(ref, { stok: newStok, updatedAt: serverTimestamp() });
                     }
+        
                     if (selectedCustomer) {
                         const custRef = doc(customerCol, selectedCustomer.id);
                         let newOutstanding = selectedCustomer.outstanding || 0;
-                        for (let item of cartItems) { if (item.produkId === 'piutang') newOutstanding -= item.subtotal; }
-                        if (outstandingAdded > 0) newOutstanding += outstandingAdded;
+                        for (let item of cartItems) {
+                            if (item.produkId === 'piutang') {
+                                newOutstanding -= item.subtotal;
+                            }
+                        }
+                        if (outstandingAdded > 0) {
+                            newOutstanding += outstandingAdded;
+                        }
                         if (newOutstanding < 0) newOutstanding = 0;
                         transaction.update(custRef, { outstanding: newOutstanding, updatedAt: serverTimestamp() });
                     }
+        
                     const salesData = {
-                        items: cartItems.map(item => ({ produkId: item.produkId || null, varianId: item.varianId || null, konversiId: item.konversiId || null, nama: item.nama, qty: item.qty, unit: item.unit || '', hargaSatuan: item.hargaSatuan, subtotal: item.subtotal })),
+                        items: cartItems.map(item => ({
+                            produkId: item.produkId || null,
+                            varianId: item.varianId || null,
+                            konversiId: item.konversiId || null,
+                            nama: item.nama,
+                            qty: item.qty,
+                            unit: item.unit || '',
+                            hargaSatuan: item.hargaSatuan,
+                            subtotal: item.subtotal
+                        })),
                         originalTotal: currentOriginalTotal,
                         totalDiscount: currentTotalDiscount,
                         finalTotal: currentTotalAfterDiscount,
@@ -2815,7 +2885,7 @@
                         change: paidTotal - currentTotalAfterDiscount,
                         customerId: selectedCustomer ? selectedCustomer.id : null,
                         customerName: selectedCustomer ? selectedCustomer.nama : null,
-                        paymentMethods: pendingPayments,
+                        paymentMethods: paymentMethods,
                         vouchers: selectedVouchers.map(v => ({ id: v.id, name: v.name, type: v.type, value: v.value })),
                         manualDiscount: parseFloat(manualDiscountInput.value) || 0,
                         createdAt: serverTimestamp()
@@ -2823,8 +2893,15 @@
                     const salesRef = doc(salesCol);
                     transaction.set(salesRef, salesData);
                 });
+        
                 lastTransactionData = {
-                    items: cartItems.map(item => ({ name: item.nama, qty: item.qty, unit: item.unit || 'pcs', price: item.hargaSatuan, subtotal: item.subtotal })),
+                    items: cartItems.map(item => ({
+                        name: item.nama,
+                        qty: item.qty,
+                        unit: item.unit || 'pcs',
+                        price: item.hargaSatuan,
+                        subtotal: item.subtotal
+                    })),
                     originalTotal: currentOriginalTotal,
                     totalDiscount: currentTotalDiscount,
                     total: currentTotalAfterDiscount,
@@ -2833,6 +2910,7 @@
                     date: new Date().toLocaleString('id-ID'),
                     transactionNumber: 'TRX-' + Date.now()
                 };
+        
                 cartItems = [];
                 selectedCustomer = null;
                 customerBadge.textContent = '0';
@@ -2840,8 +2918,12 @@
                 updateCartBadge();
                 renderCartModal();
                 closePaymentPage();
+        
                 alert(`Pembayaran berhasil! ${outstandingAdded > 0 ? 'Piutang dicatat.' : ''}`);
-            } catch (error) { console.error('Error executing payment:', error); alert('Gagal memproses pembayaran: ' + error.message); }
+            } catch (error) {
+                console.error('Error executing payment:', error);
+                alert('Gagal memproses pembayaran: ' + error.message);
+            }
         }
         function handlePostPayment() {
             if (confirm('Transaksi berhasil. Cetak struk sekarang?')) {
