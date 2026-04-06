@@ -11,207 +11,50 @@
     <!-- SheetJS untuk Export/Import Excel -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
-        /* ===== RESET & GLOBAL ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-        }
-        body {
-            background: #f5f5f5;
-            color: #333;
-            font-size: 14px;
-        }
-        .text-primary { color: #006B54; }
-
-        /* ===== HEADER ===== */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.6rem 1.5rem;
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .menu-toggle {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #006B54;
-            padding: 0.4rem;
-            border-radius: 20px;
-        }
-        .menu-toggle:hover { background: #f0f0f0; }
-        .btn-login {
-            background: #006B54;
-            color: white;
-            border: none;
-            padding: 0.4rem 1rem;
-            border-radius: 20px;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.9rem;
-        }
-        .btn-login:hover { background: #004d3b; }
-
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 260px;
-            height: 100%;
-            background: white;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-            transform: translateX(-100%);
-            transition: transform 0.3s;
-            z-index: 200;
-            padding: 1.2rem 0.8rem;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-        .sidebar.open { transform: translateX(0); }
-        .sidebar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.8rem;
-            border-bottom: 1px solid #eee;
-        }
-        .sidebar-header h2 { color: #006B54; font-size: 1.2rem; }
-        .close-sidebar { background: none; border: none; cursor: pointer; color: #999; }
-        .sidebar-menu { list-style: none; flex: 1; }
-        .sidebar-menu li { margin-bottom: 0.2rem; }
-        .sidebar-menu .menu-link {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            padding: 0.6rem 0.8rem;
-            color: #006B54;
-            text-decoration: none;
-            border-radius: 20px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-        }
-        .sidebar-menu .menu-link:hover { background: #f0f5f3; }
-        .sidebar-menu .menu-link i { color: #006B54; width: 18px; }
-        .has-submenu .submenu {
-            list-style: none;
-            padding-left: 2.5rem;
-            display: none;
-        }
-        .has-submenu.open .submenu { display: block; }
-        .submenu a {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            padding: 0.5rem 0.8rem;
-            color: #333;
-            text-decoration: none;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-        .submenu a:hover { background: #e6f0ec; color: #006B54; }
-        .submenu a.active {
-            background: #e6f0ec;
-            color: #006B54;
-            font-weight: 500;
-        }
-        .has-submenu .menu-link .arrow {
-            margin-left: auto;
-            transition: transform 0.3s;
-        }
-        .has-submenu.open .menu-link .arrow { transform: rotate(180deg); }
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.3);
-            z-index: 150;
-            display: none;
-        }
-        .overlay.active { display: block; }
-
-        /* ===== MAIN CONTENT ===== */
-        .main-content {
-            padding: 1.5rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .page-title {
-            margin-bottom: 1.2rem;
-            font-size: 1.6rem;
-            font-weight: 600;
-            color: #006B54;
-        }
-        .content-section {
-            background: white;
-            border-radius: 20px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-            border: 1px solid #f0f0f0;
-            display: none;
-        }
-        .content-section.active { display: block; }
-
-        /* ===== FORM GRID & FIELDS ===== */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.2rem;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .form-group label {
-            margin-bottom: 0.3rem;
-            font-weight: 500;
-            font-size: 0.9rem;
-            color: #444;
-        }
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            padding: 0.6rem 0.8rem;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-            font-size: 0.95rem;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #006B54;
-        }
-        .subform-section {
-            margin-top: 1.5rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e0e0e0;
-        }
-        .subform-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #006B54;
-            margin-bottom: 0.8rem;
-        }
-
-        /* ===== DYNAMIC ROWS (VARIAN, KONVERSI, QTY BREAK, PAKET) ===== */
+        /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background:#f5f5f5; color:#333; font-size:14px; }
+        .text-primary { color:#006B54; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:20px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:20px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .btn-sync { background:transparent; border:1px solid #006B54; color:#006B54; padding:0.4rem 1rem; border-radius:20px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; margin-right:0.5rem; font-size:0.9rem; }
+        .btn-sync:hover { background:#e6f0ec; }
+        .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
+        .reset-btn:hover { background:#c82333; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; display:flex; flex-direction:column; }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
+        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
+        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
+        .sidebar-menu { list-style:none; flex:1; }
+        .sidebar-menu li { margin-bottom:0.2rem; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:20px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
+        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
+        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
+        .has-submenu.open .submenu { display:block; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:20px; font-size:0.9rem; cursor:pointer; }
+        .submenu a:hover { background:#e6f0ec; color:#006B54; }
+        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
+        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
+        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
+        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+        .content-section { background:white; border-radius:20px; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.03); border:1px solid #f0f0f0; display:none; }
+        .content-section.active { display:block; }
+        .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:1rem; margin-bottom:1.2rem; }
+        .form-group { display:flex; flex-direction:column; }
+        .form-group label { margin-bottom:0.3rem; font-weight:500; font-size:0.9rem; color:#444; }
+        .form-group input, .form-group select, .form-group textarea { padding:0.6rem 0.8rem; border:1px solid #ddd; border-radius:20px; font-size:0.95rem; width:100%; box-sizing:border-box; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:#006B54; }
+        .subform-section { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e0e0e0; }
+        .subform-title { font-size:1.1rem; font-weight:600; color:#006B54; margin-bottom:0.8rem; }
+        /* Varian row dengan stok */
         .varian-row {
             display: grid;
             grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr 1fr auto;
@@ -222,9 +65,11 @@
             border-radius: 20px;
             margin-bottom: 0.6rem;
         }
+        .varian-row .form-group { margin-bottom: 0; }
+        /* Konversi row */
         .konversi-row {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(120px,1fr));
             gap: 0.6rem;
             align-items: center;
             background: #fafafa;
@@ -232,6 +77,7 @@
             border-radius: 20px;
             margin-bottom: 0.6rem;
         }
+        /* Qty Break row */
         .qtybreak-row {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr auto;
@@ -242,6 +88,7 @@
             border-radius: 20px;
             margin-bottom: 0.6rem;
         }
+        /* Paket row */
         .paket-row {
             display: grid;
             grid-template-columns: 1fr 1fr 2fr auto;
@@ -252,111 +99,33 @@
             border-radius: 20px;
             margin-bottom: 0.6rem;
         }
-        .remove-row {
-            background: none;
-            border: none;
-            color: #dc3545;
-            cursor: pointer;
-            padding: 0.2rem;
-        }
-
-        /* ===== BUTTONS ===== */
-        .btn {
-            background: #006B54;
-            color: white;
-            border: none;
-            padding: 0.6rem 1.2rem;
-            border-radius: 20px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-right: 0.5rem;
-        }
-        .btn:hover { background: #004d3b; }
-        .btn-secondary { background: #6c757d; }
-        .btn-secondary:hover { background: #5a6268; }
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #006B54;
-            color: #006B54;
-            margin-top: 0.5rem;
-        }
-        .btn-outline:hover { background: #e6f0ec; }
-        .btn-primary {
-            background: #006B54;
-            color: white;
-            border: none;
-            padding: 0.6rem 1.2rem;
-            border-radius: 20px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-        }
-        .btn-primary:hover { background: #004d3b; }
-        .btn-history {
-            background: #17a2b8;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-weight: 500;
-            font-size: 0.9rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-            margin-left: 1rem;
-        }
-        .btn-history:hover { background: #138496; }
-
-        /* ===== TABLES ===== */
-        .table-responsive {
-            overflow-x: auto;
-            margin-top: 1rem;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-            min-width: 600px;
-        }
-        th, td {
-            padding: 0.6rem 0.8rem;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-            white-space: nowrap;
-        }
-        th {
-            background: #f9f9f9;
-            font-weight: 600;
-            color: #006B54;
-        }
-        tr:hover { background: #f5f5f5; }
-        .btn-icon {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #006B54;
-            padding: 0.2rem;
-            border-radius: 20px;
-        }
-        .btn-icon.delete { color: #dc3545; }
-        .btn-icon.transfer { color: #17a2b8; }
-        .btn-icon.copy { color: #ffc107; }
-
-        /* ===== SEARCH & PAGINATION ===== */
-        .search-bar {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .search-bar input {
-            flex: 1;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-        }
+        .remove-row { background:none; border:none; color:#dc3545; cursor:pointer; padding:0.2rem; }
+        .btn { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:20px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; margin-right:0.5rem; }
+        .btn:hover { background:#004d3b; }
+        .btn-secondary { background:#6c757d; }
+        .btn-secondary:hover { background:#5a6268; }
+        .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; margin-top:0.5rem; border-radius:20px; }
+        .btn-outline:hover { background:#e6f0ec; }
+        .btn-primary { background:#006B54; color:white; border:none; padding:0.6rem 1.2rem; border-radius:20px; font-weight:500; font-size:0.95rem; cursor:pointer; transition:background 0.2s; }
+        .btn-primary:hover { background:#004d3b; }
+        .btn-history { background:#17a2b8; color:white; border:none; padding:0.5rem 1rem; border-radius:20px; font-weight:500; font-size:0.9rem; cursor:pointer; display:inline-flex; align-items:center; gap:0.3rem; margin-left:1rem; }
+        .btn-history:hover { background:#138496; }
+        .table-responsive { overflow-x:auto; margin-top:1rem; }
+        table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:600px; }
+        th, td { padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid #eee; white-space:nowrap; }
+        th { background:#f9f9f9; font-weight:600; color:#006B54; }
+        tr:hover { background:#f5f5f5; }
+        .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; border-radius:20px; }
+        .btn-icon.delete { color:#dc3545; }
+        .btn-icon.transfer { color:#17a2b8; }
+        .btn-icon.copy { color:#ffc107; }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
+        /* Search bar */
+        .search-bar { display:flex; gap:0.5rem; margin-bottom:1rem; }
+        .search-bar input { flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:20px; }
+        /* Pagination */
         .pagination {
             display: flex;
             justify-content: center;
@@ -375,8 +144,10 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
-
-        /* ===== MODAL LOGIN LOKAL ===== */
+        .pagination span {
+            padding: 0.4rem 0.8rem;
+        }
+        /* Modal login lokal */
         #loginModal {
             display: none;
             position: fixed;
@@ -396,7 +167,10 @@
             padding: 20px;
             text-align: center;
         }
-        #loginModal h3 { color: #006B54; margin-bottom: 15px; }
+        #loginModal h3 {
+            color: #006B54;
+            margin-bottom: 15px;
+        }
         #loginModal input {
             width: 100%;
             padding: 10px;
@@ -419,8 +193,7 @@
             margin-top: 10px;
             display: none;
         }
-
-        /* ===== MODAL SELECT (KATEGORI, UNIT, GUDANG) ===== */
+        /* ===== MODAL PILIH KATEGORI, UNIT, GUDANG ===== */
         .modal-select {
             display: none;
             position: fixed;
@@ -433,7 +206,9 @@
             align-items: center;
             justify-content: center;
         }
-        .modal-select.active { display: flex; }
+        .modal-select.active {
+            display: flex;
+        }
         .modal-select .modal-content {
             background: white;
             border-radius: 20px;
@@ -450,7 +225,10 @@
             align-items: center;
             margin-bottom: 1rem;
         }
-        .modal-select .modal-header h3 { color: #006B54; font-size: 1.2rem; }
+        .modal-select .modal-header h3 {
+            color: #006B54;
+            font-size: 1.2rem;
+        }
         .modal-select .close-modal {
             background: none;
             border: none;
@@ -459,14 +237,24 @@
             color: #999;
             line-height: 1;
         }
-        .modal-select .close-modal:hover { color: #006B54; }
-        .modal-select .modal-search { margin-bottom: 1rem; }
+        .modal-select .close-modal:hover {
+            color: #006B54;
+        }
+        .modal-select .modal-search {
+            margin-bottom: 1rem;
+        }
         .modal-select .modal-search input {
             width: 100%;
             padding: 0.6rem 1rem;
             border: 1px solid #ddd;
             border-radius: 20px;
             font-size: 0.95rem;
+            transition: border 0.2s;
+        }
+        .modal-select .modal-search input:focus {
+            outline: none;
+            border-color: #006B54;
+            box-shadow: 0 0 0 2px rgba(0,107,84,0.1);
         }
         .modal-select .item-list {
             list-style: none;
@@ -482,8 +270,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: background 0.2s;
         }
-        .modal-select .item-list li:hover { background: #e6f0ec; }
+        .modal-select .item-list li:last-child {
+            border-bottom: none;
+        }
+        .modal-select .item-list li:hover {
+            background: #e6f0ec;
+        }
         .modal-select .item-list li.selected {
             background: #d0e8e0;
             font-weight: 600;
@@ -494,6 +288,12 @@
             justify-content: flex-end;
             gap: 0.5rem;
             margin-top: 1.5rem;
+        }
+        .modal-select .modal-footer .btn-secondary,
+        .modal-select .modal-footer .btn-primary {
+            padding: 0.6rem 1.5rem;
+            border-radius: 20px;
+            font-weight: 500;
         }
         .field-select {
             display: flex;
@@ -514,9 +314,11 @@
             cursor: pointer;
             white-space: nowrap;
         }
-        .field-select button:hover { background: #004d3b; }
+        .field-select button:hover {
+            background: #004d3b;
+        }
 
-        /* ===== SIDEBAR FOOTER ===== */
+        /* ===== FOOTER SIDEBAR UNTUK LOCAL USER INFO ===== */
         .sidebar-footer {
             margin-top: auto;
             padding-top: 1rem;
@@ -551,7 +353,7 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,107,84,0.9);
+            background: #1e2a3a;
             color: white;
             padding: 10px 20px;
             border-radius: 40px;
@@ -560,45 +362,71 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             z-index: 1050;
             backdrop-filter: blur(4px);
+            background-color: rgba(0,107,84,0.9);
             border: 1px solid rgba(255,255,255,0.2);
             pointer-events: none;
             white-space: nowrap;
             font-family: monospace;
+            letter-spacing: 0.5px;
         }
 
-        /* ===== RESPONSIVE ===== */
         @media (max-width: 640px) {
-            .main-content { padding: 0.8rem; }
-            .content-section { padding: 1rem; }
-            .total-sku-floating { font-size: 0.75rem; padding: 6px 14px; }
-            .varian-row { grid-template-columns: 1fr 1fr; }
-            .varian-row .remove-row { grid-column: span 2; justify-self: center; }
-            .konversi-row { grid-template-columns: 1fr 1fr; }
-            .qtybreak-row { grid-template-columns: 1fr 1fr; }
-            .paket-row { grid-template-columns: 1fr 1fr; }
-            .form-grid { gap: 0.8rem; }
-        }
-        @media (min-width: 992px) {
-            .form-group input, .form-group select { max-width: 350px; }
-            .field-select input[readonly] { max-width: 350px; }
+            .total-sku-floating {
+                font-size: 0.75rem;
+                padding: 6px 14px;
+                bottom: 12px;
+            }
         }
 
-        /* ===== TRANSFER MODAL & BADGE ===== */
+        /* ===== PERBAIKAN TAMPILAN MOBILE (HEMAT RUANG) ===== */
+        @media (max-width: 640px) {
+            .form-group label { font-size:0.8rem; margin-bottom:0.2rem; }
+            .form-group input, .form-group select, .form-group textarea { padding:0.5rem 0.6rem; font-size:0.9rem; }
+            .btn { padding:0.5rem 1rem; font-size:0.9rem; }
+            .form-grid { gap:0.8rem; margin-bottom:1rem; }
+            @media (min-width:481px) { .form-grid { grid-template-columns:repeat(2,1fr); } }
+            @media (max-width:480px) { .form-grid { grid-template-columns:1fr; } }
+            .field-select { flex-wrap:nowrap; }
+            .field-select button { padding:0.5rem 0.8rem; font-size:0.9rem; }
+            .varian-row {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+            }
+            .varian-row .remove-row {
+                grid-column: span 2;
+                justify-self: center;
+                margin-top: 0.2rem;
+            }
+            .konversi-row { grid-template-columns:1fr 1fr; }
+            .qtybreak-row { grid-template-columns:1fr 1fr; }
+            .paket-row { grid-template-columns:1fr 1fr; }
+            .konversi-row .remove-row, .qtybreak-row .remove-row, .paket-row .remove-row {
+                grid-column: span 2;
+                justify-self: center;
+                margin-top: 0.2rem;
+            }
+            div[style*="margin-top:1.5rem"] { display:flex; flex-direction:column; gap:0.5rem; }
+            div[style*="margin-top:1.5rem"] button { width:100%; margin-right:0; }
+            .content-section { padding:0.8rem; }
+            .page-title { font-size:1.3rem; margin-bottom:0.8rem; }
+        }
+
+        @media (min-width: 992px) {
+            .form-group input, .form-group select, .form-group textarea { max-width:350px; }
+            .field-select input[readonly] { max-width:350px; }
+        }
+
+        /* Modal Transfer / Copy */
         .transfer-modal .modal-content { max-width: 600px; }
-        .transfer-variant-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr auto;
-            gap: 0.5rem;
-            align-items: center;
-            margin-bottom: 0.3rem;
-        }
-        .badge {
-            padding: 0.2rem 0.5rem;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
+        .transfer-item { margin-bottom: 1rem; padding: 0.5rem; background: #f8f9fa; border-radius: 10px; }
+        .transfer-item label { font-weight: 600; display: block; margin-bottom: 0.2rem; }
+        .transfer-item input { width: 100%; padding: 0.4rem; border: 1px solid #ccc; border-radius: 10px; }
+        .transfer-variant-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.3rem; }
+
+        /* History page */
+        .history-filter { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .history-filter select, .history-filter input { padding: 0.5rem; border: 1px solid #ddd; border-radius: 20px; }
+        .badge { padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
         .badge-transfer { background: #17a2b8; color: white; }
         .badge-copy { background: #ffc107; color: #333; }
     </style>
@@ -678,7 +506,9 @@
                 <h3>Transfer Stok Antar Gudang</h3>
                 <button class="close-modal" onclick="closeTransferModal()">&times;</button>
             </div>
-            <div id="transferContent"></div>
+            <div id="transferContent">
+                <!-- akan diisi secara dinamis -->
+            </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeTransferModal()">Batal</button>
                 <button class="btn-primary" id="transferSubmit">Proses Transfer</button>
@@ -693,7 +523,9 @@
                 <h3>Copy Produk ke Gudang Lain</h3>
                 <button class="close-modal" onclick="closeCopyModal()">&times;</button>
             </div>
-            <div id="copyContent"></div>
+            <div id="copyContent">
+                <!-- akan diisi secara dinamis -->
+            </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeCopyModal()">Batal</button>
                 <button class="btn-primary" id="copySubmit">Copy Produk</button>
@@ -708,7 +540,7 @@
     <main class="main-content" id="mainContent" style="display:none;">
         <h1 class="page-title">Master Data</h1>
 
-        <!-- ========== SECTION TAMBAH PRODUK (IDENTIK DENGAN mastermuda.html) ========== -->
+        <!-- ========== SECTION TAMBAH PRODUK ========== -->
         <div id="tambahProdukSection" class="content-section">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;" id="formProdukTitle">Tambah Produk Baru</h2>
             <form id="formTambahProduk">
@@ -865,12 +697,8 @@
             </div>
             <div class="table-responsive">
                 <table>
-                    <thead>
-                        <tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Jml Varian</th><th>Timbangan</th><th>Aksi</th></tr>
-                    </thead>
-                    <tbody id="daftarProdukBody">
-                        <tr><td colspan="8" style="text-align:center;">Memuat data...</td></tr>
-                    </tbody>
+                    <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Harga Jual</th><th>Stok</th><th>Jml Varian</th><th>Timbangan</th><th>Aksi</th></tr></thead>
+                    <tbody id="daftarProdukBody"><tr><td colspan="8" style="text-align:center;">Memuat data...</td></tr></tbody>
                 </table>
             </div>
             <div class="pagination" id="paginationProduk">
@@ -895,7 +723,15 @@
             <div class="table-responsive">
                 <table>
                     <thead>
-                        <tr><th>Tanggal</th><th>Tipe</th><th>Produk</th><th>Dari Gudang</th><th>Ke Gudang</th><th>Detail</th><th>User</th></tr>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Tipe</th>
+                            <th>Produk</th>
+                            <th>Dari Gudang</th>
+                            <th>Ke Gudang</th>
+                            <th>Detail</th>
+                            <th>User</th>
+                        </tr>
                     </thead>
                     <tbody id="historyTransferBody">
                         <tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr>
@@ -929,7 +765,7 @@
                 <button class="btn" id="clearSearchKategori">Clear</button>
             </div>
             <div class="table-responsive">
-                <tr><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
+                <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
                 <tbody id="daftarKategoriBody"><tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr></tbody></table>
             </div>
         </div>
@@ -984,8 +820,18 @@
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Daftar Gudang</h2>
             <div class="table-responsive">
                 <table>
-                    <thead><tr><th>Kode</th><th>Nama</th><th>Lokasi</th><th>Kapasitas</th><th>Aksi</th></tr></thead>
-                    <tbody id="daftarGudangBody"><tr><td colspan="5" style="text-align:center;">Memuat data...</td></tr></tbody>
+                    <thead>
+                        <tr>
+                            <th>Kode</th>
+                            <th>Nama</th>
+                            <th>Lokasi</th>
+                            <th>Kapasitas</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daftarGudangBody">
+                        <tr><td colspan="5" style="text-align:center;">Memuat data...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -1045,8 +891,8 @@
         </div>
     </div>
 
+    <!-- Script sidebar (non-module) -->
     <script>
-        // ========== SIDEBAR TOGGLE (NON-MODULE) ==========
         feather.replace();
 
         const menuToggle = document.getElementById('menuToggle');
@@ -1072,7 +918,7 @@
         window.showSection = function(sectionName) { };
     </script>
 
-    <!-- ========== SCRIPT MODULE UTAMA (FIRESTORE + SEMUA FUNGSI TAMBAH PRODUK & LAINNYA) ========== -->
+    <!-- Script module utama (Firestore + Scanner + Varian + Paket + Transfer/Copy + History + Total SKU + Export/Import) -->
     <script type="module">
         import { auth, provider, dbCloud } from './js/firebase-config.js';
         import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -1276,7 +1122,7 @@
             }
             if (sectionName === 'daftarProduk') {
                 loadProdukPage('next');
-                updateTotalSKUCount();
+                updateTotalSKUCount(); // hitung total SKU saat masuk daftar produk
             } else if (sectionName === 'daftarKategori' && lastKategoriDocs.length > 0) {
                 renderKategoriTable(lastKategoriDocs);
             } else if (sectionName === 'daftarUnit' && lastUnitDocs.length > 0) {
@@ -1330,7 +1176,7 @@
                 gudangSnap.docs.forEach(doc => {
                     gudangMap[doc.id] = doc.data().nama;
                 });
-                populateGudangFilter();
+                populateGudangFilter(); // isi dropdown setelah data gudang dimuat
             } catch (error) {
                 console.error('loadDataForModals error:', error);
             }
@@ -1490,7 +1336,7 @@
         };
 
         // ========== FILTER GUDANG PADA DAFTAR PRODUK ==========
-        let selectedGudangFilter = '';
+        let selectedGudangFilter = ''; // State untuk filter gudang
 
         function populateGudangFilter() {
             const select = document.getElementById('filterGudang');
@@ -1503,6 +1349,7 @@
                 option.textContent = nama;
                 select.appendChild(option);
             });
+            // Kembalikan nilai yang sebelumnya dipilih jika masih ada
             if (currentValue && gudangMap[currentValue]) {
                 select.value = currentValue;
             } else {
@@ -1559,7 +1406,7 @@
                 snapshot.docs.forEach(doc => {
                     gudangMap[doc.id] = doc.data().nama;
                 });
-                populateGudangFilter();
+                populateGudangFilter(); // Update dropdown filter gudang
                 if (sections.daftarGudang.classList.contains('active')) {
                     renderGudangTable(lastGudangDocs);
                 }
@@ -1786,6 +1633,7 @@
             row.querySelector('.remove-row').addEventListener('click', () => row.remove());
         }
 
+        // Fungsi untuk menambah baris paket (tanpa pilihan varian)
         function tambahPaketRow(data = null) {
             const row = document.createElement('div');
             row.className = 'paket-row';
@@ -1822,10 +1670,6 @@
         // ========== TAMBAH KATEGORI, UNIT, GUDANG ==========
         document.getElementById('formTambahKategori').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu. Klik tombol Login di pojok kanan atas.');
-                return;
-            }
             const nama = document.getElementById('namaKategori').value.trim();
             if (!nama) return alert('Nama kategori harus diisi');
             try {
@@ -1846,10 +1690,6 @@
 
         document.getElementById('formTambahUnit').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu. Klik tombol Login di pojok kanan atas.');
-                return;
-            }
             const nama = document.getElementById('namaUnit').value.trim();
             if (!nama) return alert('Nama unit harus diisi');
             try {
@@ -1870,10 +1710,6 @@
 
         document.getElementById('formTambahGudang').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu. Klik tombol Login di pojok kanan atas.');
-                return;
-            }
             const kode = document.getElementById('kodeGudang').value.trim();
             const nama = document.getElementById('namaGudang').value.trim();
             const lokasi = document.getElementById('lokasiGudang').value.trim();
@@ -1905,10 +1741,6 @@
 
         // ========== FUNGSI EDIT/HAPUS GLOBAL ==========
         window.editKategori = async (id) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             const newName = prompt('Edit nama kategori:');
             if (!newName) return;
             try {
@@ -1918,10 +1750,6 @@
             }
         };
         window.hapusKategori = async (id) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             if (!confirm('Yakin hapus kategori?')) return;
             try {
                 await setDoc(doc(kategoriCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
@@ -1930,10 +1758,6 @@
             }
         };
         window.editUnit = async (id) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             const newName = prompt('Edit nama unit:');
             if (!newName) return;
             try {
@@ -1943,10 +1767,6 @@
             }
         };
         window.hapusUnit = async (id) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             if (!confirm('Yakin hapus unit?')) return;
             try {
                 await setDoc(doc(unitCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
@@ -1955,10 +1775,6 @@
             }
         };
         window.editGudang = async (id) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             try {
                 const docRef = doc(gudangCol, id);
                 const docSnap = await getDoc(docRef);
@@ -1987,10 +1803,6 @@
             }
         };
         window.hapusGudang = async (id) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             if (!confirm('Yakin hapus gudang?')) return;
             try {
                 await setDoc(doc(gudangCol, id), { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
@@ -1999,32 +1811,140 @@
             }
         };
 
-        // ========== PAGINATION PRODUK (CLIENT-SIDE SEARCH & FILTER) ==========
-        let allProdukList = [];
-        let allVarianMap = new Map();
-        let filteredProdukList = [];
-        let produkCurrentPage = 1;
-        const produkRowsPerPage = 10;
+        // ========== PAGINATION PRODUK ==========
+        let produkLastVisible = null;
+        let produkFirstVisible = null;
+        let produkPageSnapshots = [];
+        let produkCurrentPageIndex = 0;
+        const produkPageSize = 10;
+        let produkSearchTerm = '';
 
-        function renderProdukTableClient() {
-            const start = (produkCurrentPage - 1) * produkRowsPerPage;
-            const end = start + produkRowsPerPage;
-            const pageProduk = filteredProdukList.slice(start, end);
+        function buildProdukBaseQuery() {
+            let constraints = [where('deleted', '==', false)];
+            if (selectedGudangFilter) {
+                constraints.push(where('gudangId', '==', selectedGudangFilter));
+            }
+            constraints.push(orderBy('nama'));
+            return query(produkCol, ...constraints);
+        }
+
+        async function executeProdukSearchQuery(direction = 'next') {
+            const searchTerm = produkSearchTerm.toLowerCase().trim();
+            const baseQuery = buildProdukBaseQuery();
+
+            if (!searchTerm) {
+                let q = query(baseQuery, limit(produkPageSize));
+                if (direction === 'next' && produkLastVisible) {
+                    q = query(q, startAfter(produkLastVisible));
+                } else if (direction === 'prev' && produkCurrentPageIndex > 0) {
+                    return { type: 'normal', useSnapshot: true };
+                }
+                return { type: 'normal', query: q };
+            } else {
+                const fields = ['nama', 'kode', 'barcode'];
+                const queries = fields.map(field => {
+                    return query(
+                        baseQuery,
+                        where(field, '>=', searchTerm),
+                        where(field, '<=', searchTerm + '\uf8ff'),
+                        limit(produkPageSize)
+                    );
+                });
+                return { type: 'search', queries };
+            }
+        }
+
+        async function loadProdukPage(direction = 'next') {
+            try {
+                const exec = await executeProdukSearchQuery(direction);
+                let docs = [];
+
+                if (exec.type === 'normal' && exec.useSnapshot) {
+                    const prevSnapshot = produkPageSnapshots[produkCurrentPageIndex - 1];
+                    if (prevSnapshot) {
+                        renderProdukTable(prevSnapshot.docs);
+                        produkCurrentPageIndex--;
+                        produkLastVisible = prevSnapshot.docs[prevSnapshot.docs.length - 1];
+                        produkFirstVisible = prevSnapshot.docs[0];
+                        document.getElementById('pageInfoProduk').textContent = `Halaman ${produkCurrentPageIndex + 1}`;
+                        document.getElementById('prevPageProduk').disabled = produkCurrentPageIndex === 0;
+                        document.getElementById('nextPageProduk').disabled = prevSnapshot.docs.length < produkPageSize;
+                    }
+                    return;
+                }
+
+                if (exec.type === 'normal') {
+                    const snapshot = await getDocs(exec.query);
+                    docs = snapshot.docs;
+                    if (direction === 'next') {
+                        produkPageSnapshots.push(snapshot);
+                        produkCurrentPageIndex = produkPageSnapshots.length - 1;
+                    }
+                    produkLastVisible = docs[docs.length - 1];
+                    produkFirstVisible = docs[0];
+                } else {
+                    const snapshots = await Promise.all(exec.queries.map(q => getDocs(q)));
+                    const docsMap = new Map();
+                    snapshots.forEach(snap => {
+                        snap.docs.forEach(doc => {
+                            if (!docsMap.has(doc.id)) {
+                                docsMap.set(doc.id, doc);
+                            }
+                        });
+                    });
+                    docs = Array.from(docsMap.values());
+                    docs.sort((a, b) => a.get('nama').localeCompare(b.get('nama')));
+                    docs = docs.slice(0, produkPageSize);
+                    produkPageSnapshots = [];
+                    produkCurrentPageIndex = 0;
+                    produkLastVisible = null;
+                    produkFirstVisible = null;
+                }
+
+                if (docs.length > 0) {
+                    const produkIds = docs.map(doc => doc.id);
+                    const varianQuery = query(varianCol, where('produkId', 'in', produkIds), where('deleted', '==', false));
+                    const varianSnap = await getDocs(varianQuery);
+                    const varianCountMap = new Map();
+                    varianSnap.forEach(doc => {
+                        const produkId = doc.data().produkId;
+                        varianCountMap.set(produkId, (varianCountMap.get(produkId) || 0) + 1);
+                    });
+                    docs.forEach(doc => {
+                        doc.varianCount = varianCountMap.get(doc.id) || 0;
+                    });
+                }
+
+                renderProdukTable(docs);
+
+                if (exec.type === 'search') {
+                    document.getElementById('pageInfoProduk').textContent = 'Halaman 1 (pencarian)';
+                    document.getElementById('prevPageProduk').disabled = true;
+                    document.getElementById('nextPageProduk').disabled = true;
+                } else {
+                    document.getElementById('pageInfoProduk').textContent = `Halaman ${produkCurrentPageIndex + 1}`;
+                    document.getElementById('prevPageProduk').disabled = produkCurrentPageIndex === 0;
+                    document.getElementById('nextPageProduk').disabled = docs.length < produkPageSize;
+                }
+            } catch (error) {
+                console.error('Gagal memuat produk:', error);
+                document.getElementById('daftarProdukBody').innerHTML = `<tr><td colspan="8" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            }
+        }
+
+        function renderProdukTable(docs) {
             const tbody = document.getElementById('daftarProdukBody');
-            if (pageProduk.length === 0) {
+            if (docs.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Tidak ada data</td></tr>';
-                document.getElementById('pageInfoProduk').textContent = 'Halaman 0';
-                document.getElementById('prevPageProduk').disabled = true;
-                document.getElementById('nextPageProduk').disabled = true;
                 return;
             }
             let html = '';
-            for (let item of pageProduk) {
-                const p = item.data;
+            docs.forEach(doc => {
+                const p = doc.data();
                 const kategoriNama = kategoriMap[p.kategoriId] || '-';
                 const unitNama = unitMap[p.unitId] || '';
                 const namaTampil = p.nama.replace(/\b\w/g, l => l.toUpperCase());
-                const varianCount = allVarianMap.get(item.id)?.length || 0;
+                const varianCount = doc.varianCount || 0;
                 html += `<tr>
                     <td>${p.kode || '-'}</td>
                     <td>${namaTampil}</td>
@@ -2034,96 +1954,76 @@
                     <td>${varianCount}</td>
                     <td>${p.produkTimbangan ? '✓' : '-'}</td>
                     <td>
-                        <button class="btn-icon edit" onclick="editProduk('${item.id}')"><i data-feather="edit-2"></i></button>
-                        <button class="btn-icon delete" onclick="hapusProduk('${item.id}')"><i data-feather="trash-2"></i></button>
-                        <button class="btn-icon transfer" onclick="openTransferModal('${item.id}')"><i data-feather="arrow-right-circle"></i></button>
-                        <button class="btn-icon copy" onclick="openCopyModal('${item.id}')"><i data-feather="copy"></i></button>
+                        <button class="btn-icon edit" onclick="editProduk('${doc.id}')"><i data-feather="edit-2"></i></button>
+                        <button class="btn-icon delete" onclick="hapusProduk('${doc.id}')"><i data-feather="trash-2"></i></button>
+                        <button class="btn-icon transfer" onclick="openTransferModal('${doc.id}')"><i data-feather="arrow-right-circle"></i></button>
+                        <button class="btn-icon copy" onclick="openCopyModal('${doc.id}')"><i data-feather="copy"></i></button>
                     </td>
                 </tr>`;
-            }
+            });
             tbody.innerHTML = html;
             feather.replace();
-            const totalPages = Math.ceil(filteredProdukList.length / produkRowsPerPage);
-            document.getElementById('pageInfoProduk').textContent = `Halaman ${produkCurrentPage} dari ${totalPages || 1}`;
-            document.getElementById('prevPageProduk').disabled = produkCurrentPage === 1;
-            document.getElementById('nextPageProduk').disabled = produkCurrentPage === totalPages || totalPages === 0;
         }
 
-        function applySearchAndRender() {
-            const searchTerm = document.getElementById('searchProduk').value.toLowerCase().trim();
-            const gudangFilter = document.getElementById('filterGudang').value;
-
-            let filtered = allProdukList.filter(item => {
-                const p = item.data;
-                if (gudangFilter && p.gudangId !== gudangFilter) return false;
-                if (!searchTerm) return true;
-                if (p.nama && p.nama.includes(searchTerm)) return true;
-                if (p.kode && p.kode.includes(searchTerm)) return true;
-                if (p.barcode && p.barcode.includes(searchTerm)) return true;
-                const varianList = allVarianMap.get(item.id) || [];
-                if (varianList.some(v => v.barcode && v.barcode.includes(searchTerm))) return true;
-                return false;
-            });
-            filtered.sort((a, b) => (a.data.nama || '').localeCompare(b.data.nama || ''));
-            filteredProdukList = filtered;
-            produkCurrentPage = 1;
-            renderProdukTableClient();
-            updateTotalSKUCount();
-        }
-
-        function initProdukSnapshot() {
-            const q = query(produkCol, where('deleted', '==', false));
-            onSnapshot(q, (snapshot) => {
-                allProdukList = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
-                applySearchAndRender();
-            }, (error) => { console.error('Produk snapshot error:', error); });
-        }
-
-        function initVarianSnapshot() {
-            const q = query(varianCol, where('deleted', '==', false));
-            onSnapshot(q, (snapshot) => {
-                const newMap = new Map();
-                snapshot.docs.forEach(doc => {
-                    const v = doc.data();
-                    const produkId = v.produkId;
-                    if (!newMap.has(produkId)) newMap.set(produkId, []);
-                    newMap.get(produkId).push({ id: doc.id, ...v });
-                });
-                allVarianMap = newMap;
-                applySearchAndRender();
-            }, (error) => { console.error('Varian snapshot error:', error); });
-        }
-
-        document.getElementById('filterGudang')?.addEventListener('change', () => applySearchAndRender());
-        document.getElementById('resetFilterGudang')?.addEventListener('click', () => {
-            document.getElementById('filterGudang').value = '';
-            applySearchAndRender();
+        // Event listener pencarian produk
+        document.getElementById('searchProduk').addEventListener('input', (e) => {
+            produkSearchTerm = e.target.value;
+            produkPageSnapshots = [];
+            produkCurrentPageIndex = 0;
+            produkLastVisible = null;
+            produkFirstVisible = null;
+            loadProdukPage('next');
+            updateTotalSKUCount(); // update total SKU setelah pencarian
         });
-        document.getElementById('searchProduk')?.addEventListener('input', () => applySearchAndRender());
-        document.getElementById('clearSearchProduk')?.addEventListener('click', () => {
+
+        document.getElementById('clearSearchProduk').addEventListener('click', () => {
             document.getElementById('searchProduk').value = '';
-            applySearchAndRender();
+            produkSearchTerm = '';
+            produkPageSnapshots = [];
+            produkCurrentPageIndex = 0;
+            produkLastVisible = null;
+            produkFirstVisible = null;
+            loadProdukPage('next');
+            updateTotalSKUCount();
         });
-        document.getElementById('prevPageProduk')?.addEventListener('click', () => {
-            if (produkCurrentPage > 1) {
-                produkCurrentPage--;
-                renderProdukTableClient();
-            }
+
+        document.getElementById('prevPageProduk').addEventListener('click', () => {
+            loadProdukPage('prev');
         });
-        document.getElementById('nextPageProduk')?.addEventListener('click', () => {
-            const totalPages = Math.ceil(filteredProdukList.length / produkRowsPerPage);
-            if (produkCurrentPage < totalPages) {
-                produkCurrentPage++;
-                renderProdukTableClient();
+
+        document.getElementById('nextPageProduk').addEventListener('click', () => {
+            loadProdukPage('next');
+        });
+
+        // ========== EVENT LISTENER FILTER GUDANG ==========
+        document.getElementById('filterGudang')?.addEventListener('change', (e) => {
+            selectedGudangFilter = e.target.value;
+            // Reset pagination produk
+            produkPageSnapshots = [];
+            produkCurrentPageIndex = 0;
+            produkLastVisible = null;
+            produkFirstVisible = null;
+            loadProdukPage('next');
+            updateTotalSKUCount();
+        });
+
+        document.getElementById('resetFilterGudang')?.addEventListener('click', () => {
+            const select = document.getElementById('filterGudang');
+            if (select) {
+                select.value = '';
+                selectedGudangFilter = '';
+                // Reset pagination
+                produkPageSnapshots = [];
+                produkCurrentPageIndex = 0;
+                produkLastVisible = null;
+                produkFirstVisible = null;
+                loadProdukPage('next');
+                updateTotalSKUCount();
             }
         });
 
         // ========== EDIT PRODUK ==========
         window.editProduk = async (id) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             try {
                 const produkRef = doc(produkCol, id);
                 const produkSnap = await getDoc(produkRef);
@@ -2185,10 +2085,6 @@
         };
 
         window.hapusProduk = async (id) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             if (!confirm('Yakin hapus produk?')) return;
             try {
                 const batch = writeBatch(dbCloud);
@@ -2219,36 +2115,35 @@
                 });
 
                 await batch.commit();
-                updateTotalSKUCount();
+                updateTotalSKUCount(); // update setelah hapus
             } catch (error) {
                 alert('Gagal hapus: ' + error.message);
             }
         };
 
-        // ========== SIMPAN PRODUK (DENGAN PENGECEKAN LOGIN FIREBASE) ==========
+        // ========== SIMPAN PRODUK ==========
         document.getElementById('formTambahProduk').addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            // CEK APAKAH USER SUDAH LOGIN KE FIREBASE
-            if (!auth.currentUser) {
-                alert('Anda harus login ke Firebase terlebih dahulu.\nKlik tombol "Login" di pojok kanan atas, lalu pilih akun Google Anda.\nSetelah login, ulangi penyimpanan produk.');
-                return;
-            }
-
             const produkId = produkIdInput.value;
+
+            const namaInput = document.getElementById('namaProduk').value;
+            const kodeInput = document.getElementById('kodeProduk').value;
+            const barcodeInput = document.getElementById('barcodeProduk').value;
 
             // Hitung total stok dari varian (jika ada)
             let totalStokDariVarian = 0;
             const varianRows = document.querySelectorAll('.varian-row');
-            for (let row of varianRows) {
-                const stok = parseInt(row.querySelector('.stokVarian').value) || 0;
-                totalStokDariVarian += stok;
+            if (varianRows.length > 0) {
+                for (let row of varianRows) {
+                    const stok = parseInt(row.querySelector('.stokVarian').value) || 0;
+                    totalStokDariVarian += stok;
+                }
             }
 
             const produkData = {
-                nama: document.getElementById('namaProduk').value.toLowerCase(),
-                kode: document.getElementById('kodeProduk').value.toLowerCase(),
-                barcode: document.getElementById('barcodeProduk').value.toLowerCase(),
+                nama: namaInput.toLowerCase(),
+                kode: kodeInput.toLowerCase(),
+                barcode: barcodeInput.toLowerCase(),
                 kategoriId: document.getElementById('kategoriId').value,
                 hargaDasar: parseFloat(document.getElementById('hargaDasar').value),
                 hargaJual: parseFloat(document.getElementById('hargaJual').value),
@@ -2373,7 +2268,7 @@
                 }
 
                 alert(produkId ? 'Produk berhasil diperbarui' : 'Produk berhasil ditambahkan');
-                updateTotalSKUCount();
+                updateTotalSKUCount(); // update setelah tambah/edit
 
                 e.target.reset();
                 varianContainer.innerHTML = '';
@@ -2495,15 +2390,15 @@
         });
 
         // ========== FUNGSI TRANSFER DAN COPY ==========
+        // Modal transfer
+        const transferModal = document.getElementById('transferModal');
+        const transferContent = document.getElementById('transferContent');
+        const transferSubmit = document.getElementById('transferSubmit');
         let transferProdukId = null;
         let transferProdukData = null;
         let transferVarians = [];
 
         window.openTransferModal = async (produkId) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             transferProdukId = produkId;
             try {
                 const produkRef = doc(produkCol, produkId);
@@ -2511,9 +2406,11 @@
                 if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
                 transferProdukData = produkSnap.data();
 
+                // Ambil varian
                 const varianSnap = await getDocs(query(varianCol, where('produkId', '==', produkId), where('deleted', '==', false)));
                 transferVarians = varianSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
+                // Tampilkan form transfer
                 let html = `
                     <div class="transfer-item">
                         <label>Produk: ${transferProdukData.nama}</label>
@@ -2565,10 +2462,6 @@
         };
 
         transferSubmit.addEventListener('click', async () => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             if (!transferProdukId || !transferProdukData) return;
             const gudangTujuanId = document.getElementById('transferGudangTujuan').value;
             if (!gudangTujuanId) {
@@ -2578,6 +2471,7 @@
             const autoCreate = document.getElementById('transferAutoCreate')?.checked || false;
 
             try {
+                // Cek apakah produk sudah ada di gudang tujuan (berdasarkan nama)
                 let produkTujuanRef = null;
                 const produkTujuanQuery = query(
                     produkCol,
@@ -2589,6 +2483,7 @@
                 if (!produkTujuanSnap.empty) {
                     produkTujuanRef = doc(produkCol, produkTujuanSnap.docs[0].id);
                 } else if (autoCreate) {
+                    // Copy produk ke tujuan
                     const newProdukData = { ...transferProdukData };
                     delete newProdukData.createdAt;
                     delete newProdukData.updatedAt;
@@ -2599,6 +2494,7 @@
                     newProdukData.deleted = false;
                     const newProdukRef = await addDoc(produkCol, newProdukData);
 
+                    // Copy varian
                     for (let v of transferVarians) {
                         const newVarian = { ...v };
                         delete newVarian.id;
@@ -2618,10 +2514,15 @@
                     return;
                 }
 
+                // Proses transfer stok
                 const batch = writeBatch(dbCloud);
+                
+                // Deklarasi transferDetails
                 let transferDetails = [];
 
+                // Kurangi stok sumber
                 if (transferVarians.length > 0) {
+                    // Kurangi stok per varian
                     const qtyInputs = document.querySelectorAll('.transfer-qty-varian');
                     for (let input of qtyInputs) {
                         const qty = parseInt(input.value) || 0;
@@ -2630,15 +2531,18 @@
                             const max = parseInt(input.dataset.max);
                             if (qty > max) throw new Error(`Jumlah transfer melebihi stok varian`);
 
+                            // Kurangi stok varian sumber
                             const varianRef = doc(varianCol, varianId);
                             batch.update(varianRef, { stok: increment(-qty), updatedAt: serverTimestamp() });
 
+                            // Tambah stok varian tujuan (cari varian dengan nama sama)
                             const varianTujuanQuery = query(varianCol, where('produkId', '==', produkTujuanRef.id), where('namaVarian', '==', transferVarians.find(v => v.id === varianId)?.namaVarian), where('deleted', '==', false));
                             const varianTujuanSnap = await getDocs(varianTujuanQuery);
                             if (!varianTujuanSnap.empty) {
                                 const varianTujuanRef = doc(varianCol, varianTujuanSnap.docs[0].id);
                                 batch.update(varianTujuanRef, { stok: increment(qty), updatedAt: serverTimestamp() });
                             } else {
+                                // Buat varian baru di tujuan
                                 const sourceVarian = transferVarians.find(v => v.id === varianId);
                                 const newVarian = { ...sourceVarian };
                                 delete newVarian.id;
@@ -2665,12 +2569,16 @@
                     if (qty <= 0) throw new Error('Jumlah transfer harus lebih dari 0');
                     if (qty > (transferProdukData.stokAwal || 0)) throw new Error('Jumlah transfer melebihi stok');
 
+                    // Kurangi stok sumber
                     batch.update(doc(produkCol, transferProdukId), { stokAwal: increment(-qty), updatedAt: serverTimestamp() });
+
+                    // Tambah stok tujuan
                     batch.update(produkTujuanRef, { stokAwal: increment(qty), updatedAt: serverTimestamp() });
 
                     transferDetails = [{ qty }];
                 }
 
+                // Catat history transfer
                 const historyData = {
                     produkId: transferProdukId,
                     produkNama: transferProdukData.nama,
@@ -2691,21 +2599,21 @@
 
                 alert('Transfer stok berhasil');
                 closeTransferModal();
-                updateTotalSKUCount();
+                loadProdukPage('next');
+                updateTotalSKUCount(); // update total SKU setelah transfer
             } catch (error) {
                 alert('Gagal transfer: ' + error.message);
             }
         });
 
-        // Copy produk
+        // Modal copy produk
+        const copyModal = document.getElementById('copyModal');
+        const copyContent = document.getElementById('copyContent');
+        const copySubmit = document.getElementById('copySubmit');
         let copyProdukId = null;
         let copyProdukData = null;
 
         window.openCopyModal = async (produkId) => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             copyProdukId = produkId;
             try {
                 const produkRef = doc(produkCol, produkId);
@@ -2741,10 +2649,6 @@
         };
 
         copySubmit.addEventListener('click', async () => {
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu.');
-                return;
-            }
             if (!copyProdukId || !copyProdukData) return;
             const gudangTujuanId = document.getElementById('copyGudangTujuan').value;
             if (!gudangTujuanId) {
@@ -2756,6 +2660,7 @@
             try {
                 const batch = writeBatch(dbCloud);
 
+                // Buat produk baru
                 const newProdukData = { ...copyProdukData };
                 delete newProdukData.createdAt;
                 delete newProdukData.updatedAt;
@@ -2767,6 +2672,7 @@
                 const newProdukRef = doc(produkCol);
                 batch.set(newProdukRef, newProdukData);
 
+                // Copy varian
                 const varianSnap = await getDocs(query(varianCol, where('produkId', '==', copyProdukId), where('deleted', '==', false)));
                 for (let vDoc of varianSnap.docs) {
                     const v = vDoc.data();
@@ -2782,6 +2688,7 @@
                     batch.set(newVarianRef, newVarian);
                 }
 
+                // Copy konversi
                 const konvSnap = await getDocs(query(konversiCol, where('produkId', '==', copyProdukId), where('deleted', '==', false)));
                 for (let kDoc of konvSnap.docs) {
                     const k = kDoc.data();
@@ -2796,6 +2703,7 @@
                     batch.set(newKonvRef, newKonv);
                 }
 
+                // Copy qty break
                 const qtySnap = await getDocs(query(qtyCol, where('produkId', '==', copyProdukId), where('deleted', '==', false)));
                 for (let qDoc of qtySnap.docs) {
                     const q = qDoc.data();
@@ -2810,6 +2718,7 @@
                     batch.set(newQRef, newQ);
                 }
 
+                // Copy paket
                 const paketSnap = await getDocs(query(paketCol, where('produkId', '==', copyProdukId), where('deleted', '==', false)));
                 for (let pDoc of paketSnap.docs) {
                     const p = pDoc.data();
@@ -2824,6 +2733,7 @@
                     batch.set(newPRef, newP);
                 }
 
+                // Catat history copy
                 const historyData = {
                     produkId: copyProdukId,
                     produkNama: copyProdukData.nama,
@@ -2841,7 +2751,8 @@
 
                 alert('Produk berhasil dicopy ke gudang tujuan');
                 closeCopyModal();
-                updateTotalSKUCount();
+                loadProdukPage('next');
+                updateTotalSKUCount(); // update total SKU setelah copy
             } catch (error) {
                 alert('Gagal copy produk: ' + error.message);
             }
@@ -2849,10 +2760,12 @@
 
         // ========== PAGINATION HISTORY ==========
         let historyLastVisible = null;
+        let historyFirstVisible = null;
         let historyPageSnapshots = [];
         let historyCurrentPageIndex = 0;
         const historyPageSize = 10;
         let historyTypeFilter = '';
+        let historySearchTerm = '';
 
         function buildHistoryBaseQuery() {
             let constraints = [orderBy('timestamp', 'desc')];
@@ -2875,6 +2788,7 @@
                         renderHistoryTable(prevSnapshot.docs);
                         historyCurrentPageIndex--;
                         historyLastVisible = prevSnapshot.docs[prevSnapshot.docs.length - 1];
+                        historyFirstVisible = prevSnapshot.docs[0];
                         document.getElementById('pageInfoHistory').textContent = `Halaman ${historyCurrentPageIndex + 1}`;
                         document.getElementById('prevPageHistory').disabled = historyCurrentPageIndex === 0;
                         document.getElementById('nextPageHistory').disabled = prevSnapshot.docs.length < historyPageSize;
@@ -2890,6 +2804,7 @@
                     historyCurrentPageIndex = historyPageSnapshots.length - 1;
                 }
                 historyLastVisible = docs[docs.length - 1];
+                historyFirstVisible = docs[0];
 
                 renderHistoryTable(docs);
 
@@ -2898,7 +2813,7 @@
                 document.getElementById('nextPageHistory').disabled = docs.length < historyPageSize;
             } catch (error) {
                 console.error('Gagal memuat history:', error);
-                document.getElementById('historyTransferBody').innerHTML = `<tr><td colspan="7" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+                document.getElementById('historyTransferBody').innerHTML = ` <td colspan="7" style="color:red;">Gagal memuat: ${error.message} </td>`;
             }
         }
 
@@ -2940,6 +2855,7 @@
             feather.replace();
         }
 
+        // Filter history
         document.getElementById('historyTypeFilter')?.addEventListener('change', (e) => {
             historyTypeFilter = e.target.value;
             historyPageSnapshots = [];
@@ -2948,10 +2864,16 @@
             loadHistoryPage('next');
         });
 
+        document.getElementById('historySearch')?.addEventListener('input', (e) => {
+            historySearchTerm = e.target.value.toLowerCase();
+            // Implementasi pencarian bisa ditambahkan di sini
+        });
+
         document.getElementById('clearHistoryFilter')?.addEventListener('click', () => {
             document.getElementById('historyTypeFilter').value = '';
             document.getElementById('historySearch').value = '';
             historyTypeFilter = '';
+            historySearchTerm = '';
             historyPageSnapshots = [];
             historyCurrentPageIndex = 0;
             historyLastVisible = null;
@@ -2966,15 +2888,44 @@
             loadHistoryPage('next');
         });
 
-        // ========== UPDATE TOTAL SKU ==========
-        function updateTotalSKUCount() {
+        // ========== FUNGSI UPDATE TOTAL SKU ==========
+        async function updateTotalSKUCount() {
             if (!sections.daftarProduk.classList.contains('active')) return;
-            totalSKUElement.textContent = `Total SKU: ${filteredProdukList.length}`;
+            try {
+                let constraints = [where('deleted', '==', false)];
+                if (selectedGudangFilter) {
+                    constraints.push(where('gudangId', '==', selectedGudangFilter));
+                }
+                const searchTerm = produkSearchTerm.toLowerCase().trim();
+                if (searchTerm) {
+                    // Untuk pencarian, kita lakukan query multi-field dan hitung jumlah unik
+                    const fields = ['nama', 'kode', 'barcode'];
+                    const queries = fields.map(field => {
+                        return query(produkCol, ...constraints, where(field, '>=', searchTerm), where(field, '<=', searchTerm + '\uf8ff'));
+                    });
+                    const snapshots = await Promise.all(queries.map(q => getDocs(q)));
+                    const idSet = new Set();
+                    snapshots.forEach(snap => {
+                        snap.docs.forEach(doc => idSet.add(doc.id));
+                    });
+                    const total = idSet.size;
+                    totalSKUElement.textContent = `Total SKU: ${total}`;
+                } else {
+                    // Tanpa pencarian, hitung jumlah langsung dengan query
+                    const q = query(produkCol, ...constraints);
+                    const snapshot = await getDocs(q);
+                    totalSKUElement.textContent = `Total SKU: ${snapshot.size}`;
+                }
+            } catch (error) {
+                console.error('Gagal menghitung total SKU:', error);
+                totalSKUElement.textContent = 'Total SKU: --';
+            }
         }
 
-        // ========== EXPORT / IMPORT EXCEL (tetap sama, tanpa pengecekan auth karena read only) ==========
+        // ========== EXPORT KE EXCEL (TIDAK MENGGUNAKAN ID) ==========
         async function exportToExcel() {
             try {
+                // Ambil data master
                 const kategoriSnap = await getDocs(query(kategoriCol, where('deleted', '==', false)));
                 const kategoriList = kategoriSnap.docs.map(doc => ({ nama: doc.data().nama }));
                 const unitSnap = await getDocs(query(unitCol, where('deleted', '==', false)));
@@ -2982,9 +2933,10 @@
                 const gudangSnap = await getDocs(query(gudangCol, where('deleted', '==', false)));
                 const gudangList = gudangSnap.docs.map(doc => ({ nama: doc.data().nama, kode: doc.data().kode, lokasi: doc.data().lokasi, kapasitas: doc.data().kapasitas }));
 
+                // Ambil data produk
                 const produkSnap = await getDocs(query(produkCol, where('deleted', '==', false)));
                 const produkList = [];
-                const produkMap = new Map();
+                const produkMap = new Map(); // id -> { nama, gudangId }
                 for (const doc of produkSnap.docs) {
                     const data = doc.data();
                     produkMap.set(doc.id, { nama: data.nama, gudangId: data.gudangId });
@@ -3005,6 +2957,7 @@
                     });
                 }
 
+                // Varian
                 const varianSnap = await getDocs(query(varianCol, where('deleted', '==', false)));
                 const varianList = [];
                 for (const vDoc of varianSnap.docs) {
@@ -3024,6 +2977,7 @@
                     });
                 }
 
+                // Konversi
                 const konversiSnap = await getDocs(query(konversiCol, where('deleted', '==', false)));
                 const konversiList = [];
                 for (const kDoc of konversiSnap.docs) {
@@ -3044,6 +2998,7 @@
                     });
                 }
 
+                // Qty Break
                 const qtySnap = await getDocs(query(qtyCol, where('deleted', '==', false)));
                 const qtyList = [];
                 for (const qDoc of qtySnap.docs) {
@@ -3059,6 +3014,7 @@
                     });
                 }
 
+                // Paket
                 const paketSnap = await getDocs(query(paketCol, where('deleted', '==', false)));
                 const paketList = [];
                 for (const pDoc of paketSnap.docs) {
@@ -3074,15 +3030,24 @@
                     });
                 }
 
+                const wsKategori = XLSX.utils.json_to_sheet(kategoriList);
+                const wsUnit = XLSX.utils.json_to_sheet(unitList);
+                const wsGudang = XLSX.utils.json_to_sheet(gudangList);
+                const wsProduk = XLSX.utils.json_to_sheet(produkList);
+                const wsVarian = XLSX.utils.json_to_sheet(varianList);
+                const wsKonversi = XLSX.utils.json_to_sheet(konversiList);
+                const wsQty = XLSX.utils.json_to_sheet(qtyList);
+                const wsPaket = XLSX.utils.json_to_sheet(paketList);
+
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(produkList), 'Produk');
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(varianList), 'Varian');
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(konversiList), 'Konversi');
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(qtyList), 'QtyBreak');
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(paketList), 'Paket');
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(kategoriList), 'Kategori');
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(unitList), 'Unit');
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(gudangList), 'Gudang');
+                XLSX.utils.book_append_sheet(wb, wsProduk, 'Produk');
+                XLSX.utils.book_append_sheet(wb, wsVarian, 'Varian');
+                XLSX.utils.book_append_sheet(wb, wsKonversi, 'Konversi');
+                XLSX.utils.book_append_sheet(wb, wsQty, 'QtyBreak');
+                XLSX.utils.book_append_sheet(wb, wsPaket, 'Paket');
+                XLSX.utils.book_append_sheet(wb, wsKategori, 'Kategori');
+                XLSX.utils.book_append_sheet(wb, wsUnit, 'Unit');
+                XLSX.utils.book_append_sheet(wb, wsGudang, 'Gudang');
 
                 XLSX.writeFile(wb, `master_data_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`);
                 alert('Export berhasil');
@@ -3092,12 +3057,9 @@
             }
         }
 
+        // ========== IMPORT DARI EXCEL (TIDAK MENGGUNAKAN ID) ==========
         async function importFromExcel(file) {
             if (!file) return;
-            if (!auth.currentUser) {
-                alert('Anda harus login Firebase terlebih dahulu untuk mengimpor data.');
-                return;
-            }
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const data = new Uint8Array(e.target.result);
@@ -3126,6 +3088,7 @@
 
                     if (!confirm(`Import akan memproses ${produkRows.length} produk. Lanjutkan?`)) return;
 
+                    // Map nama ke ID untuk kategori, unit, gudang
                     const kategoriMapImport = new Map();
                     for (const row of kategoriRows) {
                         const nama = row.nama;
@@ -3195,21 +3158,33 @@
                         gudangMapImport.set(nama, id);
                     }
 
+                    // Map key produk (nama_produk|gudang_nama) -> produkId
                     const produkKeyMap = new Map();
 
+                    // Proses produk
                     for (const row of produkRows) {
                         const namaProduk = row.nama;
                         const gudangNama = row.gudangNama;
-                        if (!namaProduk || !gudangNama) continue;
+                        if (!namaProduk || !gudangNama) {
+                            console.warn('Produk tanpa nama atau gudang:', row);
+                            continue;
+                        }
                         const kategoriNama = row.kategoriNama;
                         const unitNama = row.unitNama;
-                        if (!kategoriNama || !unitNama) continue;
+                        if (!kategoriNama || !unitNama) {
+                            console.warn('Produk tanpa kategori atau unit:', row);
+                            continue;
+                        }
                         const kategoriId = kategoriMapImport.get(kategoriNama);
                         const unitId = unitMapImport.get(unitNama);
                         const gudangId = gudangMapImport.get(gudangNama);
-                        if (!kategoriId || !unitId || !gudangId) continue;
+                        if (!kategoriId || !unitId || !gudangId) {
+                            console.warn('Referensi kategori/unit/gudang tidak ditemukan untuk produk:', namaProduk);
+                            continue;
+                        }
 
                         const key = `${namaProduk}|${gudangNama}`;
+                        // Cek apakah produk sudah ada
                         const existingQuery = query(produkCol, where('nama', '==', namaProduk.toLowerCase()), where('gudangId', '==', gudangId), where('deleted', '==', false));
                         const existingSnap = await getDocs(existingQuery);
                         let produkRef;
@@ -3251,6 +3226,7 @@
                         }
                         produkKeyMap.set(key, produkRef.id);
 
+                        // Hapus data terkait yang lama (varian, konversi, qty, paket) untuk produk ini
                         const varianSnapOld = await getDocs(query(varianCol, where('produkId', '==', produkRef.id), where('deleted', '==', false)));
                         for (const vDoc of varianSnapOld.docs) {
                             await setDoc(vDoc.ref, { deleted: true, updatedAt: serverTimestamp() }, { merge: true });
@@ -3269,13 +3245,17 @@
                         }
                     }
 
+                    // Proses varian
                     for (const row of varianRows) {
                         const produkNama = row.produkNama;
                         const gudangNama = row.gudangNama;
                         if (!produkNama || !gudangNama) continue;
                         const key = `${produkNama}|${gudangNama}`;
                         const produkId = produkKeyMap.get(key);
-                        if (!produkId) continue;
+                        if (!produkId) {
+                            console.warn('Varian: produk tidak ditemukan untuk', produkNama, gudangNama);
+                            continue;
+                        }
                         await addDoc(varianCol, {
                             produkId: produkId,
                             namaVarian: row.namaVarian || '',
@@ -3291,17 +3271,24 @@
                         });
                     }
 
+                    // Proses konversi
                     for (const row of konversiRows) {
                         const produkNama = row.produkNama;
                         const gudangNama = row.gudangNama;
                         if (!produkNama || !gudangNama) continue;
                         const key = `${produkNama}|${gudangNama}`;
                         const produkId = produkKeyMap.get(key);
-                        if (!produkId) continue;
+                        if (!produkId) {
+                            console.warn('Konversi: produk tidak ditemukan untuk', produkNama, gudangNama);
+                            continue;
+                        }
                         const unitNama = row.unitNama;
                         if (!unitNama) continue;
                         const unitId = unitMapImport.get(unitNama);
-                        if (!unitId) continue;
+                        if (!unitId) {
+                            console.warn('Konversi: unit tidak ditemukan', unitNama);
+                            continue;
+                        }
                         await addDoc(konversiCol, {
                             produkId: produkId,
                             unitId: unitId,
@@ -3318,13 +3305,17 @@
                         });
                     }
 
+                    // Proses qty break
                     for (const row of qtyRows) {
                         const produkNama = row.produkNama;
                         const gudangNama = row.gudangNama;
                         if (!produkNama || !gudangNama) continue;
                         const key = `${produkNama}|${gudangNama}`;
                         const produkId = produkKeyMap.get(key);
-                        if (!produkId) continue;
+                        if (!produkId) {
+                            console.warn('QtyBreak: produk tidak ditemukan untuk', produkNama, gudangNama);
+                            continue;
+                        }
                         await addDoc(qtyCol, {
                             produkId: produkId,
                             level: row.level || '',
@@ -3336,13 +3327,17 @@
                         });
                     }
 
+                    // Proses paket
                     for (const row of paketRows) {
                         const produkNama = row.produkNama;
                         const gudangNama = row.gudangNama;
                         if (!produkNama || !gudangNama) continue;
                         const key = `${produkNama}|${gudangNama}`;
                         const produkId = produkKeyMap.get(key);
-                        if (!produkId) continue;
+                        if (!produkId) {
+                            console.warn('Paket: produk tidak ditemukan untuk', produkNama, gudangNama);
+                            continue;
+                        }
                         await addDoc(paketCol, {
                             produkId: produkId,
                             qty: row.qty || 0,
@@ -3355,6 +3350,8 @@
                     }
 
                     alert('Import selesai');
+                    loadProdukPage('next');
+                    updateTotalSKUCount();
                     await loadDataForModals();
                 } catch (error) {
                     console.error(error);
@@ -3364,14 +3361,18 @@
             reader.readAsArrayBuffer(file);
         }
 
+        // Event listener untuk tombol export
         document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
-        document.getElementById('importExcelBtn').addEventListener('click', () => {
-            document.getElementById('importFileInput').click();
+        // Event listener untuk tombol import
+        const importBtn = document.getElementById('importExcelBtn');
+        const importFileInput = document.getElementById('importFileInput');
+        importBtn.addEventListener('click', () => {
+            importFileInput.click();
         });
-        document.getElementById('importFileInput').addEventListener('change', (e) => {
+        importFileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 importFromExcel(e.target.files[0]);
-                e.target.value = '';
+                importFileInput.value = ''; // reset
             }
         });
 
@@ -3383,9 +3384,23 @@
             subscribeDaftarKategori();
             subscribeDaftarUnit();
             subscribeDaftarGudang();
-            initProdukSnapshot();
-            initVarianSnapshot();
-            loadHistoryPage('next');
+
+            if (sections.daftarProduk.classList.contains('active')) {
+                loadProdukPage('next');
+                updateTotalSKUCount();
+            }
+            if (sections.daftarKategori.classList.contains('active') && lastKategoriDocs.length > 0) {
+                renderKategoriTable(lastKategoriDocs);
+            }
+            if (sections.daftarUnit.classList.contains('active') && lastUnitDocs.length > 0) {
+                renderUnitTable(lastUnitDocs);
+            }
+            if (sections.daftarGudang.classList.contains('active') && lastGudangDocs.length > 0) {
+                renderGudangTable(lastGudangDocs);
+            }
+            if (sections.historyTransfer.classList.contains('active')) {
+                loadHistoryPage('next');
+            }
         }
     </script>
 </body>
