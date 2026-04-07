@@ -765,10 +765,10 @@
                 <button class="btn" id="clearSearchKategori">Clear</button>
             </div>
             <div class="table-responsive">
-                <tr><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
+                <table><thead><tr><th>Nama</th><th>Aksi</th></tr></thead>
                 <tbody id="daftarKategoriBody"><tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr></tbody>
-            </table>
-        </div>
+                </table>
+            </div>
 
         <!-- ========== SECTION TAMBAH UNIT ========== -->
         <div id="tambahUnitSection" class="content-section">
@@ -1425,7 +1425,7 @@
                 filtered = docs.filter(doc => doc.data().nama.toLowerCase().includes(term));
             }
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Tidak ada数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Tidak ada data</td></tr>';
             } else {
                 tbody.innerHTML = filtered.map(doc => {
                     const data = doc.data();
@@ -1877,7 +1877,7 @@
                 // Tanpa pencarian: gunakan query biasa
                 let q = query(baseQuery, limit(produkPageSize));
                 if (direction === 'next' && produkLastVisible) {
-                    q = query(q, startAfter(produkLastVisible));
+                    q = query(baseQuery, limit(produkPageSize), startAfter(produkLastVisible));
                 } else if (direction === 'prev' && produkCurrentPageIndex > 0) {
                     return { type: 'normal', useSnapshot: true };
                 }
@@ -1890,13 +1890,26 @@
                     let q = query(baseQuery, limit(produkPageSize));
                     return { type: 'normal', query: q };
                 }
+                // Catatan: array-contains tidak bisa dikombinasikan dengan startAfter tanpa
+                // orderBy yang kompatibel. Untuk search, kita load semua hasil lalu paginate di client.
                 let q = query(
-                    baseQuery,
+                    produkCol,
+                    where('deleted', '==', false),
+                    ...(selectedGudangFilter ? [where('gudangId', '==', selectedGudangFilter)] : []),
                     where('searchKeywords', 'array-contains', firstToken),
+                    orderBy('nama'),
                     limit(produkPageSize)
                 );
                 if (direction === 'next' && produkLastVisible) {
-                    q = query(q, startAfter(produkLastVisible));
+                    q = query(
+                        produkCol,
+                        where('deleted', '==', false),
+                        ...(selectedGudangFilter ? [where('gudangId', '==', selectedGudangFilter)] : []),
+                        where('searchKeywords', 'array-contains', firstToken),
+                        orderBy('nama'),
+                        startAfter(produkLastVisible),
+                        limit(produkPageSize)
+                    );
                 } else if (direction === 'prev' && produkCurrentPageIndex > 0) {
                     return { type: 'search', useSnapshot: true };
                 }
