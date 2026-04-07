@@ -1122,7 +1122,7 @@
                 closeSidebarFunc();
             }
             if (sectionName === 'daftarProduk') {
-                loadProdukPage('next');
+                resetAndLoadProduk();
                 updateTotalSKUCount();
             } else if (sectionName === 'daftarKategori' && lastKategoriDocs.length > 0) {
                 renderKategoriTable(lastKategoriDocs);
@@ -1854,6 +1854,15 @@
         let produkSearchTerm = '';
         let produkUnsubscribe = null; // untuk real-time listener
 
+        // Helper: reset semua state pagination lalu muat halaman pertama
+        function resetAndLoadProduk() {
+            produkPageSnapshots = [];
+            produkCurrentPageIndex = 0;
+            produkLastVisible = null;
+            produkFirstVisible = null;
+            loadProdukPage('next');
+        }
+
         function buildProdukBaseQuery() {
             let constraints = [where('deleted', '==', false)];
             if (selectedGudangFilter) {
@@ -2039,14 +2048,15 @@
                 constraints.push(where('gudangId', '==', selectedGudangFilter));
             }
             const q = query(produkCol, ...constraints);
+            let isFirstSnapshot = true; // snapshot pertama selalu terpanggil saat listener didaftarkan
             produkRealtimeUnsubscribe = onSnapshot(q, () => {
-                // Ketika ada perubahan, reload halaman saat ini
+                if (isFirstSnapshot) {
+                    isFirstSnapshot = false;
+                    return; // abaikan — data sudah dimuat via loadProdukPage
+                }
+                // Hanya reload jika ada perubahan nyata setelah inisialisasi
                 if (sections.daftarProduk.classList.contains('active')) {
-                    // Reset pagination dan muat ulang
-                    produkPageSnapshots = [];
-                    produkCurrentPageIndex = 0;
-                    produkLastVisible = null;
-                    loadProdukPage('next');
+                    resetAndLoadProduk();
                     updateTotalSKUCount();
                 }
             }, (error) => {
@@ -2057,20 +2067,14 @@
         // Event listener pencarian produk
         document.getElementById('searchProduk').addEventListener('input', (e) => {
             produkSearchTerm = e.target.value;
-            produkPageSnapshots = [];
-            produkCurrentPageIndex = 0;
-            produkLastVisible = null;
-            loadProdukPage('next');
+            resetAndLoadProduk();
             updateTotalSKUCount();
         });
 
         document.getElementById('clearSearchProduk').addEventListener('click', () => {
             document.getElementById('searchProduk').value = '';
             produkSearchTerm = '';
-            produkPageSnapshots = [];
-            produkCurrentPageIndex = 0;
-            produkLastVisible = null;
-            loadProdukPage('next');
+            resetAndLoadProduk();
             updateTotalSKUCount();
         });
 
@@ -2085,10 +2089,7 @@
         // Filter gudang
         document.getElementById('filterGudang')?.addEventListener('change', (e) => {
             selectedGudangFilter = e.target.value;
-            produkPageSnapshots = [];
-            produkCurrentPageIndex = 0;
-            produkLastVisible = null;
-            loadProdukPage('next');
+            resetAndLoadProduk();
             updateTotalSKUCount();
             startProdukRealtimeListener(); // restart realtime listener dengan filter baru
         });
@@ -2097,10 +2098,7 @@
             const select = document.getElementById('filterGudang');
             if (select) select.value = '';
             selectedGudangFilter = '';
-            produkPageSnapshots = [];
-            produkCurrentPageIndex = 0;
-            produkLastVisible = null;
-            loadProdukPage('next');
+            resetAndLoadProduk();
             updateTotalSKUCount();
             startProdukRealtimeListener();
         });
@@ -3122,7 +3120,7 @@
             subscribeDaftarUnit();
             subscribeDaftarGudang();
             if (sections.daftarProduk.classList.contains('active')) {
-                loadProdukPage('next');
+                resetAndLoadProduk();
                 startProdukRealtimeListener();
                 updateTotalSKUCount();
             }
