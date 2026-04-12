@@ -505,6 +505,10 @@
             });
         }
 
+        // PENTING: Inisialisasi IndexedDB segera, sebelum elemen UI diatur
+        await initLocalDB();
+        console.log('IndexedDB siap digunakan.');
+
         // Elemen login lokal
         const loginLocalModal = document.getElementById('loginLocalModal');
         const localUsername = document.getElementById('localUsername');
@@ -533,20 +537,32 @@
         }
 
         localLoginSubmit.addEventListener('click', async () => {
-            const username = localUsername.value;
+            const username = localUsername.value.trim();
             const password = localPassword.value;
-            const user = await verifyLocalUser(username, password);
-            if (user) {
-                sessionStorage.setItem('localUser', JSON.stringify(user));
-                localUser = user;
-                localUserNameSpan.textContent = user.name;
-                localLogoutBtn.style.display = 'inline-block';
-                localUserInfo.style.display = 'flex';
-                loginLocalModal.style.display = 'none';
-                mainContent.style.display = 'block';
-                location.reload();
-            } else {
+            if (!username || !password) {
                 loginLocalError.style.display = 'block';
+                loginLocalError.textContent = 'Username dan password harus diisi';
+                return;
+            }
+            try {
+                const user = await verifyLocalUser(username, password);
+                if (user) {
+                    sessionStorage.setItem('localUser', JSON.stringify(user));
+                    localUser = user;
+                    localUserNameSpan.textContent = user.name;
+                    localLogoutBtn.style.display = 'inline-block';
+                    localUserInfo.style.display = 'flex';
+                    loginLocalModal.style.display = 'none';
+                    mainContent.style.display = 'block';
+                    location.reload();
+                } else {
+                    loginLocalError.style.display = 'block';
+                    loginLocalError.textContent = 'Username atau password salah';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                loginLocalError.style.display = 'block';
+                loginLocalError.textContent = 'Terjadi kesalahan, coba lagi';
             }
         });
 
@@ -1117,7 +1133,7 @@
 
         // Initial load
         if (localUser) {
-            await initLocalDB();
+            // Database sudah diinisialisasi di atas, tidak perlu dipanggil lagi
             await loadCustomers();
             await loadPrinterConfig();
             initPrinterConnection();
