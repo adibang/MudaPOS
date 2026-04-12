@@ -1853,17 +1853,7 @@
                             headerText: data.printerConfig.headerText || 'TOKO MUDA',
                             infoText: data.printerConfig.infoText || '',
                             footerText: data.printerConfig.footerText || 'Terima Kasih',
-                            footerLines: footerLines
-                        };
-                    }
-                }
-            } catch (error) {
-                console.error('Gagal memuat printer config, menggunakan default:', error);
-            }
-        }
-
-        // ========== FUNGSI PRINTER (DIPERBAIKI) ==========
-        function savePrinterConnection() {
+              function savePrinterConnection() {
             try {
                 const connectionData = {
                     isPrinterConnected: isPrinterConnected,
@@ -1929,103 +1919,221 @@
                 if (printerPort.readable || printerPort.writable) {
                     printerWriter = printerPort.writable.getWriter();
                     updatePrinterStatus(true);
-                    reconnectAttempts = 0;
-                    printerPort.addEventListener('disconnect', handlePrinterDisconnect);
-                    console.log('Auto-reconnect berhasil (port sudah terbuka)');
-                    return;
+                    reco              footerLines: footerLines
+                        };
+                    }
                 }
+            } catch (error) {
+                console.error('Gagal memuat printer config, menggunakan default:', error);
+            }
+        }
 
-                await printerPort.open({ baudRate: 9600 });
-                printerWriter = printerPort.writable.getWriter();
+        // ========== FUNGSI PRINTER (DIPERBAIKI) ==========
+        // ========== FUNGSI PRINTER (DIPERBAIKI) ==========
+function savePrinterConnection() {
+    try {
+        const connectionData = {
+            isPrinterConnected: isPrinterConnected,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem('printerConnection', JSON.stringify(connectionData));
+    } catch (e) {
+        console.error('Gagal menyimpan status printer:', e);
+    }
+}
+
+function updatePrinterStatus(connected) {
+    isPrinterConnected = connected;
+    if (connected) {
+        printerStatusLight.classList.add('connected');
+        printerStatusText.textContent = 'Online';
+        connectBtnText.textContent = 'Disconnect';
+        printReceiptBtn.disabled = false;
+    } else {
+        printerStatusLight.classList.remove('connected');
+        printerStatusText.textContent = 'Offline';
+        connectBtnText.textContent = 'Connect';
+        printReceiptBtn.disabled = true;
+    }
+    savePrinterConnection();
+}
+
+function handlePrinterDisconnect() {
+    if (printerWriter) {
+        try { printerWriter.releaseLock(); } catch (e) {}
+        printerWriter = null;
+    }
+    if (printerPort) {
+        try { printerPort.close(); } catch (e) {}
+        printerPort = null;
+    }
+    updatePrinterStatus(false);
+    localStorage.removeItem('printerConnection');
+    reconnectAttempts = 0;
+}
+
+async function autoReconnectPrinter() {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.warn('Batas reconnect tercapai');
+        return;
+    }
+
+    try {
+        if (!("serial" in navigator)) {
+            console.warn('Web Serial API tidak didukung');
+            return;
+        }
+
+        const ports = await navigator.serial.getPorts();
+        if (ports.length === 0) {
+            console.log('Tidak ada port tersimpan, perlu koneksi manual');
+            return;
+        }
+
+        printerPort = ports[0];
+
+        // Cek apakah port sudah terbuka
+        try {
+            // Jika port sudah terbuka, readable/writable akan tersedia
+            if (printerPort.readable || printerPort.writable) {
+                // Port sudah terbuka, gunakan writer yang ada
+                if (!printerWriter) {
+                    printerWriter = printerPort.writable.getWriter();
+                }
                 updatePrinterStatus(true);
                 reconnectAttempts = 0;
                 printerPort.addEventListener('disconnect', handlePrinterDisconnect);
-                console.log('Auto-reconnect berhasil');
-            } catch (error) {
-                console.error('Auto-reconnect error:', error);
-                reconnectAttempts++;
-                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                    setTimeout(() => autoReconnectPrinter(), 2000);
-                } else {
-                    updatePrinterStatus(false);
-                    localStorage.removeItem('printerConnection');
-                }
+                console.log('Auto-reconnect berhasil (port sudah terbuka)');
+                return;
             }
+        } catch (e) {
+            // Port belum terbuka, lanjutkan
         }
 
-        function initPrinterConnection() {
-            try {
-                const saved = localStorage.getItem('printerConnection');
-                if (saved) {
-                    const connectionData = JSON.parse(saved);
-                    const savedTime = new Date(connectionData.timestamp);
-                    const minutesDiff = (new Date() - savedTime) / (1000 * 60);
+        // Coba buka port
+        await printerPort.open({ baudRate: 9600 });
+        printerWriter = printerPort.writable.getWriter();
+        updatePrinterStatus(true);
+        reconnectAttempts = 0;
+        printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+        console.log('Auto-reconnect berhasil');
+    } catch (error) {
+        console.error('Auto-reconnect error:', error);
+        reconnectAttempts++;
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            setTimeout(() => autoReconnectPrinter(), 2000);
+        } else {
+            updatePrinterStatus(false);
+            localStorage.removeItem('printerConnection');
+        }
+    }
+}
 
-                    // DURASI DIPERPANJANG MENJADI 2 JAM (120 MENIT)
-                    if (connectionData.isPrinterConnected && minutesDiff < 120) {
-                        // Coba reconnect otomatis
-                        setTimeout(() => autoReconnectPrinter(), 1000);
-                    } else {
-                        updatePrinterStatus(false);
-                        localStorage.removeItem('printerConnection');
-                    }
-                } else {
-                    updatePrinterStatus(false);
-                }
-            } catch (e) {
-                console.error('Error loading printer connection:', e);
+function initPrinterConnection() {
+    try {
+        const saved = localStorage.getItem('printerConnection');
+        if (saved) {
+            const connectionData = JSON.parse(saved);
+            const savedTime = new Date(connectionData.timestamp);
+            const minutesDiff = (new Date() - savedTime) / (1000 * 60);
+
+            // DURASI DIPERPANJANG MENJADI 2 JAM (120 MENIT)
+            if (connectionData.isPrinterConnected && minutesDiff < 120) {
+                // Coba reconnect otomatis
+                setTimeout(() => autoReconnectPrinter(), 1000);
+            } else {
                 updatePrinterStatus(false);
+                localStorage.removeItem('printerConnection');
             }
+        } else {
+            updatePrinterStatus(false);
+        }
+    } catch (e) {
+        console.error('Error loading printer connection:', e);
+        updatePrinterStatus(false);
+    }
+}
+
+async function connectToPrinter() {
+    try {
+        if (!("serial" in navigator)) {
+            alert('Browser tidak mendukung Web Serial API. Gunakan Chrome/Edge.');
+            return false;
         }
 
-        async function connectToPrinter() {
-            try {
-                if (!("serial" in navigator)) {
-                    alert('Browser tidak mendukung Web Serial API. Gunakan Chrome/Edge.');
-                    return false;
+        // Coba dapatkan port yang sudah ada
+        const existingPorts = await navigator.serial.getPorts();
+        if (existingPorts.length > 0) {
+            printerPort = existingPorts[0];
+            // Cek apakah port sudah terbuka
+            if (printerPort.readable || printerPort.writable) {
+                // Sudah terbuka, gunakan writer
+                if (!printerWriter) {
+                    printerWriter = printerPort.writable.getWriter();
                 }
-
-                printerPort = await navigator.serial.requestPort();
+                updatePrinterStatus(true);
+                printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+                return true;
+            }
+            // Coba buka port yang sudah ada
+            try {
                 await printerPort.open({ baudRate: 9600 });
                 printerWriter = printerPort.writable.getWriter();
                 updatePrinterStatus(true);
                 printerPort.addEventListener('disconnect', handlePrinterDisconnect);
                 return true;
-            } catch (error) {
-                if (error.name !== 'NotFoundError') {
-                    console.error('Connection error:', error);
-                    alert('Gagal terhubung ke printer: ' + error.message);
-                }
-                updatePrinterStatus(false);
-                return false;
+            } catch (openError) {
+                console.warn('Gagal membuka port yang sudah ada, minta port baru:', openError);
+                // Lanjutkan ke request port baru
             }
         }
 
-        async function disconnectFromPrinter() {
-            try {
-                if (printerWriter) {
-                    await printerWriter.releaseLock();
-                    printerWriter = null;
-                }
-                if (printerPort) {
-                    await printerPort.close();
-                    printerPort = null;
-                }
-                updatePrinterStatus(false);
-                localStorage.removeItem('printerConnection');
-            } catch (error) {
-                console.error('Disconnection error:', error);
-                updatePrinterStatus(false);
-            }
+        // Minta port baru
+        printerPort = await navigator.serial.requestPort();
+        await printerPort.open({ baudRate: 9600 });
+        printerWriter = printerPort.writable.getWriter();
+        updatePrinterStatus(true);
+        printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+        return true;
+    } catch (error) {
+        if (error.name === 'NotFoundError') {
+            // User cancel request port
+            console.log('User cancel pemilihan port');
+        } else {
+            console.error('Connection error:', error);
+            alert('Gagal terhubung ke printer: ' + error.message);
         }
+        updatePrinterStatus(false);
+        return false;
+    }
+}
 
-        async function togglePrinter() {
-            if (isPrinterConnected) {
-                await disconnectFromPrinter();
-            } else {
-                await connectToPrinter();
-            }
+async function disconnectFromPrinter() {
+    try {
+        if (printerWriter) {
+            await printerWriter.releaseLock();
+            printerWriter = null;
         }
+        if (printerPort) {
+            await printerPort.close();
+            printerPort = null;
+        }
+        updatePrinterStatus(false);
+        localStorage.removeItem('printerConnection');
+    } catch (error) {
+        console.error('Disconnection error:', error);
+        updatePrinterStatus(false);
+    }
+}
+
+async function togglePrinter() {
+    if (isPrinterConnected) {
+        await disconnectFromPrinter();
+    } else {
+        await connectToPrinter();
+    }
+}
+
 
         function centerText(text, width) {
             const padding = Math.max(0, width - text.length);
