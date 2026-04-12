@@ -1730,6 +1730,138 @@
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 3;
 
+        // ========== ELEMEN DOM ==========
+        const pendingCountSpan = document.getElementById('pendingCount');
+        const warehouseSelect = document.getElementById('warehouseSelect');
+        const barcodeInput = document.getElementById('barcodeInput');
+        const viewToggle = document.getElementById('viewToggle');
+        const productContainer = document.getElementById('productContainer');
+        const btnPilihCustomer = document.getElementById('btnPilihCustomer');
+        const modalCustomer = document.getElementById('modalCustomer');
+        const closeModalCustomer = document.getElementById('closeModalCustomer');
+        const customerListBody = document.getElementById('customerListBody');
+        const searchCustomer = document.getElementById('searchCustomer');
+        const customerBadge = document.getElementById('customerBadge');
+        const btnBundle = document.getElementById('btnBundle');
+        const modalBundle = document.getElementById('modalBundle');
+        const bundleBadge = document.getElementById('bundleBadge');
+        const modalSatuan = document.getElementById('modalSatuan');
+        const closeModalSatuan = document.getElementById('closeModalSatuan');
+        const btnCart = document.getElementById('btnCart');
+        const modalCart = document.getElementById('modalCart');
+        const closeModalCart = document.getElementById('closeModalCart');
+        const cartItemsBody = document.getElementById('cartItemsBody');
+        const cartTotal = document.getElementById('cartTotal');
+        const saveDraftBtn = document.getElementById('saveDraftBtn');
+        const checkoutBtn = document.getElementById('checkoutBtn');
+        const modalPending = document.getElementById('modalPending');
+        const closeModalPending = document.getElementById('closeModalPending');
+        const formPending = document.getElementById('formPending');
+        const namaPending = document.getElementById('namaPending');
+        const pendingCodeError = document.getElementById('pendingCodeError');
+        const floatingPending = document.getElementById('floatingPending');
+        const modalPendingList = document.getElementById('modalPendingList');
+        const closeModalPendingList = document.getElementById('closeModalPendingList');
+        const pendingListContainer = document.getElementById('pendingListContainer');
+        const btnPiutang = document.getElementById('btnPiutang');
+        const btnPayment = document.getElementById('btnPayment');
+        const modalPayment = document.getElementById('modalPayment');
+        const closeModalPayment = document.getElementById('closeModalPayment');
+        const paymentOriginalTotal = document.getElementById('paymentOriginalTotal');
+        const paymentDiscountAmount = document.getElementById('paymentDiscountAmount');
+        const paymentTotal = document.getElementById('paymentTotal');
+        const paymentCash = document.getElementById('paymentCash');
+        const paymentCard = document.getElementById('paymentCard');
+        const paymentTransfer = document.getElementById('paymentTransfer');
+        const paymentEwallet = document.getElementById('paymentEwallet');
+        const shortageDisplay = document.getElementById('shortageDisplay');
+        const shortageAmount = document.getElementById('shortageAmount');
+        const changeAmount = document.getElementById('changeAmount');
+        const prosesPembayaranBtn = document.getElementById('prosesPembayaranBtn');
+        const confirmPiutangModal = document.getElementById('confirmPiutangModal');
+        const shortageConfirm = document.getElementById('shortageConfirm');
+        const confirmPiutangBtn = document.getElementById('confirmPiutangBtn');
+        const closeConfirmPiutang = document.getElementById('closeConfirmPiutang');
+        const connectPrinterBtn = document.getElementById('connectPrinterBtn');
+        const connectBtnText = document.getElementById('connectBtnText');
+        const printerStatusLight = document.getElementById('printerStatusLight');
+        const printerStatusText = document.getElementById('printerStatusText');
+        const printReceiptBtn = document.getElementById('printReceiptBtn');
+        const loginBtn = document.getElementById('loginBtn');
+        const syncBtn = document.getElementById('syncBtn');
+        const modalCreatePromo = document.getElementById('modalCreatePromo');
+        const closeModalCreatePromo = document.getElementById('closeModalCreatePromo');
+        const formCreatePromo = document.getElementById('formCreatePromo');
+        const searchPromoProducts = document.getElementById('searchPromoProducts');
+        const promoProductsContainer = document.getElementById('promoProductsContainer');
+        const promoProductsPagination = document.getElementById('promoProductsPagination');
+        const editPromoIdInput = document.getElementById('editPromoId');
+        const promoSubmitBtn = document.getElementById('promoSubmitBtn');
+        // Voucher elements
+        const btnSelectVoucher = document.getElementById('btnSelectVoucher');
+        const manualDiscountInput = document.getElementById('manualDiscount');
+        const selectedVouchersContainer = document.getElementById('selectedVouchersContainer');
+        const modalVoucherList = document.getElementById('modalVoucherList');
+        const closeModalVoucherList = document.getElementById('closeModalVoucherList');
+        const voucherListContainer = document.getElementById('voucherListContainer');
+        const btnCreateVoucher = document.getElementById('btnCreateVoucher');
+        const modalCreateVoucher = document.getElementById('modalCreateVoucher');
+        const closeModalCreateVoucher = document.getElementById('closeModalCreateVoucher');
+        const formCreateVoucher = document.getElementById('formCreateVoucher');
+
+        // ========== FUNGSI FORMAT RUPIAH ==========
+        function formatRupiah(angka) {
+            return 'Rp ' + angka.toLocaleString('id-ID');
+        }
+
+        // ========== LOAD KONFIGURASI ==========
+        async function loadBarcodeConfig() {
+            try {
+                const docSnap = await getDoc(settingsDocRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.barcodeConfig) {
+                        barcodeConfig = {
+                            flexLength: data.barcodeConfig.flexLength ?? 2,
+                            flexValue: data.barcodeConfig.flexValue || '11',
+                            productLength: data.barcodeConfig.productLength ?? 6,
+                            weightLength: data.barcodeConfig.weightLength ?? 5
+                        };
+                    }
+                }
+            } catch (error) {
+                console.error('Gagal memuat barcode config, menggunakan default:', error);
+            }
+        }
+
+        async function loadPrinterConfig() {
+            try {
+                const docSnap = await getDoc(settingsDocRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.printerConfig) {
+                        let footerLines = [];
+                        if (data.printerConfig.footerLines && Array.isArray(data.printerConfig.footerLines)) {
+                            footerLines = data.printerConfig.footerLines;
+                        } else if (data.printerConfig.footerText) {
+                            footerLines = data.printerConfig.footerText.split('\n').filter(l => l.trim() !== '');
+                        }
+                        printerConfig = {
+                            paperSize: data.printerConfig.paperSize || '58mm',
+                            dateFormat: data.printerConfig.dateFormat || 'DD/MM/YYYY',
+                            printCashierName: data.printerConfig.printCashierName || false,
+                            headerText: data.printerConfig.headerText || 'TOKO MUDA',
+                            infoText: data.printerConfig.infoText || '',
+                            footerText: data.printerConfig.footerText || 'Terima Kasih',
+                            footerLines: footerLines
+                        };
+                    }
+                }
+            } catch (error) {
+                console.error('Gagal memuat printer config, menggunakan default:', error);
+            }
+        }
+
         // ========== FUNGSI PRINTER (DIPERBAIKI) ==========
         function savePrinterConnection() {
             try {
@@ -1745,21 +1877,16 @@
 
         function updatePrinterStatus(connected) {
             isPrinterConnected = connected;
-            const statusLight = document.getElementById('printerStatusLight');
-            const statusText = document.getElementById('printerStatusText');
-            const connectBtnText = document.getElementById('connectBtnText');
-            const printBtn = document.getElementById('printReceiptBtn');
-
             if (connected) {
-                statusLight.classList.add('connected');
-                statusText.textContent = 'Online';
+                printerStatusLight.classList.add('connected');
+                printerStatusText.textContent = 'Online';
                 connectBtnText.textContent = 'Disconnect';
-                printBtn.disabled = false;
+                printReceiptBtn.disabled = false;
             } else {
-                statusLight.classList.remove('connected');
-                statusText.textContent = 'Offline';
+                printerStatusLight.classList.remove('connected');
+                printerStatusText.textContent = 'Offline';
                 connectBtnText.textContent = 'Connect';
-                printBtn.disabled = true;
+                printReceiptBtn.disabled = true;
             }
             savePrinterConnection();
         }
@@ -2012,59 +2139,6 @@
             }
 
             alert('Tidak ada data untuk dicetak.');
-        }
-
-        // ========== FUNGSI FORMAT RUPIAH ==========
-        function formatRupiah(angka) {
-            return 'Rp ' + angka.toLocaleString('id-ID');
-        }
-
-        // ========== LOAD KONFIGURASI ==========
-        async function loadBarcodeConfig() {
-            try {
-                const docSnap = await getDoc(settingsDocRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    if (data.barcodeConfig) {
-                        barcodeConfig = {
-                            flexLength: data.barcodeConfig.flexLength ?? 2,
-                            flexValue: data.barcodeConfig.flexValue || '11',
-                            productLength: data.barcodeConfig.productLength ?? 6,
-                            weightLength: data.barcodeConfig.weightLength ?? 5
-                        };
-                    }
-                }
-            } catch (error) {
-                console.error('Gagal memuat barcode config, menggunakan default:', error);
-            }
-        }
-
-        async function loadPrinterConfig() {
-            try {
-                const docSnap = await getDoc(settingsDocRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    if (data.printerConfig) {
-                        let footerLines = [];
-                        if (data.printerConfig.footerLines && Array.isArray(data.printerConfig.footerLines)) {
-                            footerLines = data.printerConfig.footerLines;
-                        } else if (data.printerConfig.footerText) {
-                            footerLines = data.printerConfig.footerText.split('\n').filter(l => l.trim() !== '');
-                        }
-                        printerConfig = {
-                            paperSize: data.printerConfig.paperSize || '58mm',
-                            dateFormat: data.printerConfig.dateFormat || 'DD/MM/YYYY',
-                            printCashierName: data.printerConfig.printCashierName || false,
-                            headerText: data.printerConfig.headerText || 'TOKO MUDA',
-                            infoText: data.printerConfig.infoText || '',
-                            footerText: data.printerConfig.footerText || 'Terima Kasih',
-                            footerLines: footerLines
-                        };
-                    }
-                }
-            } catch (error) {
-                console.error('Gagal memuat printer config, menggunakan default:', error);
-            }
         }
 
         // ========== LOAD SEMUA DATA DARI FIRESTORE ==========
@@ -2832,8 +2906,13 @@
             resetPaymentPage();
             modalPayment.classList.add('active');
         }
+        function closePaymentPage() {
+            modalPayment.classList.remove('active');
+            resetPaymentPage();
+            setPaymentInputsDisabled(false);
+        }
         btnPayment.addEventListener('click', openPaymentPage);
-        closeModalPayment.addEventListener('click', () => { modalPayment.classList.remove('active'); resetPaymentPage(); setPaymentInputsDisabled(false); });
+        closeModalPayment.addEventListener('click', closePaymentPage);
         [paymentCash, paymentCard, paymentTransfer, paymentEwallet].forEach(input => { input.addEventListener('input', updatePaymentSummary); });
         manualDiscountInput.addEventListener('input', () => { calculateTotalDiscount(); });
         btnSelectVoucher.addEventListener('click', async () => { await loadVouchers(); modalVoucherList.classList.add('active'); });
