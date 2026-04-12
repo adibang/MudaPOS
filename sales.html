@@ -1730,84 +1730,289 @@
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 3;
 
-        // ========== ELEMEN DOM ==========
-        const pendingCountSpan = document.getElementById('pendingCount');
-        const warehouseSelect = document.getElementById('warehouseSelect');
-        const barcodeInput = document.getElementById('barcodeInput');
-        const viewToggle = document.getElementById('viewToggle');
-        const productContainer = document.getElementById('productContainer');
-        const btnPilihCustomer = document.getElementById('btnPilihCustomer');
-        const modalCustomer = document.getElementById('modalCustomer');
-        const closeModalCustomer = document.getElementById('closeModalCustomer');
-        const customerListBody = document.getElementById('customerListBody');
-        const searchCustomer = document.getElementById('searchCustomer');
-        const customerBadge = document.getElementById('customerBadge');
-        const btnBundle = document.getElementById('btnBundle');
-        const modalBundle = document.getElementById('modalBundle');
-        const bundleBadge = document.getElementById('bundleBadge');
-        const modalSatuan = document.getElementById('modalSatuan');
-        const closeModalSatuan = document.getElementById('closeModalSatuan');
-        const btnCart = document.getElementById('btnCart');
-        const modalCart = document.getElementById('modalCart');
-        const closeModalCart = document.getElementById('closeModalCart');
-        const cartItemsBody = document.getElementById('cartItemsBody');
-        const cartTotal = document.getElementById('cartTotal');
-        const saveDraftBtn = document.getElementById('saveDraftBtn');
-        const checkoutBtn = document.getElementById('checkoutBtn');
-        const modalPending = document.getElementById('modalPending');
-        const closeModalPending = document.getElementById('closeModalPending');
-        const formPending = document.getElementById('formPending');
-        const namaPending = document.getElementById('namaPending');
-        const pendingCodeError = document.getElementById('pendingCodeError');
-        const floatingPending = document.getElementById('floatingPending');
-        const modalPendingList = document.getElementById('modalPendingList');
-        const closeModalPendingList = document.getElementById('closeModalPendingList');
-        const pendingListContainer = document.getElementById('pendingListContainer');
-        const btnPiutang = document.getElementById('btnPiutang');
-        const btnPayment = document.getElementById('btnPayment');
-        const modalPayment = document.getElementById('modalPayment');
-        const closeModalPayment = document.getElementById('closeModalPayment');
-        const paymentOriginalTotal = document.getElementById('paymentOriginalTotal');
-        const paymentDiscountAmount = document.getElementById('paymentDiscountAmount');
-        const paymentTotal = document.getElementById('paymentTotal');
-        const paymentCash = document.getElementById('paymentCash');
-        const paymentCard = document.getElementById('paymentCard');
-        const paymentTransfer = document.getElementById('paymentTransfer');
-        const paymentEwallet = document.getElementById('paymentEwallet');
-        const shortageDisplay = document.getElementById('shortageDisplay');
-        const shortageAmount = document.getElementById('shortageAmount');
-        const changeAmount = document.getElementById('changeAmount');
-        const prosesPembayaranBtn = document.getElementById('prosesPembayaranBtn');
-        const confirmPiutangModal = document.getElementById('confirmPiutangModal');
-        const shortageConfirm = document.getElementById('shortageConfirm');
-        const confirmPiutangBtn = document.getElementById('confirmPiutangBtn');
-        const closeConfirmPiutang = document.getElementById('closeConfirmPiutang');
-        const connectPrinterBtn = document.getElementById('connectPrinterBtn');
-        const connectBtnText = document.getElementById('connectBtnText');
-        const printerStatusLight = document.getElementById('printerStatusLight');
-        const printerStatusText = document.getElementById('printerStatusText');
-        const printReceiptBtn = document.getElementById('printReceiptBtn');
-        const loginBtn = document.getElementById('loginBtn');
-        const syncBtn = document.getElementById('syncBtn');
-        const modalCreatePromo = document.getElementById('modalCreatePromo');
-        const closeModalCreatePromo = document.getElementById('closeModalCreatePromo');
-        const formCreatePromo = document.getElementById('formCreatePromo');
-        const searchPromoProducts = document.getElementById('searchPromoProducts');
-        const promoProductsContainer = document.getElementById('promoProductsContainer');
-        const promoProductsPagination = document.getElementById('promoProductsPagination');
-        const editPromoIdInput = document.getElementById('editPromoId');
-        const promoSubmitBtn = document.getElementById('promoSubmitBtn');
-        // Voucher elements
-        const btnSelectVoucher = document.getElementById('btnSelectVoucher');
-        const manualDiscountInput = document.getElementById('manualDiscount');
-        const selectedVouchersContainer = document.getElementById('selectedVouchersContainer');
-        const modalVoucherList = document.getElementById('modalVoucherList');
-        const closeModalVoucherList = document.getElementById('closeModalVoucherList');
-        const voucherListContainer = document.getElementById('voucherListContainer');
-        const btnCreateVoucher = document.getElementById('btnCreateVoucher');
-        const modalCreateVoucher = document.getElementById('modalCreateVoucher');
-        const closeModalCreateVoucher = document.getElementById('closeModalCreateVoucher');
-        const formCreateVoucher = document.getElementById('formCreateVoucher');
+        // ========== FUNGSI PRINTER (DIPERBAIKI) ==========
+        function savePrinterConnection() {
+            try {
+                const connectionData = {
+                    isPrinterConnected: isPrinterConnected,
+                    timestamp: new Date().toISOString()
+                };
+                localStorage.setItem('printerConnection', JSON.stringify(connectionData));
+            } catch (e) {
+                console.error('Gagal menyimpan status printer:', e);
+            }
+        }
+
+        function updatePrinterStatus(connected) {
+            isPrinterConnected = connected;
+            const statusLight = document.getElementById('printerStatusLight');
+            const statusText = document.getElementById('printerStatusText');
+            const connectBtnText = document.getElementById('connectBtnText');
+            const printBtn = document.getElementById('printReceiptBtn');
+
+            if (connected) {
+                statusLight.classList.add('connected');
+                statusText.textContent = 'Online';
+                connectBtnText.textContent = 'Disconnect';
+                printBtn.disabled = false;
+            } else {
+                statusLight.classList.remove('connected');
+                statusText.textContent = 'Offline';
+                connectBtnText.textContent = 'Connect';
+                printBtn.disabled = true;
+            }
+            savePrinterConnection();
+        }
+
+        function handlePrinterDisconnect() {
+            if (printerWriter) {
+                try { printerWriter.releaseLock(); } catch (e) {}
+                printerWriter = null;
+            }
+            if (printerPort) {
+                try { printerPort.close(); } catch (e) {}
+                printerPort = null;
+            }
+            updatePrinterStatus(false);
+            localStorage.removeItem('printerConnection');
+            reconnectAttempts = 0;
+        }
+
+        async function autoReconnectPrinter() {
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                console.warn('Batas reconnect tercapai');
+                return;
+            }
+
+            try {
+                if (!("serial" in navigator)) {
+                    console.warn('Web Serial API tidak didukung');
+                    return;
+                }
+
+                const ports = await navigator.serial.getPorts();
+                if (ports.length === 0) {
+                    console.log('Tidak ada port tersimpan, perlu koneksi manual');
+                    return;
+                }
+
+                printerPort = ports[0];
+
+                // Cek apakah port sudah terbuka
+                if (printerPort.readable || printerPort.writable) {
+                    printerWriter = printerPort.writable.getWriter();
+                    updatePrinterStatus(true);
+                    reconnectAttempts = 0;
+                    printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+                    console.log('Auto-reconnect berhasil (port sudah terbuka)');
+                    return;
+                }
+
+                await printerPort.open({ baudRate: 9600 });
+                printerWriter = printerPort.writable.getWriter();
+                updatePrinterStatus(true);
+                reconnectAttempts = 0;
+                printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+                console.log('Auto-reconnect berhasil');
+            } catch (error) {
+                console.error('Auto-reconnect error:', error);
+                reconnectAttempts++;
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    setTimeout(() => autoReconnectPrinter(), 2000);
+                } else {
+                    updatePrinterStatus(false);
+                    localStorage.removeItem('printerConnection');
+                }
+            }
+        }
+
+        function initPrinterConnection() {
+            try {
+                const saved = localStorage.getItem('printerConnection');
+                if (saved) {
+                    const connectionData = JSON.parse(saved);
+                    const savedTime = new Date(connectionData.timestamp);
+                    const minutesDiff = (new Date() - savedTime) / (1000 * 60);
+
+                    // DURASI DIPERPANJANG MENJADI 2 JAM (120 MENIT)
+                    if (connectionData.isPrinterConnected && minutesDiff < 120) {
+                        // Coba reconnect otomatis
+                        setTimeout(() => autoReconnectPrinter(), 1000);
+                    } else {
+                        updatePrinterStatus(false);
+                        localStorage.removeItem('printerConnection');
+                    }
+                } else {
+                    updatePrinterStatus(false);
+                }
+            } catch (e) {
+                console.error('Error loading printer connection:', e);
+                updatePrinterStatus(false);
+            }
+        }
+
+        async function connectToPrinter() {
+            try {
+                if (!("serial" in navigator)) {
+                    alert('Browser tidak mendukung Web Serial API. Gunakan Chrome/Edge.');
+                    return false;
+                }
+
+                printerPort = await navigator.serial.requestPort();
+                await printerPort.open({ baudRate: 9600 });
+                printerWriter = printerPort.writable.getWriter();
+                updatePrinterStatus(true);
+                printerPort.addEventListener('disconnect', handlePrinterDisconnect);
+                return true;
+            } catch (error) {
+                if (error.name !== 'NotFoundError') {
+                    console.error('Connection error:', error);
+                    alert('Gagal terhubung ke printer: ' + error.message);
+                }
+                updatePrinterStatus(false);
+                return false;
+            }
+        }
+
+        async function disconnectFromPrinter() {
+            try {
+                if (printerWriter) {
+                    await printerWriter.releaseLock();
+                    printerWriter = null;
+                }
+                if (printerPort) {
+                    await printerPort.close();
+                    printerPort = null;
+                }
+                updatePrinterStatus(false);
+                localStorage.removeItem('printerConnection');
+            } catch (error) {
+                console.error('Disconnection error:', error);
+                updatePrinterStatus(false);
+            }
+        }
+
+        async function togglePrinter() {
+            if (isPrinterConnected) {
+                await disconnectFromPrinter();
+            } else {
+                await connectToPrinter();
+            }
+        }
+
+        function centerText(text, width) {
+            const padding = Math.max(0, width - text.length);
+            const leftPad = Math.floor(padding / 2);
+            const rightPad = padding - leftPad;
+            return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
+        }
+
+        async function doPrint(dataToPrint) {
+            if (!isPrinterConnected || !printerWriter) {
+                alert('Printer tidak terhubung');
+                return;
+            }
+
+            try {
+                const encoder = new TextEncoder();
+                let lineWidth = printerConfig.paperSize === '80mm' ? 48 : 32;
+
+                // Format tanggal
+                let dateStr;
+                const now = new Date();
+                switch (printerConfig.dateFormat) {
+                    case 'DD/MM/YYYY':
+                        dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        break;
+                    case 'MM/DD/YYYY':
+                        dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+                        break;
+                    case 'YYYY-MM-DD':
+                        dateStr = now.toISOString().split('T')[0];
+                        break;
+                    default:
+                        dateStr = now.toLocaleString('id-ID');
+                }
+
+                let receipt = '\n';
+                if (printerConfig.headerText) {
+                    printerConfig.headerText.split('\n').forEach(line => {
+                        receipt += centerText(line, lineWidth) + '\n';
+                    });
+                }
+                if (printerConfig.infoText) {
+                    printerConfig.infoText.split('\n').forEach(line => {
+                        receipt += centerText(line, lineWidth) + '\n';
+                    });
+                }
+
+                receipt += '='.repeat(lineWidth) + '\n';
+                receipt += `Tanggal: ${dateStr}\n`;
+                if (printerConfig.printCashierName && auth.currentUser) {
+                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
+                    receipt += `Kasir  : ${kasir}\n`;
+                }
+                receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
+                receipt += '-'.repeat(lineWidth) + '\n';
+
+                dataToPrint.items.forEach(item => {
+                    receipt += `${item.name}\n`;
+                    receipt += `${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}\n`;
+                });
+
+                receipt += '-'.repeat(lineWidth) + '\n';
+                receipt += `Subtotal : ${formatRupiah(dataToPrint.originalTotal)}\n`;
+                if (dataToPrint.totalDiscount > 0) {
+                    receipt += `Diskon   : -${formatRupiah(dataToPrint.totalDiscount)}\n`;
+                }
+                receipt += `Total    : ${formatRupiah(dataToPrint.total)}\n`;
+                receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
+                receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
+                receipt += '='.repeat(lineWidth) + '\n';
+
+                let footerLines = [];
+                if (printerConfig.footerLines && printerConfig.footerLines.length) {
+                    footerLines = printerConfig.footerLines;
+                } else if (printerConfig.footerText) {
+                    footerLines = printerConfig.footerText.split('\n');
+                }
+                footerLines.forEach(line => {
+                    receipt += centerText(line, lineWidth) + '\n';
+                });
+                receipt += '\n\n\n';
+
+                await printerWriter.write(encoder.encode(receipt));
+                alert('Struk berhasil dicetak');
+            } catch (error) {
+                console.error('Print error:', error);
+                alert('Gagal mencetak: ' + error.message);
+                if (error.message.includes('closed') || error.message.includes('disconnected')) {
+                    handlePrinterDisconnect();
+                }
+            }
+        }
+
+        async function printReceipt() {
+            if (!isPrinterConnected) {
+                alert('Printer belum terhubung');
+                return;
+            }
+
+            if (cartItems.length > 0) {
+                if (confirm('Transaksi belum diproses. Proses pembayaran sekarang?')) {
+                    // Trigger pembayaran
+                    document.getElementById('prosesPembayaranBtn').click();
+                }
+                return;
+            }
+
+            if (lastTransactionData) {
+                await doPrint(lastTransactionData);
+                return;
+            }
+
+            alert('Tidak ada data untuk dicetak.');
+        }
 
         // ========== FUNGSI FORMAT RUPIAH ==========
         function formatRupiah(angka) {
@@ -1860,193 +2065,6 @@
             } catch (error) {
                 console.error('Gagal memuat printer config, menggunakan default:', error);
             }
-        }
-
-        // ========== FUNGSI PRINTER ==========
-        function savePrinterConnection() {
-            try {
-                const connectionData = { isPrinterConnected: isPrinterConnected, timestamp: new Date().toISOString() };
-                localStorage.setItem('printerConnection', JSON.stringify(connectionData));
-            } catch (e) {}
-        }
-        function updatePrinterStatus(connected) {
-            isPrinterConnected = connected;
-            if (connected) {
-                printerStatusLight.classList.add('connected');
-                printerStatusText.textContent = 'Online';
-                connectBtnText.textContent = 'Disconnect';
-                printReceiptBtn.disabled = false;
-            } else {
-                printerStatusLight.classList.remove('connected');
-                printerStatusText.textContent = 'Offline';
-                connectBtnText.textContent = 'Connect';
-                printReceiptBtn.disabled = true;
-            }
-            savePrinterConnection();
-        }
-        function handlePrinterDisconnect() {
-            if (printerWriter) { try { printerWriter.releaseLock(); } catch (e) {} printerWriter = null; }
-            if (printerPort) { try { printerPort.close(); } catch (e) {} printerPort = null; }
-            updatePrinterStatus(false);
-        }
-        async function autoReconnectPrinter() {
-            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
-            try {
-                if (!("serial" in navigator)) return;
-                const ports = await navigator.serial.getPorts();
-                if (ports.length === 0) return;
-                printerPort = ports[0];
-                if (printerPort.readable || printerPort.writable) {
-                    printerWriter = printerPort.writable.getWriter();
-                    updatePrinterStatus(true);
-                    reconnectAttempts = 0;
-                    printerPort.addEventListener('disconnect', handlePrinterDisconnect);
-                    return;
-                }
-                await printerPort.open({ baudRate: 9600 });
-                printerWriter = printerPort.writable.getWriter();
-                updatePrinterStatus(true);
-                reconnectAttempts = 0;
-                printerPort.addEventListener('disconnect', handlePrinterDisconnect);
-            } catch (error) {
-                reconnectAttempts++;
-                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) setTimeout(autoReconnectPrinter, 2000);
-            }
-        }
-        function initPrinterConnection() {
-            try {
-                const saved = localStorage.getItem('printerConnection');
-                if (saved) {
-                    const conn = JSON.parse(saved);
-                    const savedTime = new Date(conn.timestamp);
-                    const minutes = (new Date() - savedTime) / (1000 * 60);
-                    if (conn.isPrinterConnected && minutes < 5) {
-                        setTimeout(autoReconnectPrinter, 1000);
-                    } else {
-                        updatePrinterStatus(false);
-                        localStorage.removeItem('printerConnection');
-                    }
-                } else {
-                    updatePrinterStatus(false);
-                }
-            } catch (e) { updatePrinterStatus(false); }
-        }
-        async function connectToPrinter() {
-            try {
-                if (!("serial" in navigator)) { alert("Browser tidak mendukung Web Serial API. Gunakan Chrome/Edge."); return false; }
-                printerPort = await navigator.serial.requestPort();
-                await printerPort.open({ baudRate: 9600 });
-                printerWriter = printerPort.writable.getWriter();
-                updatePrinterStatus(true);
-                printerPort.addEventListener('disconnect', handlePrinterDisconnect);
-                return true;
-            } catch (error) {
-                if (error.name !== 'NotFoundError') alert("Gagal terhubung ke printer: " + error.message);
-                updatePrinterStatus(false);
-                return false;
-            }
-        }
-        async function disconnectFromPrinter() {
-            try {
-                if (printerWriter) printerWriter.releaseLock();
-                if (printerPort) await printerPort.close();
-                updatePrinterStatus(false);
-            } catch (error) { updatePrinterStatus(false); }
-        }
-        async function togglePrinter() {
-            if (isPrinterConnected) await disconnectFromPrinter();
-            else await connectToPrinter();
-        }
-
-        function centerText(text, width) {
-            const padding = Math.max(0, width - text.length);
-            const leftPad = Math.floor(padding / 2);
-            const rightPad = padding - leftPad;
-            return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
-        }
-
-        async function doPrint(dataToPrint) {
-            if (!isPrinterConnected || !printerWriter) { alert('Printer tidak terhubung'); return; }
-            try {
-                const encoder = new TextEncoder();
-                let lineWidth = 32;
-                if (printerConfig.paperSize === '80mm') lineWidth = 48;
-
-                let dateStr;
-                const now = new Date();
-                switch (printerConfig.dateFormat) {
-                    case 'DD/MM/YYYY': dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }); break;
-                    case 'MM/DD/YYYY': dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }); break;
-                    case 'YYYY-MM-DD': dateStr = now.toISOString().split('T')[0]; break;
-                    case 'DD MMM YYYY': dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/\./g, ''); break;
-                    default: dateStr = now.toLocaleString('id-ID');
-                }
-
-                let receipt = '\n';
-                if (printerConfig.headerText) {
-                    printerConfig.headerText.split('\n').forEach(line => { receipt += centerText(line, lineWidth) + '\n'; });
-                }
-                if (printerConfig.infoText) {
-                    printerConfig.infoText.split('\n').forEach(line => { receipt += centerText(line, lineWidth) + '\n'; });
-                }
-                receipt += '='.repeat(lineWidth) + '\n';
-                receipt += `Tanggal: ${dateStr}\n`;
-                if (printerConfig.printCashierName && auth.currentUser) {
-                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
-                    receipt += `Kasir  : ${kasir}\n`;
-                }
-                receipt += `No.    : ${dataToPrint.transactionNumber}\n`;
-                receipt += '-'.repeat(lineWidth) + '\n';
-
-                dataToPrint.items.forEach(item => {
-                    receipt += `${item.name}\n`;
-                    receipt += `${item.qty} ${item.unit} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}\n`;
-                });
-
-                receipt += '-'.repeat(lineWidth) + '\n';
-                receipt += `Subtotal : ${formatRupiah(dataToPrint.originalTotal)}\n`;
-                if (dataToPrint.totalDiscount > 0) {
-                    receipt += `Diskon   : -${formatRupiah(dataToPrint.totalDiscount)}\n`;
-                }
-                receipt += `Total    : ${formatRupiah(dataToPrint.total)}\n`;
-                receipt += `Bayar    : ${formatRupiah(dataToPrint.paidAmount)}\n`;
-                receipt += `Kembali  : ${formatRupiah(dataToPrint.change)}\n`;
-                receipt += '='.repeat(lineWidth) + '\n';
-
-                let footerLines = [];
-                if (printerConfig.footerLines && printerConfig.footerLines.length) {
-                    footerLines = printerConfig.footerLines;
-                } else if (printerConfig.footerText) {
-                    footerLines = printerConfig.footerText.split('\n');
-                }
-                if (footerLines.length) {
-                    footerLines.forEach(line => { receipt += centerText(line, lineWidth) + '\n'; });
-                } else {
-                    receipt += centerText('Terima Kasih', lineWidth) + '\n';
-                }
-                receipt += '\n\n\n';
-
-                await printerWriter.write(encoder.encode(receipt));
-                alert('Struk berhasil dicetak');
-            } catch (error) {
-                alert('Gagal mencetak: ' + error.message);
-                if (error.message.includes("closed") || error.message.includes("disconnected")) handlePrinterDisconnect();
-            }
-        }
-
-        async function printReceipt() {
-            if (!isPrinterConnected) { alert('Printer belum terhubung'); return; }
-            if (cartItems.length > 0) {
-                if (confirm("Transaksi belum diproses. Proses pembayaran sekarang?")) {
-                    await prosesPembayaranBtn.click();
-                }
-                return;
-            }
-            if (lastTransactionData) {
-                await doPrint(lastTransactionData);
-                return;
-            }
-            alert('Tidak ada data untuk dicetak.');
         }
 
         // ========== LOAD SEMUA DATA DARI FIRESTORE ==========
