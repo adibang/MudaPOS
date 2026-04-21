@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUDA POS - Inventory</title>
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background:#f5f5f5; color:#333; font-size:14px; }
+        .text-primary { color:#006B54; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; display:flex; flex-direction:column; }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
+        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
+        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
+        .sidebar-menu { list-style:none; flex:1; }
+        .sidebar-menu li { margin-bottom:0.2rem; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
+        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
+        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
+        .has-submenu.open .submenu { display:block; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
+        .submenu a:hover { background:#e6f0ec; color:#006B54; }
+        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
+        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
+        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1400px; margin:0 auto; }
+        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+
+        /* ===== FILTER BAR ===== */
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            background: white;
+            padding: 1rem;
+            border-radius: 20px;
+            border: 1px solid #f0f0f0;
+            align-items: center;
+        }
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 0 0.5rem;
+            height: 38px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 0.5rem;
+            border: none;
+            outline: none;
+            font-size: 0.95rem;
+            background: transparent;
+        }
+        .search-box i {
+            color: #999;
+            margin-right: 0.3rem;
+        }
+        .sort-select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            background: white;
+            height: 38px;
+        }
+        .btn-primary {
+            background: #006B54;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .btn-primary:hover { background: #004d3b; }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .btn-secondary:hover { background: #5a6268; }
+        .table-responsive { overflow-x: auto; margin-top: 1rem; background: white; border-radius: 12px; padding: 1rem; border: 1px solid #f0f0f0; }
+        table { width:100%; border-collapse:collapse; min-width:800px; }
+        th, td { padding:0.8rem 0.5rem; text-align:left; border-bottom:1px solid #eee; }
+        th { background:#f9f9f9; font-weight:600; color:#006B54; }
+        tr:hover { background:#f5f5f5; }
+        .badge {
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #006B54;
+            padding: 0.2rem;
+            margin: 0 0.2rem;
+        }
+        .btn-icon.delete { color: #dc3545; }
+        .btn-icon.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            align-items: center;
+        }
+        .pagination button {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
+        }
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .pagination span {
+            padding: 0.4rem 0.8rem;
+        }
+
+        /* ===== MODAL ===== */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 1.5rem;
+            position: relative;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .modal-header h3 { color: #006B54; }
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        /* ===== LOGIN LOCAL MODAL (khusus fitur) ===== */
+        #featureLoginModal .modal-content {
+            max-width: 350px;
+        }
+        #featureLoginModal input {
+            margin-bottom: 10px;
+        }
+        #loginError {
+            color: red;
+            margin-top: 5px;
+            display: none;
+        }
+
+        /* ===== FOOTER SIDEBAR UNTUK LOCAL USER INFO ===== */
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+        .local-user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 0.5rem 0.8rem;
+            border-radius: 8px;
+        }
+        .local-user-info span {
+            font-weight: 600;
+            color: #006B54;
+            font-size: 0.9rem;
+        }
+        .logout-local-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        /* Indentasi untuk baris varian */
+        .variant-row td:first-child {
+            padding-left: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>MUDA POS</h2>
+            <button class="close-sidebar" id="closeSidebar"><i data-feather="x"></i></button>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
+            <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
+            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
+            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
+            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li><a href="inventory.html" class="menu-link active"><i data-feather="layers"></i> Inventory</a></li>
+            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
+            <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
+            <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
+        </ul>
+        <!-- Footer Sidebar: info user lokal dan tombol logout -->
+        <div class="sidebar-footer">
+            <div class="local-user-info" id="localUserInfo" style="display: none;">
+                <span id="localUserName"></span>
+                <button class="logout-local-btn" id="logoutLocalBtn">Logout</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
+        </div>
+        <div class="header-right" style="display:flex; align-items:center;">
+            <!-- Tombol login Firebase dan riwayat stok -->
+            <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+            <a href="stock-history.html" class="btn-primary" style="margin-left:10px; text-decoration:none;"><i data-feather="clock"></i></a>
+        </div>
+    </header>
+
+    <!-- Modal Login Lokal (untuk fitur tambah/kurang stok) -->
+    <div class="modal" id="featureLoginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Login untuk Mengubah Stok</h3>
+                <button class="close-modal" onclick="closeFeatureLoginModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="featureUsername" placeholder="Username" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:15px;">
+                <input type="password" id="featurePassword" placeholder="Password" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:15px; margin-top:10px;">
+                <div id="loginError" style="color:red; margin-top:10px; display:none;">Username atau password salah</div>
+                <button id="featureLoginBtn" style="width:100%; padding:12px; background:#006B54; color:white; border:none; border-radius:15px; margin-top:15px;">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Halaman Inventory -->
+    <main class="main-content">
+        <h1 class="page-title">Inventory</h1>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="search-box">
+                <i data-feather="search"></i>
+                <input type="text" id="searchInput" placeholder="Cari kode, nama, atau barcode produk...">
+            </div>
+            <select id="sortSelect" class="sort-select">
+                <option value="nama">Urut: Nama (A-Z)</option>
+                <option value="stokAsc">Stok (Terkecil)</option>
+                <option value="stokDesc">Stok (Terbesar)</option>
+                <option value="status">Status (Kritis dulu)</option>
+            </select>
+            <button class="btn-primary" id="applyFilterBtn"><i data-feather="filter"></i> Terapkan</button>
+        </div>
+
+        <!-- Tabel Inventory -->
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kode</th>
+                        <th>Nama</th>
+                        <th>Stok Saat Ini</th>
+                        <th>Stok Minimal</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryBody">
+                    <tr><td colspan="6" style="text-align:center;">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+            <button id="prevPage" disabled><i data-feather="chevron-left"></i> Sebelumnya</button>
+            <span id="pageInfo">Halaman 1</span>
+            <button id="nextPage" disabled>Selanjutnya <i data-feather="chevron-right"></i></button>
+        </div>
+    </main>
+
+    <!-- MODAL TAMBAH STOK -->
+    <div class="modal" id="modalAddStock">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Tambah Stok</h3>
+                <button class="close-modal" onclick="closeModal('modalAddStock')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="formAddStock">
+                    <input type="hidden" id="addProductId">
+                    <input type="hidden" id="addVarianId"> <!-- baru -->
+                    <div class="form-group">
+                        <label>Produk / Varian</label>
+                        <input type="text" id="addProductName" readonly class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Stok Saat Ini</label>
+                        <input type="text" id="addCurrentStock" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Jumlah Tambah *</label>
+                        <input type="number" id="addQuantity" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Alasan (opsional)</label>
+                        <textarea id="addReason" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('modalAddStock')">Batal</button>
+                <button class="btn-primary" id="saveAddStock">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL KURANGI STOK -->
+    <div class="modal" id="modalReduceStock">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Kurangi Stok</h3>
+                <button class="close-modal" onclick="closeModal('modalReduceStock')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="formReduceStock">
+                    <input type="hidden" id="reduceProductId">
+                    <input type="hidden" id="reduceVarianId"> <!-- baru -->
+                    <div class="form-group">
+                        <label>Produk / Varian</label>
+                        <input type="text" id="reduceProductName" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Stok Saat Ini</label>
+                        <input type="text" id="reduceCurrentStock" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Jumlah Kurang *</label>
+                        <input type="number" id="reduceQuantity" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Alasan (opsional)</label>
+                        <textarea id="reduceReason" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('modalReduceStock')">Batal</button>
+                <button class="btn-primary" id="saveReduceStock">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL STOK OPNAME -->
+    <div class="modal" id="modalOpname">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Stok Opname</h3>
+                <button class="close-modal" onclick="closeModal('modalOpname')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="formOpname">
+                    <input type="hidden" id="opnameProductId">
+                    <input type="hidden" id="opnameVarianId"> <!-- baru -->
+                    <div class="form-group">
+                        <label>Produk / Varian</label>
+                        <input type="text" id="opnameProductName" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Stok Saat Ini</label>
+                        <input type="text" id="opnameCurrentStock" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Stok Baru *</label>
+                        <input type="number" id="opnameNewStock" min="0" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Alasan (opsional)</label>
+                        <textarea id="opnameReason" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('modalOpname')">Batal</button>
+                <button class="btn-primary" id="saveOpname">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script sidebar (non-module) -->
+    <script>
+        feather.replace();
+
+        const menuToggle = document.getElementById('menuToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+        function closeSidebarFunc() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+        menuToggle.addEventListener('click', openSidebar);
+        closeSidebar.addEventListener('click', closeSidebarFunc);
+        overlay.addEventListener('click', closeSidebarFunc);
+    </script>
+
+    <!-- Script module utama -->
+    <script type="module">
+        // ========== IMPOR FIREBASE ==========
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
+        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { 
+            collection, query, where, orderBy, limit, startAfter, getDocs,
+            doc, runTransaction, serverTimestamp, onSnapshot
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
+        const LOCAL_DB_NAME = 'MudaPOSDB';
+        const LOCAL_DB_VERSION = 1;
+        const STORE_LOCAL_USERS = 'localUsers';
+        let localDB = null;
+
+        async function initLocalDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = (e) => {
+                    localDB = e.target.result;
+                    resolve();
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_LOCAL_USERS)) {
+                        db.createObjectStore(STORE_LOCAL_USERS, { keyPath: 'id', autoIncrement: true });
+                    }
+                };
+            });
+        }
+
+        async function hashLocalPassword(password) {
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(password);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) { console.warn('Crypto digest failed, using fallback', e); }
+            }
+            let hash = 0;
+            for (let i = 0; i < password.length; i++) {
+                const char = password.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
+            }
+            return hash.toString(16);
+        }
+
+        async function verifyLocalUser(username, password) {
+            return new Promise((resolve, reject) => {
+                const tx = localDB.transaction([STORE_LOCAL_USERS], 'readonly');
+                const store = tx.objectStore(STORE_LOCAL_USERS);
+                const request = store.getAll();
+                request.onsuccess = async () => {
+                    const users = request.result;
+                    const user = users.find(u => u.username === username);
+                    if (!user) { resolve(null); return; }
+                    const hashed = await hashLocalPassword(password);
+                    if (user.password === hashed) {
+                        const { password, ...safeUser } = user;
+                        resolve(safeUser);
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = reject;
+            });
+        }
+
+        // ========== ELEMEN DOM ==========
+        const inventoryBody = document.getElementById('inventoryBody');
+        const searchInput = document.getElementById('searchInput');
+        const sortSelect = document.getElementById('sortSelect');
+        const applyFilterBtn = document.getElementById('applyFilterBtn');
+        const prevPageBtn = document.getElementById('prevPage');
+        const nextPageBtn = document.getElementById('nextPage');
+        const pageInfo = document.getElementById('pageInfo');
+        const loginBtn = document.getElementById('loginBtn');
+        const featureLoginModal = document.getElementById('featureLoginModal');
+        const featureUsername = document.getElementById('featureUsername');
+        const featurePassword = document.getElementById('featurePassword');
+        const featureLoginBtn = document.getElementById('featureLoginBtn');
+        const loginError = document.getElementById('loginError');
+        const localUserInfo = document.getElementById('localUserInfo');
+        const localUserName = document.getElementById('localUserName');
+        const logoutLocalBtn = document.getElementById('logoutLocalBtn');
+
+        // State login lokal
+        let localUser = null;
+        const savedLocalSession = sessionStorage.getItem('localUser');
+        if (savedLocalSession) {
+            try {
+                localUser = JSON.parse(savedLocalSession);
+            } catch (e) {
+                sessionStorage.removeItem('localUser');
+            }
+        }
+
+        function updateLocalUI() {
+            if (localUser) {
+                localUserInfo.style.display = 'flex';
+                localUserName.textContent = localUser.name;
+            } else {
+                localUserInfo.style.display = 'none';
+            }
+            // Render ulang tabel untuk menampilkan/menyembunyikan tombol
+            if (lastRenderedDocs) {
+                renderProduk(lastRenderedDocs);
+            }
+        }
+
+        // Fungsi buka modal login fitur
+        window.openFeatureLoginModal = () => {
+            featureLoginModal.classList.add('active');
+            featureUsername.value = '';
+            featurePassword.value = '';
+            loginError.style.display = 'none';
+        };
+
+        window.closeFeatureLoginModal = () => {
+            featureLoginModal.classList.remove('active');
+        };
+
+        featureLoginBtn.addEventListener('click', async () => {
+            const username = featureUsername.value;
+            const password = featurePassword.value;
+            const user = await verifyLocalUser(username, password);
+            if (user) {
+                sessionStorage.setItem('localUser', JSON.stringify(user));
+                localUser = user;
+                updateLocalUI();
+                closeFeatureLoginModal();
+            } else {
+                loginError.style.display = 'block';
+            }
+        });
+
+        logoutLocalBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('localUser');
+            localUser = null;
+            updateLocalUI();
+        });
+
+        // ========== FIRESTORE ==========
+        console.log('Inventory dengan dukungan varian');
+
+        // Referensi koleksi
+        const produkCol = collection(dbCloud, 'produk');
+        const unitCol = collection(dbCloud, 'unit');
+        const varianCol = collection(dbCloud, 'productVariants');
+        const stockMovementCol = collection(dbCloud, 'stockMovements');
+
+        // State pagination
+        let lastVisible = null;
+        let firstVisible = null;
+        let pageSnapshots = [];
+        let currentPageIndex = 0;
+        const pageSize = 10;
+        let currentSearchTerm = '';
+        let currentSort = 'nama';
+        let currentPageDirection = 'next';
+
+        // Data unit dan varian (real‑time)
+        let unitMap = {};
+        let varianByProduk = {};  // grouped by produkId
+        let lastRenderedDocs = []; // docs terakhir yang dirender
+
+        // Subscribe unit
+        const unitQuery = query(unitCol, where('deleted', '==', false));
+        onSnapshot(unitQuery, (snapshot) => {
+            unitMap = {};
+            snapshot.docs.forEach(doc => {
+                unitMap[doc.id] = doc.data().nama;
+            });
+            if (lastRenderedDocs) {
+                renderProduk(lastRenderedDocs);
+            }
+        }, (error) => {
+            console.error('Gagal memuat unit:', error);
+        });
+
+        // Subscribe varian (real‑time)
+        const varianQuery = query(varianCol, where('deleted', '==', false));
+        onSnapshot(varianQuery, (snapshot) => {
+            varianByProduk = {};
+            snapshot.docs.forEach(doc => {
+                const v = doc.data();
+                const produkId = v.produkId;
+                if (!varianByProduk[produkId]) varianByProduk[produkId] = [];
+                varianByProduk[produkId].push({ id: doc.id, ...v });
+            });
+            if (lastRenderedDocs) {
+                renderProduk(lastRenderedDocs);
+            }
+        }, (error) => {
+            console.error('Gagal memuat varian:', error);
+        });
+
+        // ========== FORMAT STATUS ==========
+        function getStatusBadge(stok, minStok) {
+            if (stok <= 0) return '<span class="badge badge-danger">Habis</span>';
+            if (stok <= minStok * 0.5) return '<span class="badge badge-danger">Kritis</span>';
+            if (stok <= minStok) return '<span class="badge badge-warning">Menipis</span>';
+            return '<span class="badge badge-success">Aman</span>';
+        }
+
+        // ========== MEMBANGUN QUERY DASAR ==========
+        function buildBaseQuery() {
+            let baseQuery = query(produkCol, where('deleted', '==', false));
+
+            if (currentSort === 'stokAsc') {
+                baseQuery = query(baseQuery, orderBy('stokAwal'), orderBy('nama'));
+            } else if (currentSort === 'stokDesc') {
+                baseQuery = query(baseQuery, orderBy('stokAwal', 'desc'), orderBy('nama'));
+            } else {
+                baseQuery = query(baseQuery, orderBy('nama'));
+            }
+            return baseQuery;
+        }
+
+        // ========== FUNGSI UNTUK MENJALANKAN QUERY PENCARIAN ==========
+        async function executeSearchQuery(direction = 'next') {
+            const searchTerm = currentSearchTerm.toLowerCase().trim();
+            const baseQuery = buildBaseQuery();
+
+            if (!searchTerm) {
+                let q = query(baseQuery, limit(pageSize));
+                if (direction === 'next' && lastVisible) {
+                    q = query(q, startAfter(lastVisible));
+                } else if (direction === 'prev' && currentPageIndex > 0) {
+                    return { type: 'normal', useSnapshot: true };
+                }
+                return { type: 'normal', query: q };
+            } else {
+                const fields = ['nama', 'kode', 'barcode'];
+                const queries = fields.map(field => {
+                    return query(
+                        baseQuery,
+                        where(field, '>=', searchTerm),
+                        where(field, '<=', searchTerm + '\uf8ff'),
+                        limit(pageSize)
+                    );
+                });
+                return { type: 'search', queries };
+            }
+        }
+
+        // ========== LOAD HALAMAN ==========
+        async function loadPage(direction = 'next') {
+            currentPageDirection = direction;
+            try {
+                const exec = await executeSearchQuery(direction);
+
+                if (exec.type === 'normal' && exec.useSnapshot) {
+                    const prevSnapshot = pageSnapshots[currentPageIndex - 1];
+                    if (prevSnapshot) {
+                        renderProduk(prevSnapshot.docs);
+                        currentPageIndex--;
+                        lastVisible = prevSnapshot.docs[prevSnapshot.docs.length - 1];
+                        firstVisible = prevSnapshot.docs[0];
+                        pageInfo.textContent = `Halaman ${currentPageIndex + 1}`;
+                        prevPageBtn.disabled = currentPageIndex === 0;
+                        nextPageBtn.disabled = prevSnapshot.docs.length < pageSize;
+                    }
+                    return;
+                }
+
+                let docs = [];
+                if (exec.type === 'normal') {
+                    const snapshot = await getDocs(exec.query);
+                    docs = snapshot.docs;
+                    if (direction === 'next') {
+                        pageSnapshots.push(snapshot);
+                        currentPageIndex = pageSnapshots.length - 1;
+                    }
+                    lastVisible = docs[docs.length - 1];
+                    firstVisible = docs[0];
+                } else {
+                    // Mode pencarian
+                    const snapshots = await Promise.all(exec.queries.map(q => getDocs(q)));
+                    const docsMap = new Map();
+                    snapshots.forEach(snap => {
+                        snap.docs.forEach(doc => {
+                            if (!docsMap.has(doc.id)) {
+                                docsMap.set(doc.id, doc);
+                            }
+                        });
+                    });
+                    docs = Array.from(docsMap.values());
+                    docs.sort((a, b) => {
+                        const aVal = a.get('nama') || '';
+                        const bVal = b.get('nama') || '';
+                        return aVal.localeCompare(bVal);
+                    });
+                    docs = docs.slice(0, pageSize);
+
+                    pageSnapshots = [];
+                    currentPageIndex = 0;
+                    lastVisible = null;
+                    firstVisible = null;
+                }
+
+                lastRenderedDocs = docs;
+                renderProduk(docs);
+
+                if (exec.type === 'search') {
+                    prevPageBtn.disabled = true;
+                    nextPageBtn.disabled = true;
+                    pageInfo.textContent = 'Halaman 1 (pencarian)';
+                } else {
+                    prevPageBtn.disabled = currentPageIndex === 0;
+                    nextPageBtn.disabled = docs.length < pageSize;
+                    pageInfo.textContent = `Halaman ${currentPageIndex + 1}`;
+                }
+            } catch (error) {
+                console.error('Gagal memuat inventory:', error);
+                inventoryBody.innerHTML = `<tr><td colspan="6" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
+            }
+        }
+
+        // ========== RENDER PRODUK DENGAN VARIAN ==========
+        function renderProduk(docs) {
+            lastRenderedDocs = docs;
+            let html = '';
+            docs.forEach(doc => {
+                const p = doc.data();
+                const produkId = doc.id;
+                const unit = unitMap[p.unitId] || '';
+                const varianList = varianByProduk[produkId] || [];
+
+                // Hitung total stok varian jika ada
+                const totalStokVarian = varianList.reduce((sum, v) => sum + (v.stok || 0), 0);
+
+                // Baris produk utama
+                const stokProduk = varianList.length > 0 ? totalStokVarian : (p.stokAwal || 0);
+                const statusProduk = getStatusBadge(stokProduk, p.stokMinimal || 0);
+                const namaProduk = p.nama;
+
+                let produkAddBtn = '', produkReduceBtn = '', produkOpnameBtn = '';
+                if (varianList.length === 0) {
+                    // Produk tanpa varian: tampilkan tombol aksi (tergantung login)
+                    if (localUser) {
+                        produkAddBtn = `<button class="btn-icon" onclick="openAddProductModal('${produkId}', '${namaProduk.replace(/'/g, "\\'")}', ${stokProduk})" title="Tambah Stok"><i data-feather="plus-circle"></i></button>`;
+                        produkReduceBtn = `<button class="btn-icon" onclick="openReduceProductModal('${produkId}', '${namaProduk.replace(/'/g, "\\'")}', ${stokProduk})" title="Kurangi Stok"><i data-feather="minus-circle"></i></button>`;
+                    } else {
+                        produkAddBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk menambah stok"><i data-feather="plus-circle"></i></button>`;
+                        produkReduceBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk mengurangi stok"><i data-feather="minus-circle"></i></button>`;
+                    }
+                    produkOpnameBtn = `<button class="btn-icon" onclick="openOpnameProductModal('${produkId}', '${namaProduk.replace(/'/g, "\\'")}', ${stokProduk})" title="Stok Opname"><i data-feather="rotate-cw"></i></button>`;
+                } else {
+                    // Produk dengan varian: tombol aksi non-aktif (disarankan kelola via varian)
+                    produkAddBtn = `<span class="btn-icon disabled" title="Kelola stok melalui varian"><i data-feather="plus-circle" style="opacity:0.3;"></i></span>`;
+                    produkReduceBtn = `<span class="btn-icon disabled" title="Kelola stok melalui varian"><i data-feather="minus-circle" style="opacity:0.3;"></i></span>`;
+                    produkOpnameBtn = `<span class="btn-icon disabled" title="Kelola stok melalui varian"><i data-feather="rotate-cw" style="opacity:0.3;"></i></span>`;
+                }
+
+                html += `
+                <tr class="product-row">
+                    <td>${p.kode || '-'}</td>
+                    <td><strong>${namaProduk}</strong></td>
+                    <td>${stokProduk} ${unit}</td>
+                    <td>${p.stokMinimal || 0} ${unit}</td>
+                    <td>${statusProduk}</td>
+                    <td>
+                        ${produkAddBtn}
+                        ${produkReduceBtn}
+                        ${produkOpnameBtn}
+                    </td>
+                </tr>
+                `;
+
+                // Baris varian
+                varianList.forEach(v => {
+                    const stokVarian = v.stok || 0;
+                    const statusVarian = getStatusBadge(stokVarian, p.stokMinimal || 0);
+                    const namaVarian = v.namaVarian;
+                    let varianAddBtn = '', varianReduceBtn = '', varianOpnameBtn = '';
+                    if (localUser) {
+                        varianAddBtn = `<button class="btn-icon" onclick="openAddVarianModal('${v.id}', '${namaProduk} - ${namaVarian.replace(/'/g, "\\'")}', ${stokVarian}, '${produkId}')" title="Tambah Stok Varian"><i data-feather="plus-circle"></i></button>`;
+                        varianReduceBtn = `<button class="btn-icon" onclick="openReduceVarianModal('${v.id}', '${namaProduk} - ${namaVarian.replace(/'/g, "\\'")}', ${stokVarian}, '${produkId}')" title="Kurangi Stok Varian"><i data-feather="minus-circle"></i></button>`;
+                    } else {
+                        varianAddBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk menambah stok varian"><i data-feather="plus-circle"></i></button>`;
+                        varianReduceBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk mengurangi stok varian"><i data-feather="minus-circle"></i></button>`;
+                    }
+                    varianOpnameBtn = `<button class="btn-icon" onclick="openOpnameVarianModal('${v.id}', '${namaProduk} - ${namaVarian.replace(/'/g, "\\'")}', ${stokVarian}, '${produkId}')" title="Stok Opname Varian"><i data-feather="rotate-cw"></i></button>`;
+
+                    html += `
+                    <tr class="variant-row" style="background-color: #f9f9f9;">
+                        <td style="padding-left: 2rem;">↳</td>
+                        <td>${namaVarian}</td>
+                        <td>${stokVarian} ${unit}</td>
+                        <td>${p.stokMinimal || 0} ${unit}</td>
+                        <td>${statusVarian}</td>
+                        <td>
+                            ${varianAddBtn}
+                            ${varianReduceBtn}
+                            ${varianOpnameBtn}
+                        </td>
+                    </tr>
+                    `;
+                });
+            });
+            inventoryBody.innerHTML = html;
+            feather.replace();
+        }
+
+        // ========== FUNGSI MODAL UNTUK PRODUK (TANPA VARIAN) ==========
+        window.openAddProductModal = function(productId, productName, currentStock) {
+            if (!localUser) { openFeatureLoginModal(); return; }
+            document.getElementById('addProductId').value = productId;
+            document.getElementById('addVarianId').value = '';
+            document.getElementById('addProductName').value = productName;
+            document.getElementById('addCurrentStock').value = currentStock;
+            document.getElementById('addQuantity').value = '';
+            document.getElementById('addReason').value = '';
+            document.getElementById('modalAddStock').classList.add('active');
+        };
+
+        window.openReduceProductModal = function(productId, productName, currentStock) {
+            if (!localUser) { openFeatureLoginModal(); return; }
+            document.getElementById('reduceProductId').value = productId;
+            document.getElementById('reduceVarianId').value = '';
+            document.getElementById('reduceProductName').value = productName;
+            document.getElementById('reduceCurrentStock').value = currentStock;
+            document.getElementById('reduceQuantity').value = '';
+            document.getElementById('reduceReason').value = '';
+            document.getElementById('modalReduceStock').classList.add('active');
+        };
+
+        window.openOpnameProductModal = function(productId, productName, currentStock) {
+            document.getElementById('opnameProductId').value = productId;
+            document.getElementById('opnameVarianId').value = '';
+            document.getElementById('opnameProductName').value = productName;
+            document.getElementById('opnameCurrentStock').value = currentStock;
+            document.getElementById('opnameNewStock').value = currentStock;
+            document.getElementById('opnameReason').value = '';
+            document.getElementById('modalOpname').classList.add('active');
+        };
+
+        // ========== FUNGSI MODAL UNTUK VARIAN ==========
+        window.openAddVarianModal = function(varianId, varianName, currentStock, productId) {
+            if (!localUser) { openFeatureLoginModal(); return; }
+            document.getElementById('addProductId').value = productId;
+            document.getElementById('addVarianId').value = varianId;
+            document.getElementById('addProductName').value = varianName;
+            document.getElementById('addCurrentStock').value = currentStock;
+            document.getElementById('addQuantity').value = '';
+            document.getElementById('addReason').value = '';
+            document.getElementById('modalAddStock').classList.add('active');
+        };
+
+        window.openReduceVarianModal = function(varianId, varianName, currentStock, productId) {
+            if (!localUser) { openFeatureLoginModal(); return; }
+            document.getElementById('reduceProductId').value = productId;
+            document.getElementById('reduceVarianId').value = varianId;
+            document.getElementById('reduceProductName').value = varianName;
+            document.getElementById('reduceCurrentStock').value = currentStock;
+            document.getElementById('reduceQuantity').value = '';
+            document.getElementById('reduceReason').value = '';
+            document.getElementById('modalReduceStock').classList.add('active');
+        };
+
+        window.openOpnameVarianModal = function(varianId, varianName, currentStock, productId) {
+            document.getElementById('opnameProductId').value = productId;
+            document.getElementById('opnameVarianId').value = varianId;
+            document.getElementById('opnameProductName').value = varianName;
+            document.getElementById('opnameCurrentStock').value = currentStock;
+            document.getElementById('opnameNewStock').value = currentStock;
+            document.getElementById('opnameReason').value = '';
+            document.getElementById('modalOpname').classList.add('active');
+        };
+
+        window.closeModal = (modalId) => {
+            document.getElementById(modalId).classList.remove('active');
+        };
+
+        // ========== SIMPAN TAMBAH STOK ==========
+        document.getElementById('saveAddStock').addEventListener('click', async () => {
+            const productId = document.getElementById('addProductId').value;
+            const varianId = document.getElementById('addVarianId').value;
+            const qty = parseInt(document.getElementById('addQuantity').value);
+            const reason = document.getElementById('addReason').value;
+            if (!qty || qty <= 0) {
+                alert('Jumlah harus diisi dan positif');
+                return;
+            }
+            try {
+                await runTransaction(dbCloud, async (transaction) => {
+                    if (varianId) {
+                        // Update varian
+                        const varianRef = doc(varianCol, varianId);
+                        const varianSnap = await transaction.get(varianRef);
+                        if (!varianSnap.exists()) throw new Error('Varian tidak ditemukan');
+                        const varian = varianSnap.data();
+                        const newStock = (varian.stok || 0) + qty;
+                        transaction.update(varianRef, { stok: newStock, updatedAt: serverTimestamp() });
+
+                        // Catat movement
+                        const movementRef = doc(stockMovementCol);
+                        transaction.set(movementRef, {
+                            produkId: productId,
+                            varianId: varianId,
+                            type: 'add',
+                            quantity: qty,
+                            previousStock: varian.stok || 0,
+                            newStock: newStock,
+                            reason: reason || '',
+                            createdAt: serverTimestamp(),
+                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                        });
+                    } else {
+                        // Update produk
+                        const produkRef = doc(produkCol, productId);
+                        const produkSnap = await transaction.get(produkRef);
+                        if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
+                        const produk = produkSnap.data();
+                        const newStock = (produk.stokAwal || 0) + qty;
+                        transaction.update(produkRef, { stokAwal: newStock, updatedAt: serverTimestamp() });
+
+                        const movementRef = doc(stockMovementCol);
+                        transaction.set(movementRef, {
+                            produkId: productId,
+                            type: 'add',
+                            quantity: qty,
+                            previousStock: produk.stokAwal || 0,
+                            newStock: newStock,
+                            reason: reason || '',
+                            createdAt: serverTimestamp(),
+                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                        });
+                    }
+                });
+                alert('Stok berhasil ditambahkan');
+                closeModal('modalAddStock');
+                // Tidak perlu reload, karena onSnapshot varian akan memperbarui tampilan
+            } catch (error) {
+                console.error(error);
+                alert('Gagal menambah stok: ' + error.message);
+            }
+        });
+
+        // ========== SIMPAN KURANGI STOK ==========
+        document.getElementById('saveReduceStock').addEventListener('click', async () => {
+            const productId = document.getElementById('reduceProductId').value;
+            const varianId = document.getElementById('reduceVarianId').value;
+            const qty = parseInt(document.getElementById('reduceQuantity').value);
+            const reason = document.getElementById('reduceReason').value;
+            if (!qty || qty <= 0) {
+                alert('Jumlah harus diisi dan positif');
+                return;
+            }
+            try {
+                await runTransaction(dbCloud, async (transaction) => {
+                    if (varianId) {
+                        const varianRef = doc(varianCol, varianId);
+                        const varianSnap = await transaction.get(varianRef);
+                        if (!varianSnap.exists()) throw new Error('Varian tidak ditemukan');
+                        const varian = varianSnap.data();
+                        const currentStock = varian.stok || 0;
+                        if (currentStock < qty) {
+                            throw new Error('Stok varian tidak mencukupi');
+                        }
+                        const newStock = currentStock - qty;
+                        transaction.update(varianRef, { stok: newStock, updatedAt: serverTimestamp() });
+
+                        const movementRef = doc(stockMovementCol);
+                        transaction.set(movementRef, {
+                            produkId: productId,
+                            varianId: varianId,
+                            type: 'reduce',
+                            quantity: qty,
+                            previousStock: currentStock,
+                            newStock: newStock,
+                            reason: reason || '',
+                            createdAt: serverTimestamp(),
+                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                        });
+                    } else {
+                        const produkRef = doc(produkCol, productId);
+                        const produkSnap = await transaction.get(produkRef);
+                        if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
+                        const produk = produkSnap.data();
+                        const currentStock = produk.stokAwal || 0;
+                        if (currentStock < qty) {
+                            throw new Error('Stok produk tidak mencukupi');
+                        }
+                        const newStock = currentStock - qty;
+                        transaction.update(produkRef, { stokAwal: newStock, updatedAt: serverTimestamp() });
+
+                        const movementRef = doc(stockMovementCol);
+                        transaction.set(movementRef, {
+                            produkId: productId,
+                            type: 'reduce',
+                            quantity: qty,
+                            previousStock: currentStock,
+                            newStock: newStock,
+                            reason: reason || '',
+                            createdAt: serverTimestamp(),
+                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                        });
+                    }
+                });
+                alert('Stok berhasil dikurangi');
+                closeModal('modalReduceStock');
+            } catch (error) {
+                console.error(error);
+                alert('Gagal mengurangi stok: ' + error.message);
+            }
+        });
+
+        // ========== SIMPAN OPNAME ==========
+        document.getElementById('saveOpname').addEventListener('click', async () => {
+            const productId = document.getElementById('opnameProductId').value;
+            const varianId = document.getElementById('opnameVarianId').value;
+            const newStock = parseInt(document.getElementById('opnameNewStock').value);
+            const reason = document.getElementById('opnameReason').value;
+            if (isNaN(newStock) || newStock < 0) {
+                alert('Stok baru harus diisi dan tidak negatif');
+                return;
+            }
+            try {
+                await runTransaction(dbCloud, async (transaction) => {
+                    if (varianId) {
+                        const varianRef = doc(varianCol, varianId);
+                        const varianSnap = await transaction.get(varianRef);
+                        if (!varianSnap.exists()) throw new Error('Varian tidak ditemukan');
+                        const varian = varianSnap.data();
+                        const oldStock = varian.stok || 0;
+
+                        transaction.update(varianRef, { stok: newStock, updatedAt: serverTimestamp() });
+
+                        const movementRef = doc(stockMovementCol);
+                        transaction.set(movementRef, {
+                            produkId: productId,
+                            varianId: varianId,
+                            type: 'opname',
+                            quantity: newStock - oldStock,
+                            previousStock: oldStock,
+                            newStock: newStock,
+                            reason: reason || '',
+                            createdAt: serverTimestamp(),
+                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                        });
+                    } else {
+                        const produkRef = doc(produkCol, productId);
+                        const produkSnap = await transaction.get(produkRef);
+                        if (!produkSnap.exists()) throw new Error('Produk tidak ditemukan');
+                        const produk = produkSnap.data();
+                        const oldStock = produk.stokAwal || 0;
+
+                        transaction.update(produkRef, { stokAwal: newStock, updatedAt: serverTimestamp() });
+
+                        const movementRef = doc(stockMovementCol);
+                        transaction.set(movementRef, {
+                            produkId: productId,
+                            type: 'opname',
+                            quantity: newStock - oldStock,
+                            previousStock: oldStock,
+                            newStock: newStock,
+                            reason: reason || '',
+                            createdAt: serverTimestamp(),
+                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                        });
+                    }
+                });
+                alert('Stok opname berhasil');
+                closeModal('modalOpname');
+            } catch (error) {
+                console.error(error);
+                alert('Gagal melakukan opname: ' + error.message);
+            }
+        });
+
+        // ========== AUTH FIREBASE ==========
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
+            } else {
+                loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            }
+            feather.replace();
+        });
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
+            } else {
+                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
+            }
+        });
+
+        // ========== FILTER & PAGINATION EVENT ==========
+        applyFilterBtn.addEventListener('click', () => {
+            currentSearchTerm = searchInput.value;
+            currentSort = sortSelect.value;
+            pageSnapshots = [];
+            currentPageIndex = 0;
+            lastVisible = null;
+            firstVisible = null;
+            loadPage('next');
+        });
+
+        let debounceTimeout;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                currentSearchTerm = searchInput.value;
+                currentSort = sortSelect.value;
+                pageSnapshots = [];
+                currentPageIndex = 0;
+                lastVisible = null;
+                firstVisible = null;
+                loadPage('next');
+            }, 500);
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(debounceTimeout);
+                currentSearchTerm = searchInput.value;
+                currentSort = sortSelect.value;
+                pageSnapshots = [];
+                currentPageIndex = 0;
+                lastVisible = null;
+                firstVisible = null;
+                loadPage('next');
+            }
+        });
+
+        prevPageBtn.addEventListener('click', () => {
+            loadPage('prev');
+        });
+
+        nextPageBtn.addEventListener('click', () => {
+            loadPage('next');
+        });
+
+        // ========== INITIAL LOAD ==========
+        try {
+            await initLocalDB();
+        } catch (e) {
+            console.error('Gagal inisialisasi IndexedDB lokal, fitur login lokal tidak tersedia', e);
+        }
+
+        updateLocalUI();
+        loadPage('next');
+    </script>
+</body>
+</html>

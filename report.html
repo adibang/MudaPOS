@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUDA POS - Laporan</title>
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        /* ===== CSS SAMA PERSIS DENGAN HALAMAN LAIN ===== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background:#f5f5f5; color:#333; font-size:14px; }
+        .text-primary { color:#006B54; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .btn-sync { background:transparent; border:1px solid #006B54; color:#006B54; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; margin-right:0.5rem; font-size:0.9rem; }
+        .btn-sync:hover { background:#e6f0ec; }
+        .reset-btn { position:fixed; bottom:20px; right:20px; background:#dc3545; color:white; border:none; border-radius:50px; padding:0.8rem 1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.2); z-index:1000; display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; }
+        .reset-btn:hover { background:#c82333; }
+        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; display:flex; flex-direction:column; }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
+        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
+        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
+        .sidebar-menu { list-style:none; flex:1; }
+        .sidebar-menu li { margin-bottom:0.2rem; }
+        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
+        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
+        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
+        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
+        .has-submenu.open .submenu { display:block; }
+        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
+        .submenu a:hover { background:#e6f0ec; color:#006B54; }
+        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
+        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
+        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
+        .page-title { margin-bottom:1.2rem; font-size:1.6rem; font-weight:600; color:#006B54; }
+
+        /* ===== REPORT SPECIFIC STYLES ===== */
+        .report-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 20px;
+            border: 1px solid #f0f0f0;
+            width: fit-content;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            background: transparent;
+            border-radius: 20px;
+            font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background: #006B54;
+            color: white;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+            background: white;
+            padding: 1rem;
+            border-radius: 20px;
+            border: 1px solid #f0f0f0;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .filter-group label {
+            font-weight: 500;
+            color: #006B54;
+        }
+        .filter-group select, .filter-group input {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            background: white;
+        }
+        .filter-group input[type="date"] {
+            width: 140px;
+        }
+        .btn {
+            background: #006B54;
+            color: white;
+            border: none;
+            padding: 0.5rem 1.2rem;
+            border-radius: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-weight: 500;
+        }
+        .btn:hover {
+            background: #004d3b;
+        }
+        .table-responsive {
+            overflow-x: auto;
+            background: white;
+            border-radius: 20px;
+            padding: 1rem;
+            border: 1px solid #f0f0f0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        th, td {
+            padding: 0.8rem 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            color: #006B54;
+            font-weight: 600;
+            background: #f9f9f9;
+        }
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 0.2rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 0.2rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        .summary-info {
+            margin-top: 1rem;
+            font-weight: 600;
+            color: #006B54;
+            text-align: right;
+            background: #f9f9f9;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+        }
+
+        /* ===== LOGIN MODAL ===== */
+        #loginModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        #loginModal .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 300px;
+            padding: 20px;
+            text-align: center;
+        }
+        #loginModal h3 {
+            color: #006B54;
+            margin-bottom: 15px;
+        }
+        #loginModal input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+        }
+        #loginModal button {
+            width: 100%;
+            padding: 12px;
+            background: #006B54;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #loginError {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* ===== FOOTER SIDEBAR UNTUK LOCAL USER INFO ===== */
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+        .local-user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 0.5rem 0.8rem;
+            border-radius: 8px;
+        }
+        .local-user-info span {
+            font-weight: 600;
+            color: #006B54;
+            font-size: 0.9rem;
+        }
+        .local-logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 1rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>MUDA POS</h2>
+            <button class="close-sidebar" id="closeSidebar"><i data-feather="x"></i></button>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
+            <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
+            <li class="has-submenu" id="salesMenuItem">
+                <a href="#" class="menu-link" id="salesMenuToggle">
+                    <i data-feather="shopping-cart"></i> Sales
+                    <i data-feather="chevron-down" class="arrow"></i>
+                </a>
+                <ul class="submenu">
+                    <li><a href="sales.html"><i data-feather="shopping-cart"></i> Sales</a></li>
+                    <li><a href="sales-list.html"><i data-feather="list"></i> Daftar Sales</a></li>
+                </ul>
+            </li>
+            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
+            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
+            <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
+            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
+            <li><a href="report.html" class="menu-link active"><i data-feather="bar-chart-2"></i> Report</a></li>
+            <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
+        </ul>
+        <!-- Footer Sidebar: info user lokal dan tombol logout -->
+        <div class="sidebar-footer">
+            <div class="local-user-info" id="localUserInfo" style="display: none;">
+                <span id="user-name-display"></span>
+                <button class="local-logout-btn" id="localLogoutBtn">Logout Lokal</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
+        </div>
+        <div class="header-right" style="display:flex; align-items:center;">
+            <button class="btn-sync" id="syncBtn" style="display:none;"><i data-feather="refresh-cw"></i><span>Sync</span></button>
+            <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+        </div>
+    </header>
+
+    <!-- Login Modal (Lokal) -->
+    <div id="loginModal">
+        <div class="modal-content">
+            <h3>Login Laporan</h3>
+            <input type="text" id="loginUsername" placeholder="Username">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button id="loginSubmit">Masuk</button>
+            <div id="loginError">Username atau password salah</div>
+        </div>
+    </div>
+
+    <!-- Konten Utama (disembunyikan jika belum login) -->
+    <main class="main-content" id="mainContent" style="display:none;">
+        <h1 class="page-title">Laporan</h1>
+
+        <!-- Tab Navigation -->
+        <div class="report-tabs">
+            <button class="tab-btn active" id="tabProduk">Produk</button>
+            <button class="tab-btn" id="tabHourly">Transaksi per Jam</button>
+            <button class="tab-btn" id="tabCustomer">Pelanggan</button>
+            <button class="tab-btn" id="tabUtang">Utang</button>
+            <button class="tab-btn" id="tabPiutang">Piutang</button>
+        </div>
+
+        <!-- Panel Filter (akan diisi sesuai tab aktif) -->
+        <div class="filter-bar" id="filterBar">
+            <!-- diisi oleh JS -->
+        </div>
+
+        <!-- Panel Konten Laporan -->
+        <div id="reportContent" class="table-responsive">
+            <!-- diisi oleh JS -->
+        </div>
+        <!-- Ringkasan Total (opsional) -->
+        <div id="reportSummary" class="summary-info" style="display:none;"></div>
+    </main>
+
+    <!-- Script sidebar (non-module) -->
+    <script>
+        feather.replace();
+
+        // Sidebar
+        const menuToggle = document.getElementById('menuToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+        function closeSidebarFunc() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+        menuToggle.addEventListener('click', openSidebar);
+        closeSidebar.addEventListener('click', closeSidebarFunc);
+        overlay.addEventListener('click', closeSidebarFunc);
+
+        // Toggle submenu sales
+        const salesItem = document.getElementById('salesMenuItem');
+        const salesToggle = document.getElementById('salesMenuToggle');
+        if (salesToggle) {
+            salesToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                salesItem.classList.toggle('open');
+            });
+        }
+
+        // Set active menu
+        document.querySelectorAll('.sidebar-menu .menu-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === 'report.html') link.classList.add('active');
+        });
+    </script>
+
+    <!-- Script module utama (Firestore + IndexedDB lokal) -->
+    <script type="module">
+        // ========== IMPOR FIREBASE ==========
+        import { auth, provider, dbCloud } from './js/firebase-config.js';
+        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { 
+            collection, doc, getDocs, query, where, orderBy, Timestamp 
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // ========== REFERENSI KOLEKSI FIRESTORE ==========
+        const salesCol = collection(dbCloud, 'sales');
+        const purchaseCol = collection(dbCloud, 'purchase');
+        const produkCol = collection(dbCloud, 'produk');
+        const customerCol = collection(dbCloud, 'customer');
+        const supplierCol = collection(dbCloud, 'supplier');
+
+        // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
+        const DB_NAME = 'MudaPOSDB';
+        const DB_VERSION = 1;
+        const STORE_LOCAL_USERS = 'localUsers';
+        let localDB = null;
+
+        async function initLocalDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = (e) => {
+                    localDB = e.target.result;
+                    resolve();
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_LOCAL_USERS)) {
+                        db.createObjectStore(STORE_LOCAL_USERS, { keyPath: 'id', autoIncrement: true });
+                    }
+                };
+            });
+        }
+
+        async function hashPassword(password) {
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(password);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) { console.warn('Crypto digest failed, using fallback', e); }
+            }
+            let hash = 0;
+            for (let i = 0; i < password.length; i++) {
+                const char = password.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
+            }
+            return hash.toString(16);
+        }
+
+        async function verifyLocalUser(username, password) {
+            return new Promise((resolve, reject) => {
+                const tx = localDB.transaction([STORE_LOCAL_USERS], 'readonly');
+                const store = tx.objectStore(STORE_LOCAL_USERS);
+                const request = store.getAll();
+                request.onsuccess = async () => {
+                    const users = request.result;
+                    const user = users.find(u => u.username === username);
+                    if (!user) { resolve(null); return; }
+                    const hashed = await hashPassword(password);
+                    if (user.password === hashed) {
+                        const { password, ...safeUser } = user;
+                        resolve(safeUser);
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = reject;
+            });
+        }
+
+        // ========== ELEMEN DOM ==========
+        const loginBtn = document.getElementById('loginBtn');
+        const userNameDisplay = document.getElementById('user-name-display');
+        const localLogoutBtn = document.getElementById('localLogoutBtn');
+        const localUserInfo = document.getElementById('localUserInfo');
+        const mainContent = document.getElementById('mainContent');
+        const loginModal = document.getElementById('loginModal');
+        const loginSubmit = document.getElementById('loginSubmit');
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        const loginError = document.getElementById('loginError');
+
+        const tabProduk = document.getElementById('tabProduk');
+        const tabHourly = document.getElementById('tabHourly');
+        const tabCustomer = document.getElementById('tabCustomer');
+        const tabUtang = document.getElementById('tabUtang');
+        const tabPiutang = document.getElementById('tabPiutang');
+        const filterBar = document.getElementById('filterBar');
+        const reportContent = document.getElementById('reportContent');
+        const reportSummary = document.getElementById('reportSummary');
+
+        let currentTab = 'produk';
+        let localUser = null;
+
+        // ========== FUNGSI LOGIN LOKAL ==========
+        function showLoginModal() {
+            loginModal.style.display = 'flex';
+            mainContent.style.display = 'none';
+        }
+
+        function hideLoginModal() {
+            loginModal.style.display = 'none';
+            mainContent.style.display = 'block';
+        }
+
+        function updateLocalUI() {
+            if (localUser) {
+                userNameDisplay.textContent = localUser.name;
+                localLogoutBtn.style.display = 'inline-block';
+                localUserInfo.style.display = 'flex';
+                hideLoginModal();
+            } else {
+                userNameDisplay.textContent = '';
+                localLogoutBtn.style.display = 'none';
+                localUserInfo.style.display = 'none';
+                showLoginModal();
+            }
+        }
+
+        // Cek sesi lokal
+        const savedSession = sessionStorage.getItem('localUser');
+        if (savedSession) {
+            localUser = JSON.parse(savedSession);
+            updateLocalUI();
+            initReportPage();
+        } else {
+            updateLocalUI();
+        }
+
+        loginSubmit.addEventListener('click', async () => {
+            const username = loginUsername.value;
+            const password = loginPassword.value;
+            const user = await verifyLocalUser(username, password);
+            if (user) {
+                sessionStorage.setItem('localUser', JSON.stringify(user));
+                localUser = user;
+                updateLocalUI();
+                initReportPage();
+            } else {
+                loginError.style.display = 'block';
+            }
+        });
+
+        // Fungsi logout lokal
+        localLogoutBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('localUser');
+            localUser = null;
+            updateLocalUI();
+        });
+
+        // ========== FUNGSI LAPORAN ==========
+        async function initReportPage() {
+            setTab('produk');
+        }
+
+        // Fungsi untuk mengatur filter berdasarkan tab
+        function renderFilterBar() {
+            const periodOptions = `
+                <option value="day">Hari Ini</option>
+                <option value="week">Minggu Ini</option>
+                <option value="month">Bulan Ini</option>
+                <option value="year">Tahun Ini</option>
+                <option value="custom">Kustom</option>
+            `;
+            if (currentTab === 'produk' || currentTab === 'hourly' || currentTab === 'customer') {
+                filterBar.innerHTML = `
+                    <div class="filter-group">
+                        <label>Periode:</label>
+                        <select id="periodSelect">${periodOptions}</select>
+                    </div>
+                    <div class="filter-group" id="customRange" style="display:none;">
+                        <input type="date" id="startDate">
+                        <span>s/d</span>
+                        <input type="date" id="endDate">
+                    </div>
+                    <button class="btn" id="applyFilter"><i data-feather="filter"></i> Tampilkan</button>
+                `;
+            } else {
+                // Untuk utang/piutang, tidak perlu filter tanggal (selalu outstanding)
+                filterBar.innerHTML = `
+                    <div class="filter-group">
+                        <span>Menampilkan semua transaksi dengan status belum lunas</span>
+                    </div>
+                    <button class="btn" id="refreshBtn"><i data-feather="refresh-cw"></i> Refresh</button>
+                `;
+            }
+            feather.replace();
+
+            // Event listener untuk periodSelect
+            const periodSelect = document.getElementById('periodSelect');
+            if (periodSelect) {
+                periodSelect.addEventListener('change', (e) => {
+                    const customRange = document.getElementById('customRange');
+                    if (customRange) {
+                        customRange.style.display = e.target.value === 'custom' ? 'flex' : 'none';
+                    }
+                });
+            }
+
+            // Apply filter button
+            const applyBtn = document.getElementById('applyFilter') || document.getElementById('refreshBtn');
+            if (applyBtn) {
+                applyBtn.addEventListener('click', () => {
+                    loadReport();
+                });
+            }
+        }
+
+        // Fungsi untuk mendapatkan rentang tanggal berdasarkan pilihan periode
+        function getDateRange() {
+            if (currentTab === 'utang' || currentTab === 'piutang') return null;
+            const period = document.getElementById('periodSelect')?.value;
+            const now = new Date();
+            let start, end;
+            if (period === 'custom') {
+                start = document.getElementById('startDate').value;
+                end = document.getElementById('endDate').value;
+                if (!start || !end) {
+                    alert('Isi tanggal awal dan akhir');
+                    return null;
+                }
+                start = new Date(start);
+                end = new Date(end);
+                end.setHours(23,59,59,999);
+            } else {
+                switch (period) {
+                    case 'day':
+                        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59,999);
+                        break;
+                    case 'week':
+                        const day = now.getDay(); // 0 = Minggu
+                        const diff = day === 0 ? 6 : day - 1; // Senin sebagai awal minggu
+                        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff);
+                        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (6 - diff), 23,59,59,999);
+                        break;
+                    case 'month':
+                        start = new Date(now.getFullYear(), now.getMonth(), 1);
+                        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23,59,59,999);
+                        break;
+                    case 'year':
+                        start = new Date(now.getFullYear(), 0, 1);
+                        end = new Date(now.getFullYear(), 11, 31, 23,59,59,999);
+                        break;
+                    default:
+                        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59,999);
+                }
+            }
+            return { start: Timestamp.fromDate(start), end: Timestamp.fromDate(end) };
+        }
+
+        // ========== LAPORAN PRODUK ==========
+        async function loadProdukReport() {
+            const range = getDateRange();
+            if (!range) return;
+            try {
+                const salesSnap = await getDocs(query(salesCol, 
+                    where('createdAt', '>=', range.start),
+                    where('createdAt', '<=', range.end)
+                ));
+                const productMap = new Map(); // produkId -> { nama, totalQty, totalRevenue }
+                for (const saleDoc of salesSnap.docs) {
+                    const sale = saleDoc.data();
+                    if (sale.items && Array.isArray(sale.items)) {
+                        for (const item of sale.items) {
+                            const id = item.produkId;
+                            if (!id) continue;
+                            if (!productMap.has(id)) {
+                                const nama = item.nama || 'Produk Dihapus';
+                                productMap.set(id, { nama, totalQty: 0, totalRevenue: 0 });
+                            }
+                            const p = productMap.get(id);
+                            p.totalQty += item.qty || 0;
+                            p.totalRevenue += item.subtotal || 0;
+                        }
+                    }
+                }
+                const products = Array.from(productMap.entries()).map(([id, data]) => ({
+                    id,
+                    nama: data.nama,
+                    qty: data.totalQty,
+                    revenue: data.totalRevenue
+                }));
+                products.sort((a, b) => b.qty - a.qty); // laris ke atas
+                let html = '<table><thead><tr><th>Produk</th><th>Total Qty Terjual</th><th>Total Pendapatan</th></tr></thead><tbody>';
+                let totalRevenue = 0;
+                if (products.length === 0) {
+                    html += '<tr><td colspan="3" style="text-align:center;">Tidak ada data</td></tr>';
+                } else {
+                    products.forEach(p => {
+                        html += `<tr><td>${p.nama}</td><td>${p.qty}</td><td>Rp ${p.revenue.toLocaleString()}</td></tr>`;
+                        totalRevenue += p.revenue;
+                    });
+                }
+                html += '</tbody></table>';
+                reportContent.innerHTML = html;
+                // Tampilkan ringkasan total
+                reportSummary.style.display = 'block';
+                reportSummary.innerHTML = `Total Pendapatan: Rp ${totalRevenue.toLocaleString()}`;
+            } catch (error) {
+                console.error(error);
+                reportContent.innerHTML = `<p style="color:red;">Gagal memuat: ${error.message}</p>`;
+                reportSummary.style.display = 'none';
+            }
+        }
+
+        // ========== LAPORAN PER JAM ==========
+        async function loadHourlyReport() {
+            const range = getDateRange();
+            if (!range) return;
+            try {
+                const salesSnap = await getDocs(query(salesCol, 
+                    where('createdAt', '>=', range.start),
+                    where('createdAt', '<=', range.end)
+                ));
+                const hourMap = new Array(24).fill(0).map(() => ({ count: 0, revenue: 0 }));
+                for (const saleDoc of salesSnap.docs) {
+                    const sale = saleDoc.data();
+                    const date = sale.createdAt?.toDate();
+                    if (date) {
+                        const hour = date.getHours();
+                        hourMap[hour].count++;
+                        // Gunakan finalTotal jika ada, fallback ke total
+                        const amount = sale.finalTotal ?? sale.total ?? 0;
+                        hourMap[hour].revenue += amount;
+                    }
+                }
+                let html = '<table><thead><tr><th>Jam</th><th>Jumlah Transaksi</th><th>Total Pendapatan</th></tr></thead><tbody>';
+                let totalTrans = 0, totalRev = 0;
+                for (let i = 0; i < 24; i++) {
+                    const data = hourMap[i];
+                    if (data.count > 0) {
+                        html += `<tr><td>${i}:00 - ${i+1}:00</td><td>${data.count}</td><td>Rp ${data.revenue.toLocaleString()}</td></tr>`;
+                        totalTrans += data.count;
+                        totalRev += data.revenue;
+                    } else {
+                        html += `<tr><td>${i}:00 - ${i+1}:00</td><td>0</td><td>Rp 0</td></tr>`;
+                    }
+                }
+                html += '</tbody></table>';
+                reportContent.innerHTML = html;
+                reportSummary.style.display = 'block';
+                reportSummary.innerHTML = `Total Transaksi: ${totalTrans} | Total Pendapatan: Rp ${totalRev.toLocaleString()}`;
+            } catch (error) {
+                console.error(error);
+                reportContent.innerHTML = `<p style="color:red;">Gagal memuat: ${error.message}</p>`;
+                reportSummary.style.display = 'none';
+            }
+        }
+
+        // ========== LAPORAN PER PELANGGAN ==========
+        async function loadCustomerReport() {
+            const range = getDateRange();
+            if (!range) return;
+            try {
+                const salesSnap = await getDocs(query(salesCol, 
+                    where('createdAt', '>=', range.start),
+                    where('createdAt', '<=', range.end)
+                ));
+                const custMap = new Map(); // customerId -> { nama, totalQty, totalRevenue }
+                for (const saleDoc of salesSnap.docs) {
+                    const sale = saleDoc.data();
+                    const custId = sale.customerId || 'umum';
+                    const custName = sale.customerName || 'Umum';
+                    if (!custMap.has(custId)) {
+                        custMap.set(custId, { nama: custName, totalQty: 0, totalRevenue: 0 });
+                    }
+                    const c = custMap.get(custId);
+                    if (sale.items) {
+                        sale.items.forEach(item => {
+                            c.totalQty += item.qty || 0;
+                        });
+                    }
+                    c.totalRevenue += sale.finalTotal ?? sale.total ?? 0;
+                }
+                const customers = Array.from(custMap.entries()).map(([id, data]) => ({
+                    id,
+                    nama: data.nama,
+                    qty: data.totalQty,
+                    revenue: data.totalRevenue
+                }));
+                customers.sort((a, b) => b.revenue - a.revenue);
+                let html = '<table><thead><tr><th>Pelanggan</th><th>Total Qty</th><th>Total Belanja</th></tr></thead><tbody>';
+                let totalCustRev = 0;
+                if (customers.length === 0) {
+                    html += '<tr><td colspan="3" style="text-align:center;">Tidak ada data</td></tr>';
+                } else {
+                    customers.forEach(c => {
+                        html += `<tr><td>${c.nama}</td><td>${c.qty}</td><td>Rp ${c.revenue.toLocaleString()}</td></tr>`;
+                        totalCustRev += c.revenue;
+                    });
+                }
+                html += '</tbody></table>';
+                reportContent.innerHTML = html;
+                reportSummary.style.display = 'block';
+                reportSummary.innerHTML = `Total Belanja Semua Pelanggan: Rp ${totalCustRev.toLocaleString()}`;
+            } catch (error) {
+                console.error(error);
+                reportContent.innerHTML = `<p style="color:red;">Gagal memuat: ${error.message}</p>`;
+                reportSummary.style.display = 'none';
+            }
+        }
+
+        // ========== LAPORAN UTANG ==========
+        async function loadUtangReport() {
+            try {
+                // Gunakan field outstanding (bukan utang)
+                const purchaseSnap = await getDocs(query(purchaseCol, where('outstanding', '>', 0)));
+                if (purchaseSnap.empty) {
+                    reportContent.innerHTML = '<p style="text-align:center;">Tidak ada utang</p>';
+                    reportSummary.style.display = 'none';
+                    return;
+                }
+                const suppMap = new Map();
+                for (const purchaseDoc of purchaseSnap.docs) {
+                    const p = purchaseDoc.data();
+                    const suppId = p.supplierId;
+                    const suppName = p.supplierName || 'Unknown';
+                    if (!suppMap.has(suppId)) {
+                        suppMap.set(suppId, { nama: suppName, totalUtang: 0 });
+                    }
+                    const item = suppMap.get(suppId);
+                    item.totalUtang += p.outstanding || 0;
+                }
+                let html = '<table><thead><tr><th>Supplier</th><th>Total Utang</th></tr></thead><tbody>';
+                let totalUtang = 0;
+                for (let [suppId, data] of suppMap.entries()) {
+                    html += `<tr><td>${data.nama}</td><td>Rp ${data.totalUtang.toLocaleString()}</td></tr>`;
+                    totalUtang += data.totalUtang;
+                }
+                html += '</tbody></table>';
+                reportContent.innerHTML = html;
+                reportSummary.style.display = 'block';
+                reportSummary.innerHTML = `Total Utang: Rp ${totalUtang.toLocaleString()}`;
+            } catch (error) {
+                console.error(error);
+                reportContent.innerHTML = `<p style="color:red;">Gagal memuat: ${error.message}</p>`;
+                reportSummary.style.display = 'none';
+            }
+        }
+
+        // ========== LAPORAN PIUTANG ==========
+        async function loadPiutangReport() {
+            try {
+                const salesSnap = await getDocs(query(salesCol, where('outstanding', '>', 0)));
+                if (salesSnap.empty) {
+                    reportContent.innerHTML = '<p style="text-align:center;">Tidak ada piutang</p>';
+                    reportSummary.style.display = 'none';
+                    return;
+                }
+                const custMap = new Map();
+                for (const saleDoc of salesSnap.docs) {
+                    const s = saleDoc.data();
+                    const custId = s.customerId;
+                    const custName = s.customerName || 'Unknown';
+                    if (!custMap.has(custId)) {
+                        custMap.set(custId, { nama: custName, totalPiutang: 0 });
+                    }
+                    const item = custMap.get(custId);
+                    item.totalPiutang += s.outstanding || 0;
+                }
+                let html = '<table><thead><tr><th>Pelanggan</th><th>Total Piutang</th></tr></thead><tbody>';
+                let totalPiutang = 0;
+                for (let [custId, data] of custMap.entries()) {
+                    html += `<tr><td>${data.nama}</td><td>Rp ${data.totalPiutang.toLocaleString()}</td></tr>`;
+                    totalPiutang += data.totalPiutang;
+                }
+                html += '</tbody></table>';
+                reportContent.innerHTML = html;
+                reportSummary.style.display = 'block';
+                reportSummary.innerHTML = `Total Piutang: Rp ${totalPiutang.toLocaleString()}`;
+            } catch (error) {
+                console.error(error);
+                reportContent.innerHTML = `<p style="color:red;">Gagal memuat: ${error.message}</p>`;
+                reportSummary.style.display = 'none';
+            }
+        }
+
+        // Fungsi utama memuat laporan sesuai tab
+        function loadReport() {
+            reportSummary.style.display = 'none';
+            if (currentTab === 'produk') loadProdukReport();
+            else if (currentTab === 'hourly') loadHourlyReport();
+            else if (currentTab === 'customer') loadCustomerReport();
+            else if (currentTab === 'utang') loadUtangReport();
+            else if (currentTab === 'piutang') loadPiutangReport();
+        }
+
+        // Ganti tab
+        function setTab(tab) {
+            currentTab = tab;
+            [tabProduk, tabHourly, tabCustomer, tabUtang, tabPiutang].forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
+            renderFilterBar();
+            loadReport();
+        }
+
+        tabProduk.addEventListener('click', () => setTab('produk'));
+        tabHourly.addEventListener('click', () => setTab('hourly'));
+        tabCustomer.addEventListener('click', () => setTab('customer'));
+        tabUtang.addEventListener('click', () => setTab('utang'));
+        tabPiutang.addEventListener('click', () => setTab('piutang'));
+
+        // ========== AUTH FIREBASE (tetap ada, untuk login/out utama) ==========
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginBtn.innerHTML = '<i data-feather="log-out" width="18"></i><span>Logout</span>';
+            } else {
+                loginBtn.innerHTML = '<i data-feather="log-in" width="18"></i><span>Login</span>';
+            }
+            feather.replace();
+        });
+
+        loginBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
+            } else {
+                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
+            }
+        });
+
+        // Inisialisasi IndexedDB lokal
+        await initLocalDB();
+    </script>
+</body>
+</html>

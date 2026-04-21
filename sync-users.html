@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUDA POS - Sinkronisasi User</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background: #f0f5f3; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .sync-container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0,107,84,0.1);
+            padding: 30px;
+            text-align: center;
+        }
+        .logo {
+            margin-bottom: 20px;
+            color: #006B54;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .logo svg {
+            width: 32px;
+            height: 32px;
+        }
+        .logo h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid #e0e0e0;
+        }
+        .connection-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .badge-connected { background: #d4edda; color: #155724; }
+        .badge-disconnected { background: #f8d7da; color: #721c24; }
+        .badge-syncing { background: #fff3cd; color: #856404; }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #006B54;
+            line-height: 1.2;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .progress-bar {
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #006B54;
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 10px;
+        }
+        .message-area {
+            min-height: 40px;
+            margin: 15px 0;
+            color: #555;
+            font-size: 0.9rem;
+        }
+        .btn {
+            background: #006B54;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        .btn:hover { background: #004d3b; }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #006B54;
+            color: #006B54;
+        }
+        .btn-outline:hover { background: #e6f0ec; }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .user-list-preview {
+            text-align: left;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        .user-list-preview h4 {
+            color: #006B54;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        .user-item-preview {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .user-role {
+            font-size: 0.8rem;
+            background: #e6f0ec;
+            padding: 2px 8px;
+            border-radius: 20px;
+            color: #006B54;
+        }
+        .footer-note {
+            margin-top: 20px;
+            font-size: 0.75rem;
+            color: #999;
+        }
+        .spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="sync-container">
+        <div class="logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 7h-4.5L15 4h-3v3h-3v3H6v3h3v3h3v3h3v-3h3v-3h3V7z"/>
+            </svg>
+            <h2>MUDA POS</h2>
+        </div>
+        
+        <div class="status-card">
+            <div id="connectionBadge" class="connection-badge badge-disconnected">
+                <span id="connectionText">🔴 Tidak Terhubung</span>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="firestoreCount">0</div>
+                    <div class="stat-label">Firestore</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="indexedDBCount">0</div>
+                    <div class="stat-label">IndexedDB</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="syncedCount">0</div>
+                    <div class="stat-label">Tersinkron</div>
+                </div>
+            </div>
+            
+            <div class="progress-bar">
+                <div id="syncProgress" class="progress-fill" style="width:0%"></div>
+            </div>
+            
+            <div id="messageArea" class="message-area">
+                Menunggu koneksi...
+            </div>
+            
+            <button id="syncNowBtn" class="btn" disabled>
+                <span id="syncBtnText">Sinkronisasi Sekarang</span>
+            </button>
+            <button id="resetLocalBtn" class="btn btn-outline" style="margin-top:8px;" disabled>
+                Reset Data Lokal
+            </button>
+        </div>
+        
+        <div class="user-list-preview">
+            <h4>👥 Preview User (dari IndexedDB)</h4>
+            <div id="userPreviewList">
+                <div class="user-item-preview">Memuat...</div>
+            </div>
+        </div>
+        
+        <div class="footer-note">
+            Sinkronisasi otomatis berjalan di latar belakang
+        </div>
+    </div>
+
+    <script type="module">
+        // Konfigurasi Firebase (SAMA DENGAN APP UTAMA)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { 
+            getFirestore, collection, query, onSnapshot, getDocs, enableIndexedDbPersistence 
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            // GANTI DENGAN KONFIGURASI ANDA (SAMA DENGAN APP UTAMA)
+            apiKey: "AIzaSyDVty30S6y_qc1eMs3kVctcIpLt6Suw4dA",
+            authDomain: "mudapos-e8a4a.firebaseapp.com",
+            projectId: "mudapos-e8a4a",
+            storageBucket: "mudapos-e8a4a.firebasestorage.app",
+            messagingSenderId: "864215339664",
+            appId: "1:864215339664:web:1a97898b85ca3c1cb3be15"
+        };
+
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Konfigurasi IndexedDB (SAMA DENGAN APP UTAMA)
+        const IDB_NAME = 'MudaPOSDB';
+        const IDB_VERSION = 1;
+        const STORE_NAME = 'localUsers';
+        let idb = null;
+
+        // UI Elements
+        const connectionBadge = document.getElementById('connectionBadge');
+        const connectionText = document.getElementById('connectionText');
+        const firestoreCountEl = document.getElementById('firestoreCount');
+        const indexedDBCountEl = document.getElementById('indexedDBCount');
+        const syncedCountEl = document.getElementById('syncedCount');
+        const syncProgress = document.getElementById('syncProgress');
+        const messageArea = document.getElementById('messageArea');
+        const syncNowBtn = document.getElementById('syncNowBtn');
+        const resetLocalBtn = document.getElementById('resetLocalBtn');
+        const syncBtnText = document.getElementById('syncBtnText');
+        const userPreviewList = document.getElementById('userPreviewList');
+
+        let firestoreUsers = [];
+        let indexedDBUsers = [];
+        let isConnected = false;
+        let isSyncing = false;
+        let unsubscribeFirestore = null;
+
+        // ========== INDEXEDDB SETUP ==========
+        async function openIDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = (e) => {
+                    idb = e.target.result;
+                    // Pastikan store & index ada
+                    if (!idb.objectStoreNames.contains(STORE_NAME)) {
+                        idb.close();
+                        const upgradeReq = indexedDB.open(IDB_NAME, IDB_VERSION + 1);
+                        upgradeReq.onupgradeneeded = (e) => {
+                            const db = e.target.result;
+                            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                                const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                                store.createIndex('username', 'username', { unique: true });
+                            }
+                        };
+                        upgradeReq.onsuccess = (e) => {
+                            idb = e.target.result;
+                            resolve();
+                        };
+                        upgradeReq.onerror = (e) => reject(e.target.error);
+                    } else {
+                        // Cek index username
+                        const store = idb.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
+                        if (!store.indexNames.contains('username')) {
+                            idb.close();
+                            const upgradeReq = indexedDB.open(IDB_NAME, idb.version + 1);
+                            upgradeReq.onupgradeneeded = (e) => {
+                                const db = e.target.result;
+                                const tx = e.target.transaction;
+                                const store = tx.objectStore(STORE_NAME);
+                                if (!store.indexNames.contains('username')) {
+                                    store.createIndex('username', 'username', { unique: true });
+                                }
+                            };
+                            upgradeReq.onsuccess = (e) => {
+                                idb = e.target.result;
+                                resolve();
+                            };
+                            upgradeReq.onerror = (e) => reject(e.target.error);
+                        } else {
+                            resolve();
+                        }
+                    }
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('username', 'username', { unique: true });
+                    }
+                };
+            });
+        }
+
+        async function getAllFromIDB() {
+            return new Promise((resolve, reject) => {
+                const tx = idb.transaction([STORE_NAME], 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.getAll();
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function clearIDB() {
+            return new Promise((resolve, reject) => {
+                const tx = idb.transaction([STORE_NAME], 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.clear();
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function syncUserToIDB(user) {
+            const tx = idb.transaction([STORE_NAME], 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const index = store.index('username');
+            
+            // Cari existing
+            const existing = await new Promise((resolve) => {
+                const req = index.get(user.username);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+            });
+
+            const userData = {
+                username: user.username,
+                password: user.password,
+                name: user.name,
+                role: user.role,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            };
+
+            if (existing) {
+                userData.id = existing.id;
+                store.put(userData);
+            } else {
+                store.add(userData);
+            }
+            
+            return new Promise((resolve, reject) => {
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function deleteUserFromIDB(username) {
+            const tx = idb.transaction([STORE_NAME], 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const index = store.index('username');
+            
+            const key = await new Promise((resolve) => {
+                const req = index.getKey(username);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+            });
+            
+            if (key) store.delete(key);
+            
+            return new Promise((resolve, reject) => {
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        // ========== UPDATE UI ==========
+        async function refreshCounts() {
+            try {
+                indexedDBUsers = await getAllFromIDB();
+            } catch (e) {
+                indexedDBUsers = [];
+            }
+            
+            const firestoreCount = firestoreUsers.length;
+            const idbCount = indexedDBUsers.length;
+            
+            firestoreCountEl.textContent = firestoreCount;
+            indexedDBCountEl.textContent = idbCount;
+            
+            // Hitung user yang sama di kedua tempat (berdasarkan username)
+            const synced = firestoreUsers.filter(fu => 
+                indexedDBUsers.some(iu => iu.username === fu.username)
+            ).length;
+            syncedCountEl.textContent = synced;
+            
+            const progress = firestoreCount > 0 ? (synced / firestoreCount) * 100 : 100;
+            syncProgress.style.width = progress + '%';
+            
+            // Render preview
+            renderUserPreview();
+        }
+
+        function renderUserPreview() {
+            if (indexedDBUsers.length === 0) {
+                userPreviewList.innerHTML = '<div class="user-item-preview" style="justify-content:center; color:#999;">Belum ada user lokal</div>';
+                return;
+            }
+            let html = '';
+            indexedDBUsers.slice(0, 5).forEach(user => {
+                html += `
+                    <div class="user-item-preview">
+                        <span><strong>${user.name}</strong> (@${user.username})</span>
+                        <span class="user-role">${user.role}</span>
+                    </div>
+                `;
+            });
+            if (indexedDBUsers.length > 5) {
+                html += `<div class="user-item-preview" style="justify-content:center; color:#666;">... dan ${indexedDBUsers.length - 5} lainnya</div>`;
+            }
+            userPreviewList.innerHTML = html;
+        }
+
+        function setConnectionStatus(connected, message = '') {
+            isConnected = connected;
+            if (connected) {
+                connectionBadge.className = 'connection-badge badge-connected';
+                connectionText.innerHTML = '🟢 Terhubung ke Firestore';
+                messageArea.textContent = message || 'Sinkronisasi real-time aktif';
+                syncNowBtn.disabled = false;
+                resetLocalBtn.disabled = false;
+            } else {
+                connectionBadge.className = 'connection-badge badge-disconnected';
+                connectionText.innerHTML = '🔴 Tidak Terhubung';
+                messageArea.textContent = message || 'Menunggu koneksi...';
+                syncNowBtn.disabled = true;
+                resetLocalBtn.disabled = true;
+            }
+        }
+
+        function setSyncingState(syncing) {
+            isSyncing = syncing;
+            if (syncing) {
+                connectionBadge.className = 'connection-badge badge-syncing';
+                connectionText.innerHTML = '🔄 Menyinkronkan...';
+                syncBtnText.innerHTML = '<span class="spin" style="display:inline-block;">⟳</span> Menyinkronkan...';
+                syncNowBtn.disabled = true;
+            } else {
+                setConnectionStatus(isConnected);
+                syncBtnText.textContent = 'Sinkronisasi Sekarang';
+                syncNowBtn.disabled = !isConnected;
+            }
+        }
+
+        // ========== PROSES SINKRONISASI ==========
+        async function performFullSync(showMessage = true) {
+            if (!isConnected || isSyncing) return;
+            
+            setSyncingState(true);
+            if (showMessage) messageArea.textContent = 'Memulai sinkronisasi penuh...';
+            
+            try {
+                // Dapatkan data Firestore terbaru
+                const snap = await getDocs(query(collection(db, 'localUsers')));
+                const freshUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Sinkronkan ke IndexedDB
+                let syncedCount = 0;
+                for (const user of freshUsers) {
+                    await syncUserToIDB(user);
+                    syncedCount++;
+                    if (showMessage) {
+                        messageArea.textContent = `Menyinkronkan ${syncedCount}/${freshUsers.length}...`;
+                        await new Promise(r => setTimeout(r, 10)); // biarkan UI update
+                    }
+                }
+                
+                // Hapus user di IDB yang tidak ada di Firestore
+                const currentIDB = await getAllFromIDB();
+                const firestoreUsernames = new Set(freshUsers.map(u => u.username));
+                for (const user of currentIDB) {
+                    if (!firestoreUsernames.has(user.username)) {
+                        await deleteUserFromIDB(user.username);
+                    }
+                }
+                
+                firestoreUsers = freshUsers;
+                await refreshCounts();
+                messageArea.textContent = `✅ Sinkronisasi selesai. ${freshUsers.length} user tersimpan.`;
+            } catch (error) {
+                console.error('Sync error:', error);
+                messageArea.textContent = `❌ Gagal sinkronisasi: ${error.message}`;
+                setConnectionStatus(false, 'Gagal sinkronisasi');
+            } finally {
+                setSyncingState(false);
+            }
+        }
+
+        // ========== RESET LOKAL ==========
+        async function resetLocalData() {
+            if (!confirm('Hapus semua data user di IndexedDB? Data akan diambil ulang dari Firestore.')) return;
+            try {
+                await clearIDB();
+                await performFullSync(true);
+            } catch (e) {
+                alert('Gagal reset: ' + e.message);
+            }
+        }
+
+        // ========== INISIALISASI ==========
+        async function init() {
+            try {
+                await openIDB();
+                await refreshCounts();
+                
+                // Aktifkan persistence Firestore (opsional)
+                try {
+                    await enableIndexedDbPersistence(db);
+                } catch (e) {}
+                
+                // Setup real-time listener
+                const q = query(collection(db, 'localUsers'));
+                unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+                    setConnectionStatus(true);
+                    
+                    // Proses perubahan secara inkremental
+                    snapshot.docChanges().forEach(async (change) => {
+                        const userData = change.doc.data();
+                        const username = change.doc.id;
+                        
+                        try {
+                            if (change.type === 'added' || change.type === 'modified') {
+                                await syncUserToIDB({ ...userData, username });
+                            } else if (change.type === 'removed') {
+                                await deleteUserFromIDB(username);
+                            }
+                        } catch (e) {
+                            console.warn('Incremental sync error:', e);
+                        }
+                    });
+                    
+                    // Update data Firestore yang tersimpan
+                    firestoreUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    refreshCounts();
+                    
+                    messageArea.textContent = `🔄 Update real-time: ${snapshot.docChanges().length} perubahan`;
+                }, (error) => {
+                    console.error('Firestore listener error:', error);
+                    setConnectionStatus(false, `Error: ${error.message}`);
+                    
+                    // Fallback: ambil data manual
+                    getDocs(query(collection(db, 'localUsers'))).then(snap => {
+                        firestoreUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        refreshCounts();
+                    });
+                });
+                
+                // Tombol manual sync
+                syncNowBtn.addEventListener('click', () => performFullSync(true));
+                resetLocalBtn.addEventListener('click', resetLocalData);
+                
+            } catch (error) {
+                console.error('Init error:', error);
+                messageArea.textContent = 'Gagal inisialisasi: ' + error.message;
+            }
+        }
+
+        // Mulai
+        init();
+
+        // Cleanup saat halaman ditutup (opsional)
+        window.addEventListener('beforeunload', () => {
+            if (unsubscribeFirestore) unsubscribeFirestore();
+        });
+    </script>
+</body>
+</html>
