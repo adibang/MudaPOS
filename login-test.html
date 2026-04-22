@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login Mobile</title>
+</head>
+<body>
+    <button id="login">Login Google (Redirect)</button>
+    <p id="status">Tidak login</p>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDVty30S6y_qc1eMs3kVctcIpLt6Suw4dA",
+            authDomain: "mudapos-e8a4a.firebaseapp.com",
+            projectId: "mudapos-e8a4a",
+            storageBucket: "mudapos-e8a4a.firebasestorage.app",
+            messagingSenderId: "864215339664",
+            appId: "1:864215339664:web:1a97898b85ca3c1cb3be15"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        document.getElementById('login').onclick = () => {
+            signInWithRedirect(auth, provider);
+        };
+
+        // Tangkap hasil redirect
+        getRedirectResult(auth).then(result => {
+            if (result) {
+                console.log("Login sukses", result.user);
+            }
+        }).catch(error => {
+            alert("Error: " + error.message);
+        });
+
+        onAuthStateChanged(auth, user => {
+            document.getElementById('status').textContent = user ? `Login: ${user.email}` : 'Tidak login';
+        });
+    </script>
+</body>
+</html>
