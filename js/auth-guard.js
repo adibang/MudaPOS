@@ -1,39 +1,34 @@
 // js/auth-guard.js
 import { auth, dbCloud } from './firebase-config.js';
-import { 
-  doc, getDoc, setDoc, serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-import { 
-  onAuthStateChanged, signOut 
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import * as firebaseui from 'https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js';
-import { GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 // ========== KONFIGURASI AKSES HALAMAN ==========
 const PAGE_ACCESS = {
+  // Halaman yang hanya bisa diakses admin
   adminOnly: [
     'masterdata.html',
     'purchase.html',
     'purchase-list.html',
     'finance.html',
-    'inventory.html',
     'report.html',
     'setting.html',
-    'relation.html',
-    'user-manager.html'
+    'sales-list.html',
+    'relation.html'
   ],
+  // Halaman yang bisa diakses kasir (dan admin)
   kasirAllowed: [
     'index.html',
     'sales.html',
-    'sales-list.html',
+    'inventory.html',
     'sales-returns.html'
   ]
 };
 
+// Item sidebar yang hanya muncul untuk admin
 const ADMIN_ONLY_MENU_ITEMS = [
   'masterdata.html',
   'purchase.html',
-  'purchase-list.html',
   'finance.html',
   'inventory.html',
   'report.html',
@@ -41,13 +36,12 @@ const ADMIN_ONLY_MENU_ITEMS = [
   'relation.html'
 ];
 
-// ========== STATE ==========
+// ========== STATE MANAGEMENT ==========
 let currentUser = null;
 let currentRole = null;
 let authInitialized = false;
-let uiInstance = null;
 
-// ========== SESSION STORAGE ==========
+// Simpan state ke sessionStorage
 function saveAuthState(user, role) {
   if (user) {
     sessionStorage.setItem('userEmail', user.email);
@@ -62,6 +56,7 @@ function saveAuthState(user, role) {
   }
 }
 
+// Ambil state dari sessionStorage
 function loadAuthState() {
   return {
     email: sessionStorage.getItem('userEmail'),
@@ -71,41 +66,28 @@ function loadAuthState() {
   };
 }
 
-// ========== FETCH / CREATE USER ROLE ==========
-async function fetchOrCreateUserRole(user) {
+// ========== FETCH ROLE DARI FIRESTORE ==========
+async function fetchUserRole(user) {
   if (!user) return null;
   try {
-    const userDocRef = doc(dbCloud, "users", user.uid);
-    const userDoc = await getDoc(userDocRef);
-    
+    const userDoc = await getDoc(doc(dbCloud, "users", user.uid));
     if (userDoc.exists()) {
-      const data = userDoc.data();
-      return data.role || 'kasir'; // default kasir jika field kosong
-    } else {
-      // User baru: buat dokumen dengan role default 'kasir'
-      const defaultRole = 'kasir';
-      await setDoc(userDocRef, {
-        email: user.email,
-        name: user.displayName || '',
-        role: defaultRole,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      return defaultRole;
+      return userDoc.data().role;
     }
+    return null;
   } catch (error) {
-    console.error("Gagal mengambil/membuat role:", error);
+    console.error("Gagal mengambil role:", error);
     return null;
   }
 }
 
-// ========== INISIALISASI AUTH DENGAN FIREBASEUI ==========
+// ========== INISIALISASI AUTH ==========
 export async function initAuth(callback) {
   return new Promise((resolve) => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (user) {
         currentUser = user;
-        const role = await fetchOrCreateUserRole(user);
+        const role = await fetchUserRole(user);
         currentRole = role;
         saveAuthState(user, role);
       } else {
@@ -118,52 +100,7 @@ export async function initAuth(callback) {
       if (callback) callback(user, currentRole);
       resolve({ user, role: currentRole });
     });
-    
-    // Bersihkan listener jika perlu (tapi kita biarkan saja)
-    window._authUnsubscribe = unsubscribe;
   });
-}
-
-// ========== FIREBASEUI WIDGET ==========
-export function startFirebaseUI(containerId, redirectUrl = '/index.html') {
-  if (!uiInstance) {
-    uiInstance = new firebaseui.auth.AuthUI(auth);
-  }
-  
-  const uiConfig = {
-    signInFlow: 'redirect',        // Stabil untuk mobile
-    signInSuccessUrl: redirectUrl, // Halaman setelah login sukses (default)
-    signInOptions: [
-      GoogleAuthProvider.PROVIDER_ID,
-      // EmailAuthProvider.PROVIDER_ID, // Opsional
-    ],
-    callbacks: {
-      signInSuccessWithAuthResult: async (authResult, redirectUrl) => {
-        const user = authResult.user;
-        // Tunggu sebentar agar role sempat tersimpan
-        const role = await fetchOrCreateUserRole(user);
-        saveAuthState(user, role);
-        currentUser = user;
-        currentRole = role;
-        
-        // Redirect sesuai role
-        if (role === 'admin') {
-          window.location.href = 'masterdata.html';
-        } else {
-          window.location.href = 'sales.html';
-        }
-        
-        // Jangan biarkan FirebaseUI redirect sendiri
-        return false;
-      },
-      uiShown: () => {
-        // Bisa sembunyikan loader di sini
-      }
-    },
-    credentialHelper: firebaseui.auth.CredentialHelper.NONE, // Tidak simpan kredensial
-  };
-  
-  uiInstance.start(`#${containerId}`, uiConfig);
 }
 
 // ========== ROUTE GUARD ==========
@@ -172,23 +109,26 @@ export function checkPageAccess() {
   const role = state.role;
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
   
+  // Jika tidak ada role, redirect ke index (login)
   if (!role) {
-    // Belum login: tampilkan UI login
-    console.warn('Tidak ada role, arahkan ke login');
+    console.warn('Tidak ada role, redirect ke index');
     if (currentPage !== 'index.html') {
       window.location.href = 'index.html';
     }
     return false;
   }
   
+  // Cek akses
   const isAdmin = role === 'admin';
   const isKasir = role === 'kasir';
   
   if (isAdmin) {
-    return true; // Admin bisa akses semua
+    // Admin bisa akses semua
+    return true;
   }
   
   if (isKasir) {
+    // Kasir hanya bisa akses halaman tertentu
     if (PAGE_ACCESS.kasirAllowed.includes(currentPage)) {
       return true;
     } else {
@@ -198,6 +138,7 @@ export function checkPageAccess() {
     }
   }
   
+  // Role tidak dikenal
   alert('Role tidak valid.');
   window.location.href = 'index.html';
   return false;
@@ -207,7 +148,8 @@ export function checkPageAccess() {
 export function filterSidebarByRole() {
   const role = loadAuthState().role;
   if (role !== 'admin') {
-    const allLinks = document.querySelectorAll('.sidebar-menu .menu-link, .sidebar-menu .nav-link, .sidebar-menu a');
+    // Sembunyikan menu admin-only
+    const allLinks = document.querySelectorAll('.sidebar-menu .menu-link, .sidebar-menu .nav-link');
     allLinks.forEach(link => {
       const href = link.getAttribute('href');
       if (href) {
@@ -219,7 +161,7 @@ export function filterSidebarByRole() {
       }
     });
     
-    // Sembunyikan submenu yang hanya admin
+    // Sembunyikan juga submenu jika perlu
     const submenuItems = document.querySelectorAll('.submenu a');
     submenuItems.forEach(link => {
       const href = link.getAttribute('href');
@@ -233,10 +175,11 @@ export function filterSidebarByRole() {
     });
   }
   
+  // Update info user di UI (opsional)
   updateUserInfoUI();
 }
 
-// ========== UPDATE UI INFO USER ==========
+// ========== UPDATE UI DENGAN INFO USER ==========
 export function updateUserInfoUI() {
   const state = loadAuthState();
   const userNameSpan = document.getElementById('userDisplayName');
@@ -253,17 +196,15 @@ export function updateUserInfoUI() {
 // ========== LOGOUT ==========
 export async function logoutUser() {
   try {
-    await signOut(auth);
+    await auth.signOut();
     saveAuthState(null, null);
-    currentUser = null;
-    currentRole = null;
     window.location.href = 'index.html';
   } catch (error) {
     console.error('Logout error:', error);
   }
 }
 
-// ========== GETTER ==========
+// ========== GETTER UNTUK STATE ==========
 export function getCurrentUser() {
   return currentUser;
 }
