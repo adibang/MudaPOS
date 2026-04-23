@@ -995,59 +995,78 @@
             });
         }
 
-        // Elemen DOM untuk login lokal
-        const loginModal = document.getElementById('loginModal');
-        const loginUsername = document.getElementById('loginUsername');
-        const loginPassword = document.getElementById('loginPassword');
-        const loginSubmit = document.getElementById('loginSubmit');
-        const loginError = document.getElementById('loginError');
-        const localUserNameSpan = document.getElementById('local-user-name');
-        const localLogoutBtn = document.getElementById('localLogoutBtn');
-        const localUserInfo = document.getElementById('localUserInfo');
+        // Elemen DOM untuk login lokal (akan diinisialisasi ulang setelah sidebar dirender)
+        let loginModal, loginUsername, loginPassword, loginSubmit, loginError;
+        let localUserNameSpan, localLogoutBtn, localUserInfo;
         const mainContent = document.querySelector('.main-content');
 
         let localUser = null;
-        const savedLocalSession = sessionStorage.getItem('localUser');
-        if (savedLocalSession) {
-            localUser = JSON.parse(savedLocalSession);
-            localUserNameSpan.textContent = localUser.name;
-            localUserInfo.style.display = 'flex';
-            mainContent.style.display = 'block';
-            loginModal.style.display = 'none';
-        } else {
-            mainContent.style.display = 'none';
-            loginModal.style.display = 'flex';
-            localUserInfo.style.display = 'none';
+
+        // Fungsi untuk menginisialisasi ulang referensi elemen login lokal setelah sidebar dirender
+        function initLocalLoginElements() {
+            loginModal = document.getElementById('loginModal');
+            loginUsername = document.getElementById('loginUsername');
+            loginPassword = document.getElementById('loginPassword');
+            loginSubmit = document.getElementById('loginSubmit');
+            loginError = document.getElementById('loginError');
+            localUserNameSpan = document.getElementById('local-user-name');
+            localLogoutBtn = document.getElementById('localLogoutBtn');
+            localUserInfo = document.getElementById('localUserInfo');
         }
 
-        loginSubmit.addEventListener('click', async () => {
-            const username = loginUsername.value;
-            const password = loginPassword.value;
-            const user = await verifyLocalUser(username, password);
-            if (user) {
-                sessionStorage.setItem('localUser', JSON.stringify(user));
-                localUser = user;
-                localUserNameSpan.textContent = user.name;
+        // Fungsi untuk memperbarui UI berdasarkan status login lokal
+        function updateLocalLoginUI() {
+            if (!localUserNameSpan || !localUserInfo || !mainContent || !loginModal) return;
+            
+            const savedLocalSession = sessionStorage.getItem('localUser');
+            if (savedLocalSession) {
+                localUser = JSON.parse(savedLocalSession);
+                localUserNameSpan.textContent = localUser.name;
                 localUserInfo.style.display = 'flex';
-                loginModal.style.display = 'none';
                 mainContent.style.display = 'block';
-                location.reload();
+                loginModal.style.display = 'none';
             } else {
-                loginError.style.display = 'block';
+                localUser = null;
+                mainContent.style.display = 'none';
+                loginModal.style.display = 'flex';
+                localUserInfo.style.display = 'none';
             }
-        });
+        }
 
-        localLogoutBtn.addEventListener('click', () => {
-            sessionStorage.removeItem('localUser');
-            localUser = null;
-            localUserNameSpan.textContent = '';
-            localUserInfo.style.display = 'none';
-            mainContent.style.display = 'none';
-            loginModal.style.display = 'flex';
-            loginUsername.value = '';
-            loginPassword.value = '';
-            loginError.style.display = 'none';
-        });
+        // Fungsi untuk memasang event listener login lokal
+        function attachLocalLoginListeners() {
+            if (!loginSubmit || !localLogoutBtn) return;
+            
+            loginSubmit.addEventListener('click', async () => {
+                const username = loginUsername.value;
+                const password = loginPassword.value;
+                const user = await verifyLocalUser(username, password);
+                if (user) {
+                    sessionStorage.setItem('localUser', JSON.stringify(user));
+                    updateLocalLoginUI();
+                    // Muat ulang data setelah login berhasil
+                    await loadDataForModals();
+                    subscribeDaftarKategori();
+                    subscribeDaftarUnit();
+                    subscribeDaftarGudang();
+                    if (sections.daftarProduk.classList.contains('active')) {
+                        resetAndLoadProduk();
+                        startProdukRealtimeListener();
+                        updateTotalSKUCount();
+                    }
+                } else {
+                    loginError.style.display = 'block';
+                }
+            });
+
+            localLogoutBtn.addEventListener('click', () => {
+                sessionStorage.removeItem('localUser');
+                updateLocalLoginUI();
+                loginUsername.value = '';
+                loginPassword.value = '';
+                loginError.style.display = 'none';
+            });
+        }
 
         // ========== DATA UNTUK MAPPING ==========
         let kategoriMap = {};
@@ -1315,7 +1334,7 @@
         // ========== RENDER KATEGORI ==========
         function renderKategoriTable(docs) {
             const tbody = document.getElementById('daftarKategoriBody');
-            const term = document.getElementById('searchKategori').value.toLowerCase().trim();
+            const term = document.getElementById('searchKategori')?.value.toLowerCase().trim() || '';
             let filtered = docs;
             if (term) {
                 filtered = docs.filter(doc => doc.data().nama.toLowerCase().includes(term));
@@ -2977,7 +2996,7 @@
             // Periksa akses halaman (hanya admin)
             if (!checkPageAccess()) return;
             
-            // Render sidebar
+            // Render sidebar TERLEBIH DAHULU
             renderSidebar({
                 containerId: 'sidebar',
                 overlayId: 'overlay',
@@ -2987,16 +3006,17 @@
                 localUserName: localUser?.name || '',
                 onLocalLogout: () => {
                     sessionStorage.removeItem('localUser');
-                    localUser = null;
-                    localUserNameSpan.textContent = '';
-                    localUserInfo.style.display = 'none';
-                    mainContent.style.display = 'none';
-                    loginModal.style.display = 'flex';
+                    updateLocalLoginUI();
                     loginUsername.value = '';
                     loginPassword.value = '';
                     loginError.style.display = 'none';
                 }
             });
+            
+            // SETELAH SIDEBAR DIRENDER, INISIALISASI ELEMEN LOGIN LOKAL
+            initLocalLoginElements();
+            updateLocalLoginUI();
+            attachLocalLoginListeners();
             
             // Setup tombol history
             if (historyBtn) {
