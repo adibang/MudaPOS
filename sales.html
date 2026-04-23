@@ -1544,11 +1544,62 @@
         </div>
     </div>
 
+    <!-- Script Non-Module: Konfirmasi Navigasi & Sidebar Toggle -->
+    <script>
+        // Konfirmasi navigasi
+        const modalConfirmReload = document.getElementById('modalConfirmReload');
+        const closeModalConfirmReload = document.getElementById('closeModalConfirmReload');
+        const confirmYesBtn = document.getElementById('confirmReloadYes');
+        const confirmNoBtn = document.getElementById('confirmReloadNo');
+        let pendingNavigationUrl = null;
+
+        function showConfirmNavigation(url) {
+            pendingNavigationUrl = url;
+            modalConfirmReload.classList.add('active');
+        }
+
+        function closeConfirmNavigation() {
+            modalConfirmReload.classList.remove('active');
+            pendingNavigationUrl = null;
+        }
+
+        confirmYesBtn.addEventListener('click', () => {
+            modalConfirmReload.classList.remove('active');
+            if (pendingNavigationUrl) {
+                window.location.href = pendingNavigationUrl;
+            }
+            pendingNavigationUrl = null;
+        });
+
+        confirmNoBtn.addEventListener('click', closeConfirmNavigation);
+        closeModalConfirmReload.addEventListener('click', closeConfirmNavigation);
+        window.addEventListener('click', (e) => {
+            if (e.target === modalConfirmReload) {
+                closeConfirmNavigation();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('.nav-link');
+            if (!link) return;
+            const href = link.getAttribute('href');
+            if (!href || href === '#' || href.startsWith('javascript:')) return;
+            e.preventDefault();
+            showConfirmNavigation(href);
+        });
+
+        window.addEventListener('beforeunload', (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        });
+    </script>
+
     <!-- Script Module Utama -->
     <script type="module">
         // ========== IMPOR MODUL ==========
         import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
-        import { initAuth, checkPageAccess, logoutUser, getCurrentRole } from './js/auth-guard.js';
+        import { initAuth, checkPageAccess, logoutUser } from './js/auth-guard.js';
         import { renderSidebar } from './js/sidebar.js';
         
         import { 
@@ -2665,16 +2716,6 @@
             await loadAllData();
         }
         initializeApp();
-
-        // Konfirmasi navigasi (opsional)
-        const modalConfirmReload = document.getElementById('modalConfirmReload');
-        document.addEventListener('click', e => {
-            const link = e.target.closest('.nav-link'); if (!link) return;
-            const href = link.getAttribute('href'); if (!href || href==='#' || href.startsWith('javascript:')) return;
-            e.preventDefault();
-            if (cartItems.length && !confirm('Keranjang tidak kosong. Yakin tinggalkan halaman?')) return;
-            window.location.href = href;
-        });
     </script>
 </body>
 </html>
