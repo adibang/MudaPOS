@@ -161,6 +161,16 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        /* Error message */
+        .error-banner {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -189,6 +199,8 @@
                 </svg>
                 <h2>MUDA POS</h2>
             </div>
+            
+            <div id="errorBanner" class="error-banner"></div>
             
             <div class="status-card">
                 <div id="connectionBadge" class="connection-badge badge-disconnected">
@@ -272,12 +284,24 @@
         const syncBtnText = document.getElementById('syncBtnText');
         const userPreviewList = document.getElementById('userPreviewList');
         const loginBtn = document.getElementById('loginBtn');
+        const errorBanner = document.getElementById('errorBanner');
 
         let firestoreUsers = [];
         let indexedDBUsers = [];
         let isConnected = false;
         let isSyncing = false;
         let unsubscribeFirestore = null;
+
+        // ========== FUNGSI TAMPILKAN ERROR ==========
+        function showError(message) {
+            errorBanner.textContent = message;
+            errorBanner.style.display = 'block';
+            console.error(message);
+        }
+
+        function hideError() {
+            errorBanner.style.display = 'none';
+        }
 
         // ========== INDEXEDDB SETUP ==========
         async function openIDB() {
@@ -412,6 +436,7 @@
                 indexedDBUsers = await getAllFromIDB();
             } catch (e) {
                 indexedDBUsers = [];
+                console.warn('Gagal membaca IndexedDB:', e);
             }
             
             const firestoreCount = firestoreUsers.length;
@@ -515,10 +540,12 @@
                 firestoreUsers = freshUsers;
                 await refreshCounts();
                 messageArea.textContent = `✅ Sinkronisasi selesai. ${freshUsers.length} user tersimpan.`;
+                hideError();
             } catch (error) {
                 console.error('Sync error:', error);
                 messageArea.textContent = `❌ Gagal sinkronisasi: ${error.message}`;
                 setConnectionStatus(false, 'Gagal sinkronisasi');
+                showError('Sinkronisasi gagal: ' + error.message);
             } finally {
                 setSyncingState(false);
             }
@@ -537,29 +564,54 @@
 
         // ========== INISIALISASI APLIKASI ==========
         async function initializeApp() {
+            hideError();
+            
             // 1. Buka IndexedDB terlebih dahulu
             try {
                 await openIDB();
                 await refreshCounts();
             } catch (e) {
                 console.error('IndexedDB error:', e);
-                messageArea.textContent = 'Gagal membuka database lokal.';
-                return;
+                showError('Gagal membuka database lokal. Sinkronisasi tidak dapat berjalan.');
+                // Jangan return, biarkan aplikasi tetap jalan agar tombol login bisa digunakan
             }
 
-            // 2. Inisialisasi Firebase Auth
-            await initAuth();
+            // 2. Inisialisasi Firebase Auth (tetap dijalankan meskipun IndexedDB error)
+            try {
+                await initAuth();
+            } catch (e) {
+                console.error('Auth init error:', e);
+                showError('Gagal inisialisasi autentikasi.');
+            }
             
             // 3. Periksa akses halaman (hanya admin)
-            if (!checkPageAccess()) return;
+            //    Jika tidak lolos, checkPageAccess akan redirect, tapi kita tetap lanjutkan setup UI untuk berjaga-jaga
+            let accessGranted = false;
+            try {
+                accessGranted = checkPageAccess();
+            } catch (e) {
+                console.error('Access check error:', e);
+            }
+            
+            // 4. Render sidebar (tetap render, sidebar akan menyesuaikan role)
+            try {
+                renderSidebar({
+                    containerId: 'sidebar',
+                    overlayId: 'overlay',
+                    menuToggleId: 'menuToggle',
+                    closeSidebarId: 'closeSidebar'
+                });
+            } catch (e) {
+                console.error('Sidebar render error:', e);
+            }
 
-            // 4. Render sidebar
-            renderSidebar({
-                containerId: 'sidebar',
-                overlayId: 'overlay',
-                menuToggleId: 'menuToggle',
-                closeSidebarId: 'closeSidebar'
-            });
+            // Jika akses tidak diberikan, hentikan setup sinkronisasi (tapi listener login tetap jalan)
+            if (!accessGranted) {
+                console.warn('Akses halaman ditolak, sinkronisasi tidak dijalankan.');
+                // Setup tombol login tetap
+                setupAuthListener();
+                return;
+            }
 
             // 5. Aktifkan persistence Firestore (sebelum listener)
             try {
@@ -569,46 +621,57 @@
             }
 
             // 6. Setup real-time listener
-            const localUsersCol = collection(dbCloud, 'localUsers');
-            const q = query(localUsersCol);
-            unsubscribeFirestore = onSnapshot(q, (snapshot) => {
-                setConnectionStatus(true);
-                
-                snapshot.docChanges().forEach(async (change) => {
-                    const userData = change.doc.data();
-                    const username = change.doc.id;
+            try {
+                const localUsersCol = collection(dbCloud, 'localUsers');
+                const q = query(localUsersCol);
+                unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+                    setConnectionStatus(true);
+                    hideError();
                     
-                    try {
-                        if (change.type === 'added' || change.type === 'modified') {
-                            await syncUserToIDB({ ...userData, username });
-                        } else if (change.type === 'removed') {
-                            await deleteUserFromIDB(username);
+                    snapshot.docChanges().forEach(async (change) => {
+                        const userData = change.doc.data();
+                        const username = change.doc.id;
+                        
+                        try {
+                            if (change.type === 'added' || change.type === 'modified') {
+                                await syncUserToIDB({ ...userData, username });
+                            } else if (change.type === 'removed') {
+                                await deleteUserFromIDB(username);
+                            }
+                        } catch (e) {
+                            console.warn('Incremental sync error:', e);
                         }
-                    } catch (e) {
-                        console.warn('Incremental sync error:', e);
-                    }
-                });
-                
-                firestoreUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                refreshCounts();
-                
-                messageArea.textContent = `🔄 Update real-time: ${snapshot.docChanges().length} perubahan`;
-            }, (error) => {
-                console.error('Firestore listener error:', error);
-                setConnectionStatus(false, `Error: ${error.message}`);
-                
-                // Fallback: ambil data manual
-                getDocs(query(localUsersCol)).then(snap => {
-                    firestoreUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    });
+                    
+                    firestoreUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     refreshCounts();
+                    
+                    messageArea.textContent = `🔄 Update real-time: ${snapshot.docChanges().length} perubahan`;
+                }, (error) => {
+                    console.error('Firestore listener error:', error);
+                    setConnectionStatus(false, `Error: ${error.message}`);
+                    showError('Gagal terhubung ke Firestore: ' + error.message);
+                    
+                    // Fallback: ambil data manual
+                    getDocs(query(collection(dbCloud, 'localUsers'))).then(snap => {
+                        firestoreUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        refreshCounts();
+                    }).catch(e => console.warn('Fallback getDocs error:', e));
                 });
-            });
+            } catch (e) {
+                console.error('Listener setup error:', e);
+                showError('Gagal memulai listener Firestore.');
+            }
 
             // 7. Event listener tombol
             syncNowBtn.addEventListener('click', () => performFullSync(true));
             resetLocalBtn.addEventListener('click', resetLocalData);
 
-            // 8. Setup tombol login Firebase
+            // 8. Setup tombol login Firebase (dipisah agar pasti terpasang)
+            setupAuthListener();
+        }
+
+        function setupAuthListener() {
             onAuthStateChanged(auth, (user) => {
                 loginBtn.innerHTML = user ? '<i data-feather="log-out"></i><span>Logout</span>' : '<i data-feather="log-in"></i><span>Login</span>';
                 feather.replace();
@@ -620,16 +683,24 @@
                 } else {
                     try {
                         await signInWithPopup(auth, provider);
+                        // Setelah login, checkPageAccess akan dipanggil ulang oleh auth state change di auth-guard?
+                        // Kita reload saja agar state konsisten
                         window.location.reload();
                     } catch (error) {
                         console.error('Login error:', error);
+                        showError('Login gagal: ' + error.message);
                     }
                 }
             });
         }
 
         // Mulai aplikasi
-        initializeApp().catch(console.error);
+        initializeApp().catch(error => {
+            console.error('Fatal error:', error);
+            showError('Aplikasi gagal dimulai: ' + error.message);
+            // Tetap setup tombol login
+            setupAuthListener();
+        });
 
         // Cleanup saat halaman ditutup
         window.addEventListener('beforeunload', () => {
