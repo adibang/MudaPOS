@@ -188,53 +188,6 @@
             height: 16px;
         }
 
-        /* Modal Login Lokal */
-        #loginLocalModal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        #loginLocalModal .modal-content {
-            background: white;
-            border-radius: 20px;
-            width: 300px;
-            padding: 20px;
-            text-align: center;
-        }
-        #loginLocalModal h3 {
-            color: #006B54;
-            margin-bottom: 15px;
-        }
-        #loginLocalModal input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-        }
-        #loginLocalModal button {
-            width: 100%;
-            padding: 12px;
-            background: #006B54;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        #loginLocalError {
-            color: red;
-            margin-top: 10px;
-            display: none;
-        }
-
         @media (max-width:640px) { .main-content { padding:0.8rem; } }
     </style>
 </head>
@@ -256,22 +209,11 @@
         </div>
     </header>
 
-    <!-- Modal Login Lokal -->
-    <div id="loginLocalModal">
-        <div class="modal-content">
-            <h3>Login Master Data</h3>
-            <input type="text" id="localUsername" placeholder="Username">
-            <input type="password" id="localPassword" placeholder="Password">
-            <button id="localLoginSubmit">Masuk</button>
-            <div id="loginLocalError">Username atau password salah</div>
-        </div>
-    </div>
-
     <!-- Tombol Reset Darurat -->
     <button class="reset-btn" id="resetDbBtn"><i data-feather="trash-2"></i> Reset Semua Sales</button>
 
-    <!-- Halaman Daftar Penjualan -->
-    <main class="main-content" id="mainContent" style="display:none;">
+    <!-- Halaman Daftar Penjualan (selalu ditampilkan, akses dibatasi oleh checkPageAccess) -->
+    <main class="main-content" id="mainContent">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h1 class="page-title" style="margin-bottom:0;">Daftar Penjualan</h1>
             <a href="sales.html" class="btn-add"><i data-feather="plus-circle"></i> Transaksi Baru</a>
@@ -337,11 +279,11 @@
     <script type="module">
         // ========== IMPOR MODUL ==========
         import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
-        import { initAuth, checkPageAccess, logoutUser } from './js/auth-guard.js';
+        import { initAuth, checkPageAccess, logoutUser, getCurrentUser } from './js/auth-guard.js';
         import { renderSidebar } from './js/sidebar.js';
         
         import { 
-            collection, doc, getDocs, getDoc, query, orderBy, onSnapshot, deleteDoc 
+            collection, doc, getDocs, getDoc, query, orderBy, onSnapshot, deleteDoc, where 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // ========== INISIALISASI ==========
@@ -367,165 +309,8 @@
         const printerStatusText = document.getElementById('printerStatusText');
         const loginBtn = document.getElementById('loginBtn');
         const mainContent = document.getElementById('mainContent');
-        const loginLocalModal = document.getElementById('loginLocalModal');
-        const localUsername = document.getElementById('localUsername');
-        const localPassword = document.getElementById('localPassword');
-        const localLoginSubmit = document.getElementById('localLoginSubmit');
-        const loginLocalError = document.getElementById('loginLocalError');
-        const localUserNameSpan = document.getElementById('local-user-name');
-        const localLogoutBtn = document.getElementById('localLogoutBtn');
-        const localUserInfo = document.getElementById('localUserInfo');
 
-        // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
-        const LOCAL_DB_NAME = 'MudaPOSDB';
-        const LOCAL_DB_VERSION = 1;
-        const STORE_LOCAL_USERS = 'localUsers';
-        let localDB = null;
-        let localUser = null;
-
-        async function initLocalDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = (e) => {
-                    localDB = e.target.result;
-                    resolve();
-                };
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE_LOCAL_USERS)) {
-                        db.createObjectStore(STORE_LOCAL_USERS, { keyPath: 'id', autoIncrement: true });
-                    }
-                };
-            });
-        }
-
-        async function hashLocalPassword(password) {
-            if (window.crypto && window.crypto.subtle) {
-                try {
-                    const encoder = new TextEncoder();
-                    const data = encoder.encode(password);
-                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                } catch (e) {}
-            }
-            let hash = 0;
-            for (let i = 0; i < password.length; i++) {
-                const char = password.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash |= 0;
-            }
-            return hash.toString(16);
-        }
-
-        async function verifyLocalUser(username, password) {
-            return new Promise((resolve, reject) => {
-                const tx = localDB.transaction([STORE_LOCAL_USERS], 'readonly');
-                const store = tx.objectStore(STORE_LOCAL_USERS);
-                const request = store.getAll();
-                request.onsuccess = async () => {
-                    const users = request.result;
-                    const user = users.find(u => u.username === username);
-                    if (!user) { resolve(null); return; }
-                    const hashed = await hashLocalPassword(password);
-                    if (user.password === hashed) {
-                        const { password, ...safeUser } = user;
-                        resolve(safeUser);
-                    } else {
-                        resolve(null);
-                    }
-                };
-                request.onerror = reject;
-            });
-        }
-
-        // Cek sesi login lokal
-        const savedLocalSession = sessionStorage.getItem('localUser');
-        if (savedLocalSession) {
-            try {
-                localUser = JSON.parse(savedLocalSession);
-                localUserNameSpan.textContent = localUser.name;
-                localUserInfo.style.display = 'flex';
-                mainContent.style.display = 'block';
-                loginLocalModal.style.display = 'none';
-            } catch (e) {
-                sessionStorage.removeItem('localUser');
-            }
-        } else {
-            mainContent.style.display = 'none';
-            loginLocalModal.style.display = 'flex';
-            localUserInfo.style.display = 'none';
-        }
-
-        localLoginSubmit.addEventListener('click', async () => {
-            const username = localUsername.value.trim();
-            const password = localPassword.value;
-            if (!username || !password) {
-                loginLocalError.style.display = 'block';
-                loginLocalError.textContent = 'Username dan password harus diisi';
-                return;
-            }
-            try {
-                const user = await verifyLocalUser(username, password);
-                if (user) {
-                    sessionStorage.setItem('localUser', JSON.stringify(user));
-                    localUser = user;
-                    localUserNameSpan.textContent = user.name;
-                    localUserInfo.style.display = 'flex';
-                    loginLocalModal.style.display = 'none';
-                    mainContent.style.display = 'block';
-                    // Render ulang sidebar dengan info user lokal
-                    if (typeof renderSidebar === 'function') {
-                        renderSidebar({
-                            containerId: 'sidebar',
-                            overlayId: 'overlay',
-                            menuToggleId: 'menuToggle',
-                            closeSidebarId: 'closeSidebar',
-                            showLocalUser: true,
-                            localUserName: user.name,
-                            onLocalLogout: () => {
-                                sessionStorage.removeItem('localUser');
-                                localUser = null;
-                                localUserNameSpan.textContent = '';
-                                localUserInfo.style.display = 'none';
-                                mainContent.style.display = 'none';
-                                loginLocalModal.style.display = 'flex';
-                                localUsername.value = '';
-                                localPassword.value = '';
-                                loginLocalError.style.display = 'none';
-                            }
-                        });
-                    }
-                    // Muat data setelah login
-                    await loadCustomers();
-                    await loadPrinterConfig();
-                    initPrinterConnection();
-                    subscribeSales();
-                } else {
-                    loginLocalError.style.display = 'block';
-                    loginLocalError.textContent = 'Username atau password salah';
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                loginLocalError.style.display = 'block';
-                loginLocalError.textContent = 'Terjadi kesalahan, coba lagi';
-            }
-        });
-
-        localLogoutBtn.addEventListener('click', () => {
-            sessionStorage.removeItem('localUser');
-            localUser = null;
-            localUserNameSpan.textContent = '';
-            localUserInfo.style.display = 'none';
-            mainContent.style.display = 'none';
-            loginLocalModal.style.display = 'flex';
-            localUsername.value = '';
-            localPassword.value = '';
-            loginLocalError.style.display = 'none';
-        });
-
-        // Sembunyikan tombol sync
+        // Sembunyikan tombol sync (tidak digunakan)
         if (syncBtn) syncBtn.style.display = 'none';
 
         // Data sales dan customer
@@ -750,8 +535,10 @@
                 }
                 receipt += '='.repeat(lineWidth) + '\n';
                 receipt += `Tanggal: ${formatDateForReceipt(salesData.createdAt)}\n`;
-                if (printerConfig.printCashierName && auth.currentUser) {
-                    const kasir = auth.currentUser.displayName || auth.currentUser.email || 'Kasir';
+                
+                const currentUser = getCurrentUser();
+                if (printerConfig.printCashierName && currentUser) {
+                    const kasir = currentUser.displayName || currentUser.email || 'Kasir';
                     receipt += `Kasir  : ${kasir}\n`;
                 }
                 const transactionNumber = salesData.transactionNumber || (salesData.id ? salesData.id.slice(-6) : '----');
@@ -840,7 +627,7 @@
 
         async function loadCustomers() {
             try {
-                const snapshot = await getDocs(customerCol);
+                const snapshot = await getDocs(query(customerCol, where('deleted', '==', false)));
                 customerMap = {};
                 snapshot.docs.forEach(doc => {
                     customerMap[doc.id] = doc.data().nama;
@@ -1042,34 +829,19 @@
 
         // ========== AUTENTIKASI & SIDEBAR ==========
         async function initializeApp() {
-            // Inisialisasi IndexedDB
-            await initLocalDB();
-            
             // Inisialisasi Firebase Auth
             await initAuth();
             
             // Periksa akses halaman (hanya admin)
             if (!checkPageAccess()) return;
 
-            // Render sidebar dengan info user lokal jika sudah login
+            // Render sidebar tanpa user lokal
             renderSidebar({
                 containerId: 'sidebar',
                 overlayId: 'overlay',
                 menuToggleId: 'menuToggle',
                 closeSidebarId: 'closeSidebar',
-                showLocalUser: !!localUser,
-                localUserName: localUser?.name || '',
-                onLocalLogout: () => {
-                    sessionStorage.removeItem('localUser');
-                    localUser = null;
-                    localUserNameSpan.textContent = '';
-                    localUserInfo.style.display = 'none';
-                    mainContent.style.display = 'none';
-                    loginLocalModal.style.display = 'flex';
-                    localUsername.value = '';
-                    localPassword.value = '';
-                    loginLocalError.style.display = 'none';
-                }
+                showLocalUser: false
             });
 
             // Setup tombol login Firebase
@@ -1091,13 +863,11 @@
                 }
             });
 
-            // Jika sudah login lokal, muat data
-            if (localUser) {
-                await loadCustomers();
-                await loadPrinterConfig();
-                initPrinterConnection();
-                subscribeSales();
-            }
+            // Muat data
+            await loadCustomers();
+            await loadPrinterConfig();
+            initPrinterConnection();
+            subscribeSales();
         }
 
         // Mulai aplikasi
