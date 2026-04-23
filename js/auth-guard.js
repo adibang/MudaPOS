@@ -21,7 +21,8 @@ const PAGE_ACCESS = {
     'index.html',
     'sales.html',
     'inventory.html',
-    'sales-returns.html'
+    'sales-returns.html',
+    'relation.html'   // <-- tambahkan baris ini
   ]
 };
 
