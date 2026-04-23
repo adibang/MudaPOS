@@ -9,7 +9,6 @@
     <!-- CSS Eksternal -->
     <link rel="stylesheet" href="css/sidebar.css">
     <style>
-        /* ===== GLOBAL & SYNC-USERS STYLES ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background: #f0f5f3; min-height: 100vh; font-size:14px; }
         .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
@@ -21,7 +20,6 @@
         .overlay.active { display:block; }
         .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
         
-        /* Sync Container */
         .sync-container {
             max-width: 500px;
             width: 100%;
@@ -32,165 +30,49 @@
             text-align: center;
             margin: 0 auto;
         }
-        .logo {
-            margin-bottom: 20px;
-            color: #006B54;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        .logo svg {
-            width: 32px;
-            height: 32px;
-        }
-        .logo h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-        .status-card {
-            background: #f8f9fa;
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 25px;
-            border: 1px solid #e0e0e0;
-        }
-        .connection-badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 30px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-        .badge-connected { background: #d4edda; color: #155724; }
-        .badge-disconnected { background: #f8d7da; color: #721c24; }
-        .badge-syncing { background: #fff3cd; color: #856404; }
-        .stats {
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-        }
-        .stat-item {
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #006B54;
-            line-height: 1.2;
-        }
-        .stat-label {
-            font-size: 0.8rem;
-            color: #666;
-        }
-        .progress-bar {
-            height: 6px;
-            background: #e0e0e0;
-            border-radius: 10px;
-            margin: 15px 0;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            background: #006B54;
-            width: 0%;
-            transition: width 0.3s;
-            border-radius: 10px;
-        }
-        .message-area {
-            min-height: 40px;
-            margin: 15px 0;
-            color: #555;
-            font-size: 0.9rem;
-        }
-        .btn {
-            background: #006B54;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 40px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 1rem;
-            width: 100%;
-            transition: background 0.2s;
-            margin-top: 10px;
-        }
-        .btn:hover { background: #004d3b; }
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #006B54;
-            color: #006B54;
-        }
-        .btn-outline:hover { background: #e6f0ec; }
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        .user-list-preview {
-            text-align: left;
-            margin-top: 20px;
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-        }
-        .user-list-preview h4 {
-            color: #006B54;
-            margin-bottom: 10px;
-            font-size: 1rem;
-        }
-        .user-item-preview {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        .user-role {
-            font-size: 0.8rem;
-            background: #e6f0ec;
-            padding: 2px 8px;
-            border-radius: 20px;
-            color: #006B54;
-        }
-        .footer-note {
-            margin-top: 20px;
-            font-size: 0.75rem;
-            color: #999;
-        }
-        .spin {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        
-        /* Error message */
-        .error-banner {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            display: none;
-        }
+        .logo { margin-bottom:20px; color:#006B54; display:flex; align-items:center; justify-content:center; gap:10px; }
+        .logo svg { width:32px; height:32px; }
+        .logo h2 { font-size:1.5rem; font-weight:600; }
+        .status-card { background:#f8f9fa; border-radius:20px; padding:20px; margin-bottom:25px; border:1px solid #e0e0e0; }
+        .connection-badge { display:inline-block; padding:5px 12px; border-radius:30px; font-size:0.8rem; font-weight:600; margin-bottom:15px; }
+        .badge-connected { background:#d4edda; color:#155724; }
+        .badge-disconnected { background:#f8d7da; color:#721c24; }
+        .badge-syncing { background:#fff3cd; color:#856404; }
+        .stats { display:flex; justify-content:space-around; margin:20px 0; }
+        .stat-item { text-align:center; }
+        .stat-value { font-size:2rem; font-weight:700; color:#006B54; line-height:1.2; }
+        .stat-label { font-size:0.8rem; color:#666; }
+        .progress-bar { height:6px; background:#e0e0e0; border-radius:10px; margin:15px 0; overflow:hidden; }
+        .progress-fill { height:100%; background:#006B54; width:0%; transition:width 0.3s; border-radius:10px; }
+        .message-area { min-height:40px; margin:15px 0; color:#555; font-size:0.9rem; }
+        .btn { background:#006B54; color:white; border:none; padding:12px 24px; border-radius:40px; font-weight:600; cursor:pointer; font-size:1rem; width:100%; transition:background 0.2s; margin-top:10px; }
+        .btn:hover { background:#004d3b; }
+        .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; }
+        .btn-outline:hover { background:#e6f0ec; }
+        .btn:disabled { opacity:0.6; cursor:not-allowed; }
+        .user-list-preview { text-align:left; margin-top:20px; border-top:1px solid #eee; padding-top:15px; }
+        .user-list-preview h4 { color:#006B54; margin-bottom:10px; font-size:1rem; }
+        .user-item-preview { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f0f0f0; }
+        .user-role { font-size:0.8rem; background:#e6f0ec; padding:2px 8px; border-radius:20px; color:#006B54; }
+        .footer-note { margin-top:20px; font-size:0.75rem; color:#999; }
+        .spin { animation:spin 1s linear infinite; }
+        @keyframes spin { 100% { transform:rotate(360deg); } }
+        .error-banner { background:#f8d7da; color:#721c24; padding:10px; border-radius:10px; margin-bottom:15px; display:none; }
     </style>
 </head>
 <body>
-    <!-- Overlay -->
     <div class="overlay" id="overlay"></div>
-
-    <!-- Sidebar akan di-render oleh sidebar.js -->
     <aside id="sidebar" class="sidebar"></aside>
 
-    <!-- Header -->
     <header class="header">
         <div class="header-left">
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
-        <div class="header-right" style="display:flex; align-items:center;">
+        <div class="header-right">
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
 
-    <!-- Konten Utama -->
     <main class="main-content">
         <div class="sync-container">
             <div class="logo">
@@ -206,112 +88,67 @@
                 <div id="connectionBadge" class="connection-badge badge-disconnected">
                     <span id="connectionText">🔴 Tidak Terhubung</span>
                 </div>
-                
                 <div class="stats">
-                    <div class="stat-item">
-                        <div class="stat-value" id="firestoreCount">0</div>
-                        <div class="stat-label">Firestore</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="indexedDBCount">0</div>
-                        <div class="stat-label">IndexedDB</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="syncedCount">0</div>
-                        <div class="stat-label">Tersinkron</div>
-                    </div>
+                    <div class="stat-item"><div class="stat-value" id="firestoreCount">0</div><div class="stat-label">Firestore</div></div>
+                    <div class="stat-item"><div class="stat-value" id="indexedDBCount">0</div><div class="stat-label">IndexedDB</div></div>
+                    <div class="stat-item"><div class="stat-value" id="syncedCount">0</div><div class="stat-label">Tersinkron</div></div>
                 </div>
-                
-                <div class="progress-bar">
-                    <div id="syncProgress" class="progress-fill" style="width:0%"></div>
-                </div>
-                
-                <div id="messageArea" class="message-area">
-                    Menunggu koneksi...
-                </div>
-                
-                <button id="syncNowBtn" class="btn" disabled>
-                    <span id="syncBtnText">Sinkronisasi Sekarang</span>
-                </button>
-                <button id="resetLocalBtn" class="btn btn-outline" style="margin-top:8px;" disabled>
-                    Reset Data Lokal
-                </button>
+                <div class="progress-bar"><div id="syncProgress" class="progress-fill" style="width:0%"></div></div>
+                <div id="messageArea" class="message-area">Menunggu koneksi...</div>
+                <button id="syncNowBtn" class="btn" disabled><span id="syncBtnText">Sinkronisasi Sekarang</span></button>
+                <button id="resetLocalBtn" class="btn btn-outline" style="margin-top:8px;" disabled>Reset Data Lokal</button>
             </div>
             
             <div class="user-list-preview">
                 <h4>👥 Preview User (dari IndexedDB)</h4>
-                <div id="userPreviewList">
-                    <div class="user-item-preview">Memuat...</div>
-                </div>
+                <div id="userPreviewList"><div class="user-item-preview">Memuat...</div></div>
             </div>
-            
-            <div class="footer-note">
-                Sinkronisasi otomatis berjalan di latar belakang
-            </div>
+            <div class="footer-note">Sinkronisasi otomatis berjalan di latar belakang</div>
         </div>
     </main>
 
-    <!-- Script Module Utama -->
     <script type="module">
-        // ========== IMPOR MODUL ==========
         import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
         import { initAuth, checkPageAccess, logoutUser } from './js/auth-guard.js';
         import { renderSidebar } from './js/sidebar.js';
-        
-        import { 
-            collection, query, onSnapshot, getDocs, enableIndexedDbPersistence 
-        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { collection, query, onSnapshot, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // ========== INISIALISASI ==========
         feather.replace();
 
-        // Konfigurasi IndexedDB
-        const IDB_NAME = 'MudaPOSDB';
-        const IDB_VERSION = 1;
-        const STORE_NAME = 'localUsers';
+        const IDB_NAME = 'MudaPOSDB', IDB_VERSION = 1, STORE_NAME = 'localUsers';
         let idb = null;
+        let firestoreUsers = [], indexedDBUsers = [];
+        let isConnected = false, isSyncing = false, unsubscribeFirestore = null;
 
         // UI Elements
-        const connectionBadge = document.getElementById('connectionBadge');
-        const connectionText = document.getElementById('connectionText');
-        const firestoreCountEl = document.getElementById('firestoreCount');
-        const indexedDBCountEl = document.getElementById('indexedDBCount');
-        const syncedCountEl = document.getElementById('syncedCount');
-        const syncProgress = document.getElementById('syncProgress');
-        const messageArea = document.getElementById('messageArea');
-        const syncNowBtn = document.getElementById('syncNowBtn');
-        const resetLocalBtn = document.getElementById('resetLocalBtn');
-        const syncBtnText = document.getElementById('syncBtnText');
-        const userPreviewList = document.getElementById('userPreviewList');
-        const loginBtn = document.getElementById('loginBtn');
-        const errorBanner = document.getElementById('errorBanner');
+        const connectionBadge = document.getElementById('connectionBadge'),
+              connectionText = document.getElementById('connectionText'),
+              firestoreCountEl = document.getElementById('firestoreCount'),
+              indexedDBCountEl = document.getElementById('indexedDBCount'),
+              syncedCountEl = document.getElementById('syncedCount'),
+              syncProgress = document.getElementById('syncProgress'),
+              messageArea = document.getElementById('messageArea'),
+              syncNowBtn = document.getElementById('syncNowBtn'),
+              resetLocalBtn = document.getElementById('resetLocalBtn'),
+              syncBtnText = document.getElementById('syncBtnText'),
+              userPreviewList = document.getElementById('userPreviewList'),
+              loginBtn = document.getElementById('loginBtn'),
+              errorBanner = document.getElementById('errorBanner');
 
-        let firestoreUsers = [];
-        let indexedDBUsers = [];
-        let isConnected = false;
-        let isSyncing = false;
-        let unsubscribeFirestore = null;
+        function showError(msg) { errorBanner.textContent = msg; errorBanner.style.display = 'block'; console.error(msg); }
+        function hideError() { errorBanner.style.display = 'none'; }
 
-        // ========== FUNGSI TAMPILKAN ERROR ==========
-        function showError(message) {
-            errorBanner.textContent = message;
-            errorBanner.style.display = 'block';
-            console.error(message);
-        }
+        // ========== INDEXEDDB (dengan pengecekan idb) ==========
+        async function ensureIDB() { if (!idb) throw new Error('Database lokal belum siap.'); }
 
-        function hideError() {
-            errorBanner.style.display = 'none';
-        }
-
-        // ========== INDEXEDDB SETUP ==========
         async function openIDB() {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open(IDB_NAME, IDB_VERSION);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = (e) => {
+                const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+                req.onerror = () => reject(req.error);
+                req.onsuccess = (e) => {
                     idb = e.target.result;
                     if (!idb.objectStoreNames.contains(STORE_NAME)) {
-                        idb.close();
+                        idb.close(); idb = null;
                         const upgradeReq = indexedDB.open(IDB_NAME, IDB_VERSION + 1);
                         upgradeReq.onupgradeneeded = (e) => {
                             const db = e.target.result;
@@ -320,35 +157,25 @@
                                 store.createIndex('username', 'username', { unique: true });
                             }
                         };
-                        upgradeReq.onsuccess = (e) => {
-                            idb = e.target.result;
-                            resolve();
-                        };
+                        upgradeReq.onsuccess = (e) => { idb = e.target.result; resolve(); };
                         upgradeReq.onerror = (e) => reject(e.target.error);
                     } else {
                         const store = idb.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
                         if (!store.indexNames.contains('username')) {
-                            idb.close();
+                            idb.close(); idb = null;
                             const upgradeReq = indexedDB.open(IDB_NAME, idb.version + 1);
                             upgradeReq.onupgradeneeded = (e) => {
                                 const db = e.target.result;
                                 const tx = e.target.transaction;
                                 const store = tx.objectStore(STORE_NAME);
-                                if (!store.indexNames.contains('username')) {
-                                    store.createIndex('username', 'username', { unique: true });
-                                }
+                                if (!store.indexNames.contains('username')) store.createIndex('username', 'username', { unique: true });
                             };
-                            upgradeReq.onsuccess = (e) => {
-                                idb = e.target.result;
-                                resolve();
-                            };
+                            upgradeReq.onsuccess = (e) => { idb = e.target.result; resolve(); };
                             upgradeReq.onerror = (e) => reject(e.target.error);
-                        } else {
-                            resolve();
-                        }
+                        } else { resolve(); }
                     }
                 };
-                request.onupgradeneeded = (e) => {
+                req.onupgradeneeded = (e) => {
                     const db = e.target.result;
                     if (!db.objectStoreNames.contains(STORE_NAME)) {
                         const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
@@ -359,6 +186,7 @@
         }
 
         async function getAllFromIDB() {
+            await ensureIDB();
             return new Promise((resolve, reject) => {
                 const tx = idb.transaction([STORE_NAME], 'readonly');
                 const store = tx.objectStore(STORE_NAME);
@@ -369,6 +197,7 @@
         }
 
         async function clearIDB() {
+            await ensureIDB();
             return new Promise((resolve, reject) => {
                 const tx = idb.transaction([STORE_NAME], 'readwrite');
                 const store = tx.objectStore(STORE_NAME);
@@ -379,118 +208,50 @@
         }
 
         async function syncUserToIDB(user) {
+            await ensureIDB();
             const tx = idb.transaction([STORE_NAME], 'readwrite');
             const store = tx.objectStore(STORE_NAME);
             const index = store.index('username');
-            
-            const existing = await new Promise((resolve) => {
-                const req = index.get(user.username);
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => resolve(null);
-            });
-
-            const userData = {
-                username: user.username,
-                password: user.password,
-                name: user.name,
-                role: user.role,
-                createdAt: user.createdAt,
-                updatedAt: user.updatedAt
-            };
-
-            if (existing) {
-                userData.id = existing.id;
-                store.put(userData);
-            } else {
-                store.add(userData);
-            }
-            
-            return new Promise((resolve, reject) => {
-                tx.oncomplete = resolve;
-                tx.onerror = () => reject(tx.error);
-            });
+            const existing = await new Promise(r => { const req = index.get(user.username); req.onsuccess = () => r(req.result); req.onerror = () => r(null); });
+            const userData = { username: user.username, password: user.password, name: user.name, role: user.role, createdAt: user.createdAt, updatedAt: user.updatedAt };
+            if (existing) { userData.id = existing.id; store.put(userData); } else { store.add(userData); }
+            return new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
         }
 
         async function deleteUserFromIDB(username) {
+            await ensureIDB();
             const tx = idb.transaction([STORE_NAME], 'readwrite');
             const store = tx.objectStore(STORE_NAME);
             const index = store.index('username');
-            
-            const key = await new Promise((resolve) => {
-                const req = index.getKey(username);
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => resolve(null);
-            });
-            
+            const key = await new Promise(r => { const req = index.getKey(username); req.onsuccess = () => r(req.result); req.onerror = () => r(null); });
             if (key) store.delete(key);
-            
-            return new Promise((resolve, reject) => {
-                tx.oncomplete = resolve;
-                tx.onerror = () => reject(tx.error);
-            });
+            return new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
         }
 
-        // ========== UPDATE UI ==========
+        // ========== UI HELPERS ==========
         async function refreshCounts() {
-            try {
-                indexedDBUsers = await getAllFromIDB();
-            } catch (e) {
-                indexedDBUsers = [];
-                console.warn('Gagal membaca IndexedDB:', e);
-            }
-            
-            const firestoreCount = firestoreUsers.length;
-            const idbCount = indexedDBUsers.length;
-            
-            firestoreCountEl.textContent = firestoreCount;
-            indexedDBCountEl.textContent = idbCount;
-            
-            const synced = firestoreUsers.filter(fu => 
-                indexedDBUsers.some(iu => iu.username === fu.username)
-            ).length;
+            try { indexedDBUsers = await getAllFromIDB(); } catch { indexedDBUsers = []; }
+            const fc = firestoreUsers.length, ic = indexedDBUsers.length;
+            firestoreCountEl.textContent = fc; indexedDBCountEl.textContent = ic;
+            const synced = firestoreUsers.filter(fu => indexedDBUsers.some(iu => iu.username === fu.username)).length;
             syncedCountEl.textContent = synced;
-            
-            const progress = firestoreCount > 0 ? (synced / firestoreCount) * 100 : 100;
-            syncProgress.style.width = progress + '%';
-            
+            syncProgress.style.width = (fc ? (synced/fc)*100 : 100) + '%';
             renderUserPreview();
         }
 
         function renderUserPreview() {
-            if (indexedDBUsers.length === 0) {
-                userPreviewList.innerHTML = '<div class="user-item-preview" style="justify-content:center; color:#999;">Belum ada user lokal</div>';
-                return;
-            }
-            let html = '';
-            indexedDBUsers.slice(0, 5).forEach(user => {
-                html += `
-                    <div class="user-item-preview">
-                        <span><strong>${user.name}</strong> (@${user.username})</span>
-                        <span class="user-role">${user.role}</span>
-                    </div>
-                `;
-            });
-            if (indexedDBUsers.length > 5) {
-                html += `<div class="user-item-preview" style="justify-content:center; color:#666;">... dan ${indexedDBUsers.length - 5} lainnya</div>`;
-            }
+            if (!indexedDBUsers.length) { userPreviewList.innerHTML = '<div class="user-item-preview" style="justify-content:center; color:#999;">Belum ada user lokal</div>'; return; }
+            let html = indexedDBUsers.slice(0,5).map(u => `<div class="user-item-preview"><span><strong>${u.name}</strong> (@${u.username})</span><span class="user-role">${u.role}</span></div>`).join('');
+            if (indexedDBUsers.length > 5) html += `<div class="user-item-preview" style="justify-content:center; color:#666;">... dan ${indexedDBUsers.length-5} lainnya</div>`;
             userPreviewList.innerHTML = html;
         }
 
-        function setConnectionStatus(connected, message = '') {
+        function setConnectionStatus(connected, msg = '') {
             isConnected = connected;
-            if (connected) {
-                connectionBadge.className = 'connection-badge badge-connected';
-                connectionText.innerHTML = '🟢 Terhubung ke Firestore';
-                messageArea.textContent = message || 'Sinkronisasi real-time aktif';
-                syncNowBtn.disabled = false;
-                resetLocalBtn.disabled = false;
-            } else {
-                connectionBadge.className = 'connection-badge badge-disconnected';
-                connectionText.innerHTML = '🔴 Tidak Terhubung';
-                messageArea.textContent = message || 'Menunggu koneksi...';
-                syncNowBtn.disabled = true;
-                resetLocalBtn.disabled = true;
-            }
+            connectionBadge.className = 'connection-badge ' + (connected ? 'badge-connected' : 'badge-disconnected');
+            connectionText.innerHTML = connected ? '🟢 Terhubung ke Firestore' : '🔴 Tidak Terhubung';
+            messageArea.textContent = msg || (connected ? 'Sinkronisasi real-time aktif' : 'Menunggu koneksi...');
+            syncNowBtn.disabled = !connected; resetLocalBtn.disabled = !connected;
         }
 
         function setSyncingState(syncing) {
@@ -498,7 +259,7 @@
             if (syncing) {
                 connectionBadge.className = 'connection-badge badge-syncing';
                 connectionText.innerHTML = '🔄 Menyinkronkan...';
-                syncBtnText.innerHTML = '<span class="spin" style="display:inline-block;">⟳</span> Menyinkronkan...';
+                syncBtnText.innerHTML = '<span class="spin">⟳</span> Menyinkronkan...';
                 syncNowBtn.disabled = true;
             } else {
                 setConnectionStatus(isConnected);
@@ -507,205 +268,99 @@
             }
         }
 
-        // ========== PROSES SINKRONISASI ==========
-        async function performFullSync(showMessage = true) {
+        // ========== SYNC ==========
+        async function performFullSync(showMsg = true) {
             if (!isConnected || isSyncing) return;
-            
             setSyncingState(true);
-            if (showMessage) messageArea.textContent = 'Memulai sinkronisasi penuh...';
-            
+            if (showMsg) messageArea.textContent = 'Memulai sinkronisasi penuh...';
             try {
-                const localUsersCol = collection(dbCloud, 'localUsers');
-                const snap = await getDocs(query(localUsersCol));
-                const freshUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                let syncedCount = 0;
-                for (const user of freshUsers) {
-                    await syncUserToIDB(user);
-                    syncedCount++;
-                    if (showMessage) {
-                        messageArea.textContent = `Menyinkronkan ${syncedCount}/${freshUsers.length}...`;
-                        await new Promise(r => setTimeout(r, 10));
-                    }
+                const snap = await getDocs(query(collection(dbCloud, 'localUsers')));
+                const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                for (let i=0; i<fresh.length; i++) {
+                    await syncUserToIDB(fresh[i]);
+                    if (showMsg) messageArea.textContent = `Menyinkronkan ${i+1}/${fresh.length}...`;
                 }
-                
                 const currentIDB = await getAllFromIDB();
-                const firestoreUsernames = new Set(freshUsers.map(u => u.username));
-                for (const user of currentIDB) {
-                    if (!firestoreUsernames.has(user.username)) {
-                        await deleteUserFromIDB(user.username);
-                    }
-                }
-                
-                firestoreUsers = freshUsers;
+                const fireUsernames = new Set(fresh.map(u => u.username));
+                for (const u of currentIDB) if (!fireUsernames.has(u.username)) await deleteUserFromIDB(u.username);
+                firestoreUsers = fresh;
                 await refreshCounts();
-                messageArea.textContent = `✅ Sinkronisasi selesai. ${freshUsers.length} user tersimpan.`;
+                messageArea.textContent = `✅ Selesai. ${fresh.length} user tersimpan.`;
                 hideError();
-            } catch (error) {
-                console.error('Sync error:', error);
-                messageArea.textContent = `❌ Gagal sinkronisasi: ${error.message}`;
+            } catch (e) {
+                messageArea.textContent = `❌ Gagal: ${e.message}`;
                 setConnectionStatus(false, 'Gagal sinkronisasi');
-                showError('Sinkronisasi gagal: ' + error.message);
-            } finally {
-                setSyncingState(false);
-            }
+                showError('Sinkronisasi gagal: ' + e.message);
+            } finally { setSyncingState(false); }
         }
 
-        // ========== RESET LOKAL ==========
         async function resetLocalData() {
-            if (!confirm('Hapus semua data user di IndexedDB? Data akan diambil ulang dari Firestore.')) return;
-            try {
-                await clearIDB();
-                await performFullSync(true);
-            } catch (e) {
-                alert('Gagal reset: ' + e.message);
-            }
+            if (!confirm('Hapus semua data user di IndexedDB?')) return;
+            try { await clearIDB(); await performFullSync(true); } catch (e) { alert('Gagal reset: ' + e.message); }
         }
 
-        // ========== INISIALISASI APLIKASI ==========
-        async function initializeApp() {
-            hideError();
-            
-            // 1. Buka IndexedDB terlebih dahulu
-            try {
-                await openIDB();
-                await refreshCounts();
-            } catch (e) {
-                console.error('IndexedDB error:', e);
-                showError('Gagal membuka database lokal. Sinkronisasi tidak dapat berjalan.');
-                // Jangan return, biarkan aplikasi tetap jalan agar tombol login bisa digunakan
-            }
-
-            // 2. Inisialisasi Firebase Auth (tetap dijalankan meskipun IndexedDB error)
-            try {
-                await initAuth();
-            } catch (e) {
-                console.error('Auth init error:', e);
-                showError('Gagal inisialisasi autentikasi.');
-            }
-            
-            // 3. Periksa akses halaman (hanya admin)
-            //    Jika tidak lolos, checkPageAccess akan redirect, tapi kita tetap lanjutkan setup UI untuk berjaga-jaga
-            let accessGranted = false;
-            try {
-                accessGranted = checkPageAccess();
-            } catch (e) {
-                console.error('Access check error:', e);
-            }
-            
-            // 4. Render sidebar (tetap render, sidebar akan menyesuaikan role)
-            try {
-                renderSidebar({
-                    containerId: 'sidebar',
-                    overlayId: 'overlay',
-                    menuToggleId: 'menuToggle',
-                    closeSidebarId: 'closeSidebar'
-                });
-            } catch (e) {
-                console.error('Sidebar render error:', e);
-            }
-
-            // Jika akses tidak diberikan, hentikan setup sinkronisasi (tapi listener login tetap jalan)
-            if (!accessGranted) {
-                console.warn('Akses halaman ditolak, sinkronisasi tidak dijalankan.');
-                // Setup tombol login tetap
-                setupAuthListener();
-                return;
-            }
-
-            // 5. Aktifkan persistence Firestore (sebelum listener)
-            try {
-                await enableIndexedDbPersistence(dbCloud);
-            } catch (e) {
-                console.warn('Persistence gagal:', e);
-            }
-
-            // 6. Setup real-time listener
-            try {
-                const localUsersCol = collection(dbCloud, 'localUsers');
-                const q = query(localUsersCol);
-                unsubscribeFirestore = onSnapshot(q, (snapshot) => {
-                    setConnectionStatus(true);
-                    hideError();
-                    
-                    snapshot.docChanges().forEach(async (change) => {
-                        const userData = change.doc.data();
-                        const username = change.doc.id;
-                        
-                        try {
-                            if (change.type === 'added' || change.type === 'modified') {
-                                await syncUserToIDB({ ...userData, username });
-                            } else if (change.type === 'removed') {
-                                await deleteUserFromIDB(username);
-                            }
-                        } catch (e) {
-                            console.warn('Incremental sync error:', e);
-                        }
-                    });
-                    
-                    firestoreUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    refreshCounts();
-                    
-                    messageArea.textContent = `🔄 Update real-time: ${snapshot.docChanges().length} perubahan`;
-                }, (error) => {
-                    console.error('Firestore listener error:', error);
-                    setConnectionStatus(false, `Error: ${error.message}`);
-                    showError('Gagal terhubung ke Firestore: ' + error.message);
-                    
-                    // Fallback: ambil data manual
-                    getDocs(query(collection(dbCloud, 'localUsers'))).then(snap => {
-                        firestoreUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        refreshCounts();
-                    }).catch(e => console.warn('Fallback getDocs error:', e));
-                });
-            } catch (e) {
-                console.error('Listener setup error:', e);
-                showError('Gagal memulai listener Firestore.');
-            }
-
-            // 7. Event listener tombol
-            syncNowBtn.addEventListener('click', () => performFullSync(true));
-            resetLocalBtn.addEventListener('click', resetLocalData);
-
-            // 8. Setup tombol login Firebase (dipisah agar pasti terpasang)
-            setupAuthListener();
-        }
-
+        // ========== AUTH LISTENER ==========
         function setupAuthListener() {
-            onAuthStateChanged(auth, (user) => {
+            onAuthStateChanged(auth, user => {
                 loginBtn.innerHTML = user ? '<i data-feather="log-out"></i><span>Logout</span>' : '<i data-feather="log-in"></i><span>Login</span>';
                 feather.replace();
             });
-
             loginBtn.addEventListener('click', async () => {
-                if (auth.currentUser) {
-                    await logoutUser();
-                } else {
-                    try {
-                        await signInWithPopup(auth, provider);
-                        // Setelah login, checkPageAccess akan dipanggil ulang oleh auth state change di auth-guard?
-                        // Kita reload saja agar state konsisten
-                        window.location.reload();
-                    } catch (error) {
-                        console.error('Login error:', error);
-                        showError('Login gagal: ' + error.message);
-                    }
+                if (auth.currentUser) await logoutUser();
+                else {
+                    try { await signInWithPopup(auth, provider); window.location.reload(); }
+                    catch (e) { showError('Login gagal: ' + e.message); }
                 }
             });
         }
 
-        // Mulai aplikasi
-        initializeApp().catch(error => {
-            console.error('Fatal error:', error);
-            showError('Aplikasi gagal dimulai: ' + error.message);
-            // Tetap setup tombol login
-            setupAuthListener();
-        });
+        // ========== INIT ==========
+        async function initializeApp() {
+            hideError();
+            try { await openIDB(); await refreshCounts(); } 
+            catch (e) { 
+                showError('Gagal membuka database lokal: ' + e.message);
+                messageArea.textContent = 'Database lokal tidak tersedia.';
+                syncNowBtn.disabled = resetLocalBtn.disabled = true;
+            }
 
-        // Cleanup saat halaman ditutup
-        window.addEventListener('beforeunload', () => {
-            if (unsubscribeFirestore) unsubscribeFirestore();
-        });
+            await initAuth();
+            let access = false;
+            try { access = checkPageAccess(); } catch (e) { console.warn(e); }
+            try { renderSidebar({ containerId:'sidebar', overlayId:'overlay', menuToggleId:'menuToggle', closeSidebarId:'closeSidebar' }); } catch(e){}
+
+            if (!access) { setupAuthListener(); return; }
+
+            try { await enableIndexedDbPersistence(dbCloud); } catch {}
+            try {
+                const q = query(collection(dbCloud, 'localUsers'));
+                unsubscribeFirestore = onSnapshot(q, snap => {
+                    setConnectionStatus(true); hideError();
+                    snap.docChanges().forEach(async c => {
+                        const user = { ...c.doc.data(), username: c.doc.id };
+                        try { if (c.type === 'removed') await deleteUserFromIDB(user.username); else await syncUserToIDB(user); }
+                        catch (err) { console.warn('Incremental sync error:', err); }
+                    });
+                    firestoreUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    refreshCounts();
+                    messageArea.textContent = `🔄 Update real-time: ${snap.docChanges().length} perubahan`;
+                }, err => {
+                    setConnectionStatus(false, `Error: ${err.message}`);
+                    showError('Firestore error: ' + err.message);
+                    getDocs(query(collection(dbCloud, 'localUsers'))).then(s => {
+                        firestoreUsers = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                        refreshCounts();
+                    }).catch(()=>{});
+                });
+            } catch (e) { showError('Gagal memulai listener: ' + e.message); }
+
+            syncNowBtn.addEventListener('click', ()=>performFullSync(true));
+            resetLocalBtn.addEventListener('click', resetLocalData);
+            setupAuthListener();
+        }
+
+        initializeApp().catch(e => { showError('Fatal: ' + e.message); setupAuthListener(); });
+        window.addEventListener('beforeunload', () => { if (unsubscribeFirestore) unsubscribeFirestore(); });
     </script>
 </body>
 </html>
