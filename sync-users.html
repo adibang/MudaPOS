@@ -537,22 +537,23 @@
 
         // ========== INISIALISASI APLIKASI ==========
         async function initializeApp() {
-            // Inisialisasi IndexedDB
+            // 1. Buka IndexedDB terlebih dahulu
             try {
                 await openIDB();
                 await refreshCounts();
             } catch (e) {
                 console.error('IndexedDB error:', e);
                 messageArea.textContent = 'Gagal membuka database lokal.';
+                return;
             }
 
-            // Inisialisasi Firebase Auth
+            // 2. Inisialisasi Firebase Auth
             await initAuth();
             
-            // Periksa akses halaman (hanya admin)
+            // 3. Periksa akses halaman (hanya admin)
             if (!checkPageAccess()) return;
 
-            // Render sidebar
+            // 4. Render sidebar
             renderSidebar({
                 containerId: 'sidebar',
                 overlayId: 'overlay',
@@ -560,14 +561,14 @@
                 closeSidebarId: 'closeSidebar'
             });
 
-            // Aktifkan persistence Firestore (opsional)
+            // 5. Aktifkan persistence Firestore (sebelum listener)
             try {
                 await enableIndexedDbPersistence(dbCloud);
             } catch (e) {
                 console.warn('Persistence gagal:', e);
             }
 
-            // Setup real-time listener
+            // 6. Setup real-time listener
             const localUsersCol = collection(dbCloud, 'localUsers');
             const q = query(localUsersCol);
             unsubscribeFirestore = onSnapshot(q, (snapshot) => {
@@ -603,11 +604,11 @@
                 });
             });
 
-            // Event listener tombol
+            // 7. Event listener tombol
             syncNowBtn.addEventListener('click', () => performFullSync(true));
             resetLocalBtn.addEventListener('click', resetLocalData);
 
-            // Setup tombol login Firebase
+            // 8. Setup tombol login Firebase
             onAuthStateChanged(auth, (user) => {
                 loginBtn.innerHTML = user ? '<i data-feather="log-out"></i><span>Logout</span>' : '<i data-feather="log-in"></i><span>Login</span>';
                 feather.replace();
