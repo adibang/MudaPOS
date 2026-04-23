@@ -67,7 +67,7 @@
         <h1 class="page-title">Relation</h1>
 
         <!-- ========== SECTION TAMBAH CUSTOMER ========== -->
-        <div id="tambahCustomerSection" class="content-section">
+        <div id="tambahCustomerSection" class="content-section active">
             <h2 style="margin-bottom:1.2rem; font-size:1.3rem;">Tambah Customer Baru</h2>
             <form id="formTambahCustomer">
                 <div class="form-grid">
@@ -217,7 +217,7 @@
     <script type="module">
         // ========== IMPOR MODUL ==========
         import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
-        import { initAuth, checkPageAccess, logoutUser, getCurrentRole } from './js/auth-guard.js';
+        import { initAuth, checkPageAccess, logoutUser, getCurrentUser, getCurrentRole } from './js/auth-guard.js';
         import { renderSidebar } from './js/sidebar.js';
         
         import { 
@@ -244,8 +244,10 @@
 
         // Elemen DOM
         const loginBtn = document.getElementById('loginBtn');
+        const formTambahCustomer = document.getElementById('formTambahCustomer');
+        const formTambahSupplier = document.getElementById('formTambahSupplier');
 
-        // ========== NAVIGASI SECTION (berbasis hash) ==========
+        // ========== NAVIGASI SECTION ==========
         const sections = {
             tambahCustomer: document.getElementById('tambahCustomerSection'),
             daftarCustomer: document.getElementById('daftarCustomerSection'),
@@ -253,21 +255,16 @@
             daftarSupplier: document.getElementById('daftarSupplierSection')
         };
 
-        // Fungsi untuk menampilkan section yang sesuai dengan role
         function showSection(sectionName) {
             const role = getCurrentRole();
-            // Jika kasir, mereka tidak boleh melihat section supplier
+            // Kasir hanya boleh akses section customer
             if (role === 'kasir' && (sectionName === 'tambahSupplier' || sectionName === 'daftarSupplier')) {
-                // Alihkan ke tambahCustomer jika mencoba mengakses supplier
                 sectionName = 'tambahCustomer';
             }
-            
-            // Sembunyikan semua section
-            Object.values(sections).forEach(s => s && s.classList.remove('active'));
-            // Tampilkan section yang dipilih
+            Object.values(sections).forEach(s => s.classList.remove('active'));
             if (sections[sectionName]) sections[sectionName].classList.add('active');
             
-            // Update hash di URL tanpa memicu scroll
+            // Update hash URL tanpa scroll
             const newHash = sectionName;
             if (location.hash !== '#' + newHash) {
                 history.pushState(null, null, '#' + newHash);
@@ -279,35 +276,29 @@
                 document.getElementById('overlay').classList.remove('active');
             }
             
-            // Muat data jika perlu
+            // Load data jika perlu
             if (sectionName === 'daftarCustomer') {
                 subscribeDaftarCustomer();
             } else if (sectionName === 'daftarSupplier' && role === 'admin') {
                 subscribeDaftarSupplier();
             }
         }
+        window.showSection = showSection;
 
-        // Baca hash awal dan tampilkan section yang sesuai
         function handleHashChange() {
-            const role = getCurrentRole();
             const hash = location.hash.substring(1);
+            const role = getCurrentRole();
             if (hash && sections[hash]) {
-                // Cegah akses ke supplier untuk kasir
                 if (role === 'kasir' && (hash === 'tambahSupplier' || hash === 'daftarSupplier')) {
                     showSection('tambahCustomer');
                     return;
                 }
                 showSection(hash);
             } else {
-                // Default ke tambahCustomer
                 showSection('tambahCustomer');
             }
         }
-
         window.addEventListener('hashchange', handleHashChange);
-        
-        // Ekspos showSection ke global untuk kemungkinan pemanggilan dari luar
-        window.showSection = showSection;
 
         // ========== SUBSCRIBE DAFTAR CUSTOMER ==========
         let unsubCustomer = null;
@@ -349,7 +340,6 @@
         // ========== SUBSCRIBE DAFTAR SUPPLIER ==========
         let unsubSupplier = null;
         function subscribeDaftarSupplier() {
-            // Hanya admin yang bisa subscribe supplier
             if (getCurrentRole() !== 'admin') return;
             if (unsubSupplier) unsubSupplier();
             const q = query(supplierCol, where('deleted', '==', false), orderBy('nama'));
@@ -384,7 +374,7 @@
         }
 
         // ========== TAMBAH CUSTOMER ==========
-        document.getElementById('formTambahCustomer').addEventListener('submit', async (e) => {
+        formTambahCustomer.addEventListener('submit', async (e) => {
             e.preventDefault();
             const data = {
                 kode: document.getElementById('kodeCustomer').value.trim(),
@@ -416,9 +406,8 @@
         });
 
         // ========== TAMBAH SUPPLIER ==========
-        document.getElementById('formTambahSupplier').addEventListener('submit', async (e) => {
+        formTambahSupplier.addEventListener('submit', async (e) => {
             e.preventDefault();
-            // Hanya admin yang bisa menambah supplier
             if (getCurrentRole() !== 'admin') {
                 alert('Hanya admin yang dapat menambah supplier.');
                 return;
@@ -501,7 +490,6 @@
 
         // ========== FUNGSI EDIT/HAPUS SUPPLIER ==========
         window.editSupplier = async (id) => {
-            // Hanya admin yang bisa edit supplier
             if (getCurrentRole() !== 'admin') {
                 alert('Hanya admin yang dapat mengedit supplier.');
                 return;
@@ -541,7 +529,6 @@
         };
 
         window.hapusSupplier = async (id) => {
-            // Hanya admin yang bisa hapus supplier
             if (getCurrentRole() !== 'admin') {
                 alert('Hanya admin yang dapat menghapus supplier.');
                 return;
@@ -556,13 +543,9 @@
 
         // ========== AUTENTIKASI & SIDEBAR ==========
         async function initializeApp() {
-            // Inisialisasi Firebase Auth
             await initAuth();
-            
-            // Periksa akses halaman (sekarang admin & kasir)
             if (!checkPageAccess()) return;
 
-            // Render sidebar (sidebar akan menyesuaikan role, tapi perlu disetel agar kasir melihat menu Relation)
             renderSidebar({
                 containerId: 'sidebar',
                 overlayId: 'overlay',
@@ -570,18 +553,12 @@
                 closeSidebarId: 'closeSidebar'
             });
 
-            // Tentukan section awal berdasarkan hash
             handleHashChange();
-
-            // Subscribe data customer (selalu, karena kasir dan admin bisa lihat)
             subscribeDaftarCustomer();
-            
-            // Subscribe supplier hanya jika admin
             if (getCurrentRole() === 'admin') {
                 subscribeDaftarSupplier();
             }
 
-            // Setup tombol login Firebase
             onAuthStateChanged(auth, (user) => {
                 loginBtn.innerHTML = user ? '<i data-feather="log-out"></i><span>Logout</span>' : '<i data-feather="log-in"></i><span>Login</span>';
                 feather.replace();
@@ -601,7 +578,6 @@
             });
         }
 
-        // Mulai aplikasi
         initializeApp().catch(console.error);
     </script>
 </body>
