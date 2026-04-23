@@ -181,7 +181,7 @@
                 </div>
                 <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
                     <button class="btn-outline" id="batalRetur">Batal</button>
-                    <button class="btn" id="simpanRetur">Simpan Retur</button>
+                    <button class="btn" id="simpanRetur" style="background:#006B54; color:white; border:none; padding:0.5rem 1.5rem; border-radius:20px;">Simpan Retur</button>
                 </div>
             </div>
         </div>
@@ -191,11 +191,11 @@
     <script type="module">
         // ========== IMPOR MODUL ==========
         import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
-        import { initAuth, checkPageAccess, logoutUser } from './js/auth-guard.js';
+        import { initAuth, checkPageAccess, logoutUser, getCurrentRole } from './js/auth-guard.js';
         import { renderSidebar } from './js/sidebar.js';
         
         import { 
-            collection, doc, getDocs, getDoc, query, orderBy, serverTimestamp, 
+            collection, doc, getDocs, getDoc, query, where, orderBy, limit, startAfter, serverTimestamp, 
             runTransaction, Timestamp, addDoc, deleteDoc 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
@@ -297,10 +297,11 @@
 
         closeCari.addEventListener('click', () => modalCari.classList.remove('active'));
 
-        // Load daftar transaksi untuk dipilih
+        // Load daftar transaksi untuk dipilih (dengan pagination jika diperlukan)
         async function loadDaftarTransaksi(keyword = '') {
             try {
-                const q = query(salesCol, orderBy('createdAt', 'desc'));
+                // Query dasar: transaksi yang belum diretur sepenuhnya (opsional)
+                const q = query(salesCol, orderBy('createdAt', 'desc'), limit(50));
                 const snap = await getDocs(q);
                 let sales = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (keyword.trim()) {
@@ -319,14 +320,14 @@
                             <td>${s.transactionNumber || s.id.slice(-6)}</td>
                             <td>${s.customerName || 'Umum'}</td>
                             <td>Rp ${(s.total || 0).toLocaleString()}</td>
-                            <td><button class="btn pilih-transaksi" style="padding:0.2rem 0.5rem;">Pilih</button></td>
+                            <td><button class="btn pilih-transaksi" style="padding:0.2rem 0.5rem; background:#006B54; color:white; border:none; border-radius:12px;">Pilih</button></td>
                         </tr>
                     `).join('');
                     feather.replace();
                 }
             } catch (error) {
                 console.error(error);
-                daftarTransaksiBody.innerHTML = `<tr><td colspan="5" style="color:red;">Gagal memuat</td></tr>`;
+                daftarTransaksiBody.innerHTML = `<tr><td colspan="5" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
             }
         }
 
@@ -479,7 +480,7 @@
                     const salesSnap = await transaction.get(salesRef);
                     if (!salesSnap.exists()) throw new Error('Transaksi asal tidak ditemukan');
                     const dataSales = salesSnap.data();
-                    const totalBaru = dataSales.total - total;
+                    const totalBaru = (dataSales.total || 0) - total;
                     const paidAmount = dataSales.paidAmount || 0;
                     let outstandingBaru = totalBaru - paidAmount;
                     if (outstandingBaru < 0) outstandingBaru = 0;
@@ -519,7 +520,20 @@
         // ========== AUTENTIKASI & SIDEBAR ==========
         async function initializeApp() {
             await initAuth();
-            if (!checkPageAccess()) return;
+            
+            // Izinkan akses untuk admin dan kasir
+            const role = getCurrentRole();
+            if (role !== 'admin' && role !== 'kasir') {
+                // Jika belum login atau role tidak sesuai, redirect atau tampilkan pesan
+                if (!auth.currentUser) {
+                    alert('Silakan login terlebih dahulu');
+                    window.location.href = 'index.html';
+                } else {
+                    alert('Anda tidak memiliki akses ke halaman ini');
+                    window.location.href = 'index.html';
+                }
+                return;
+            }
             
             renderSidebar({
                 containerId: 'sidebar',
