@@ -354,7 +354,7 @@
             <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
         </div>
         <div class="header-right" style="display:flex; align-items:center;">
-            <!-- Tombol History Transfer di header dihapus sesuai permintaan -->
+            <!-- Tombol History Transfer di header dihapus -->
             <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
         </div>
     </header>
@@ -844,6 +844,22 @@
                 loadHistoryPage('next');
             }
         };
+
+        // ========== NAVIGASI BERDASARKAN HASH ==========
+        function handleHashChange() {
+            const hash = window.location.hash.substring(1); // hapus tanda #
+            if (hash && sections[hash]) {
+                showSection(hash);
+            } else {
+                // Jika hash tidak valid, arahkan ke daftar produk (default)
+                showSection('daftarProduk');
+            }
+        }
+
+        // Panggil saat halaman dimuat
+        window.addEventListener('DOMContentLoaded', handleHashChange);
+        // Panggil saat hash berubah (misal klik sidebar)
+        window.addEventListener('hashchange', handleHashChange);
 
         // ========== DATA UNTUK MAPPING ==========
         let kategoriMap = {};
@@ -1854,6 +1870,7 @@
 
                 formProdukTitle.innerText = 'Edit Produk';
                 showSection('tambahProduk');
+                window.location.hash = 'tambahProduk'; // update hash
             } catch (error) {
                 console.error('Error loading produk for edit:', error);
                 alert('Gagal memuat data produk: ' + error.message);
@@ -2060,9 +2077,9 @@
                 produkIdInput.value = '';
                 formProdukTitle.innerText = 'Tambah Produk Baru';
 
-                if (sections.daftarProduk.classList.contains('active')) {
-                    resetAndLoadProduk();
-                }
+                // Arahkan ke daftar produk setelah simpan
+                showSection('daftarProduk');
+                window.location.hash = 'daftarProduk';
             } catch (error) {
                 console.error(error);
                 alert('Gagal menyimpan produk: ' + error.message);
@@ -2785,21 +2802,6 @@
                 showLocalUser: false  // Tidak ada login lokal
             });
             
-            // Perbaiki submenu sidebar: tambahkan event listener manual setelah sidebar dirender
-            setTimeout(() => {
-                document.querySelectorAll('.sidebar .has-submenu > a').forEach(link => {
-                    link.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        const parent = link.parentElement;
-                        parent.classList.toggle('open');
-                        const submenu = parent.querySelector('.sidebar-submenu');
-                        if (submenu) {
-                            submenu.style.display = parent.classList.contains('open') ? 'block' : 'none';
-                        }
-                    });
-                });
-            }, 200);
-            
             // Setup tombol history section
             if (historyBtnSection) {
                 historyBtnSection.addEventListener('click', () => showSection('historyTransfer'));
@@ -2811,15 +2813,8 @@
             subscribeDaftarUnit();
             subscribeDaftarGudang();
             
-            if (sections.daftarProduk.classList.contains('active')) {
-                resetAndLoadProduk();
-                startProdukRealtimeListener();
-                updateTotalSKUCount();
-            }
-            if (sections.daftarKategori.classList.contains('active') && lastKategoriDocs.length) renderKategoriTable(lastKategoriDocs);
-            if (sections.daftarUnit.classList.contains('active') && lastUnitDocs.length) renderUnitTable(lastUnitDocs);
-            if (sections.daftarGudang.classList.contains('active') && lastGudangDocs.length) renderGudangTable(lastGudangDocs);
-            if (sections.historyTransfer.classList.contains('active')) loadHistoryPage('next');
+            // Handle hash awal (dipanggil oleh DOMContentLoaded)
+            // startProdukRealtimeListener di dalam handleHashChange/showSection
             
             // Setup tombol login Firebase
             onAuthStateChanged(auth, (user) => {
