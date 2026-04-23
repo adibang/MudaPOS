@@ -196,48 +196,6 @@
             margin-top: 1rem;
         }
 
-        /* Login Lokal Modal */
-        #featureLoginModal .modal-content {
-            max-width: 350px;
-        }
-        #featureLoginModal input {
-            margin-bottom: 10px;
-        }
-        #loginError {
-            color: red;
-            margin-top: 5px;
-            display: none;
-        }
-
-        /* Sidebar footer */
-        .sidebar-footer {
-            margin-top: auto;
-            padding-top: 1rem;
-            border-top: 1px solid #eee;
-        }
-        .local-user-info {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #f8f9fa;
-            padding: 0.5rem 0.8rem;
-            border-radius: 8px;
-        }
-        .local-user-info span {
-            font-weight: 600;
-            color: #006B54;
-            font-size: 0.9rem;
-        }
-        .logout-local-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 15px;
-            padding: 4px 12px;
-            font-size: 0.8rem;
-            cursor: pointer;
-        }
-
         .variant-row td:first-child {
             padding-left: 2rem;
         }
@@ -261,24 +219,8 @@
         </div>
     </header>
 
-    <!-- Modal Login Lokal (untuk fitur tambah/kurang stok) -->
-    <div class="modal" id="featureLoginModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Login untuk Mengubah Stok</h3>
-                <button class="close-modal" onclick="closeFeatureLoginModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <input type="text" id="featureUsername" placeholder="Username" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:15px;">
-                <input type="password" id="featurePassword" placeholder="Password" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:15px; margin-top:10px;">
-                <div id="loginError" style="color:red; margin-top:10px; display:none;">Username atau password salah</div>
-                <button id="featureLoginBtn" style="width:100%; padding:12px; background:#006B54; color:white; border:none; border-radius:15px; margin-top:15px;">Login</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Halaman Inventory -->
-    <main class="main-content">
+    <main class="main-content" id="mainContent">
         <h1 class="page-title">Inventory</h1>
 
         <!-- Filter Bar -->
@@ -461,131 +403,6 @@
         const nextPageBtn = document.getElementById('nextPage');
         const pageInfo = document.getElementById('pageInfo');
         const loginBtn = document.getElementById('loginBtn');
-        const featureLoginModal = document.getElementById('featureLoginModal');
-        const featureUsername = document.getElementById('featureUsername');
-        const featurePassword = document.getElementById('featurePassword');
-        const featureLoginBtn = document.getElementById('featureLoginBtn');
-        const loginError = document.getElementById('loginError');
-        const localUserInfo = document.getElementById('localUserInfo');
-        const localUserName = document.getElementById('localUserName');
-        const logoutLocalBtn = document.getElementById('logoutLocalBtn');
-
-        // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
-        const LOCAL_DB_NAME = 'MudaPOSDB';
-        const LOCAL_DB_VERSION = 1;
-        const STORE_LOCAL_USERS = 'localUsers';
-        let localDB = null;
-
-        async function initLocalDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = (e) => {
-                    localDB = e.target.result;
-                    resolve();
-                };
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE_LOCAL_USERS)) {
-                        db.createObjectStore(STORE_LOCAL_USERS, { keyPath: 'id', autoIncrement: true });
-                    }
-                };
-            });
-        }
-
-        async function hashLocalPassword(password) {
-            if (window.crypto && window.crypto.subtle) {
-                try {
-                    const encoder = new TextEncoder();
-                    const data = encoder.encode(password);
-                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                } catch (e) { console.warn('Crypto digest failed, using fallback', e); }
-            }
-            let hash = 0;
-            for (let i = 0; i < password.length; i++) {
-                const char = password.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash |= 0;
-            }
-            return hash.toString(16);
-        }
-
-        async function verifyLocalUser(username, password) {
-            return new Promise((resolve, reject) => {
-                const tx = localDB.transaction([STORE_LOCAL_USERS], 'readonly');
-                const store = tx.objectStore(STORE_LOCAL_USERS);
-                const request = store.getAll();
-                request.onsuccess = async () => {
-                    const users = request.result;
-                    const user = users.find(u => u.username === username);
-                    if (!user) { resolve(null); return; }
-                    const hashed = await hashLocalPassword(password);
-                    if (user.password === hashed) {
-                        const { password, ...safeUser } = user;
-                        resolve(safeUser);
-                    } else {
-                        resolve(null);
-                    }
-                };
-                request.onerror = reject;
-            });
-        }
-
-        // State login lokal
-        let localUser = null;
-        const savedLocalSession = sessionStorage.getItem('localUser');
-        if (savedLocalSession) {
-            try {
-                localUser = JSON.parse(savedLocalSession);
-            } catch (e) {
-                sessionStorage.removeItem('localUser');
-            }
-        }
-
-        function updateLocalUI() {
-            if (localUser) {
-                localUserInfo.style.display = 'flex';
-                localUserName.textContent = localUser.name;
-            } else {
-                localUserInfo.style.display = 'none';
-            }
-            if (lastRenderedDocs) {
-                renderProduk(lastRenderedDocs);
-            }
-        }
-
-        window.openFeatureLoginModal = () => {
-            featureLoginModal.classList.add('active');
-            featureUsername.value = '';
-            featurePassword.value = '';
-            loginError.style.display = 'none';
-        };
-
-        window.closeFeatureLoginModal = () => {
-            featureLoginModal.classList.remove('active');
-        };
-
-        featureLoginBtn.addEventListener('click', async () => {
-            const username = featureUsername.value;
-            const password = featurePassword.value;
-            const user = await verifyLocalUser(username, password);
-            if (user) {
-                sessionStorage.setItem('localUser', JSON.stringify(user));
-                localUser = user;
-                updateLocalUI();
-                closeFeatureLoginModal();
-            } else {
-                loginError.style.display = 'block';
-            }
-        });
-
-        logoutLocalBtn.addEventListener('click', () => {
-            sessionStorage.removeItem('localUser');
-            localUser = null;
-            updateLocalUI();
-        });
 
         // ========== FIRESTORE DATA ==========
         let unitMap = {};
@@ -766,13 +583,9 @@
 
                 let produkAddBtn = '', produkReduceBtn = '', produkOpnameBtn = '';
                 if (varianList.length === 0) {
-                    if (localUser) {
-                        produkAddBtn = `<button class="btn-icon" onclick="openAddProductModal('${produkId}', '${namaProduk.replace(/'/g, "\\'")}', ${stokProduk})" title="Tambah Stok"><i data-feather="plus-circle"></i></button>`;
-                        produkReduceBtn = `<button class="btn-icon" onclick="openReduceProductModal('${produkId}', '${namaProduk.replace(/'/g, "\\'")}', ${stokProduk})" title="Kurangi Stok"><i data-feather="minus-circle"></i></button>`;
-                    } else {
-                        produkAddBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk menambah stok"><i data-feather="plus-circle"></i></button>`;
-                        produkReduceBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk mengurangi stok"><i data-feather="minus-circle"></i></button>`;
-                    }
+                    // Admin selalu bisa melakukan aksi (karena halaman ini hanya untuk admin)
+                    produkAddBtn = `<button class="btn-icon" onclick="openAddProductModal('${produkId}', '${namaProduk.replace(/'/g, "\\'")}', ${stokProduk})" title="Tambah Stok"><i data-feather="plus-circle"></i></button>`;
+                    produkReduceBtn = `<button class="btn-icon" onclick="openReduceProductModal('${produkId}', '${namaProduk.replace(/'/g, "\\'")}', ${stokProduk})" title="Kurangi Stok"><i data-feather="minus-circle"></i></button>`;
                     produkOpnameBtn = `<button class="btn-icon" onclick="openOpnameProductModal('${produkId}', '${namaProduk.replace(/'/g, "\\'")}', ${stokProduk})" title="Stok Opname"><i data-feather="rotate-cw"></i></button>`;
                 } else {
                     produkAddBtn = `<span class="btn-icon disabled" title="Kelola stok melalui varian"><i data-feather="plus-circle" style="opacity:0.3;"></i></span>`;
@@ -799,15 +612,9 @@
                     const stokVarian = v.stok || 0;
                     const statusVarian = getStatusBadge(stokVarian, p.stokMinimal || 0);
                     const namaVarian = v.namaVarian;
-                    let varianAddBtn = '', varianReduceBtn = '', varianOpnameBtn = '';
-                    if (localUser) {
-                        varianAddBtn = `<button class="btn-icon" onclick="openAddVarianModal('${v.id}', '${namaProduk} - ${namaVarian.replace(/'/g, "\\'")}', ${stokVarian}, '${produkId}')" title="Tambah Stok Varian"><i data-feather="plus-circle"></i></button>`;
-                        varianReduceBtn = `<button class="btn-icon" onclick="openReduceVarianModal('${v.id}', '${namaProduk} - ${namaVarian.replace(/'/g, "\\'")}', ${stokVarian}, '${produkId}')" title="Kurangi Stok Varian"><i data-feather="minus-circle"></i></button>`;
-                    } else {
-                        varianAddBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk menambah stok varian"><i data-feather="plus-circle"></i></button>`;
-                        varianReduceBtn = `<button class="btn-icon disabled" onclick="openFeatureLoginModal()" title="Login untuk mengurangi stok varian"><i data-feather="minus-circle"></i></button>`;
-                    }
-                    varianOpnameBtn = `<button class="btn-icon" onclick="openOpnameVarianModal('${v.id}', '${namaProduk} - ${namaVarian.replace(/'/g, "\\'")}', ${stokVarian}, '${produkId}')" title="Stok Opname Varian"><i data-feather="rotate-cw"></i></button>`;
+                    const varianAddBtn = `<button class="btn-icon" onclick="openAddVarianModal('${v.id}', '${namaProduk} - ${namaVarian.replace(/'/g, "\\'")}', ${stokVarian}, '${produkId}')" title="Tambah Stok Varian"><i data-feather="plus-circle"></i></button>`;
+                    const varianReduceBtn = `<button class="btn-icon" onclick="openReduceVarianModal('${v.id}', '${namaProduk} - ${namaVarian.replace(/'/g, "\\'")}', ${stokVarian}, '${produkId}')" title="Kurangi Stok Varian"><i data-feather="minus-circle"></i></button>`;
+                    const varianOpnameBtn = `<button class="btn-icon" onclick="openOpnameVarianModal('${v.id}', '${namaProduk} - ${namaVarian.replace(/'/g, "\\'")}', ${stokVarian}, '${produkId}')" title="Stok Opname Varian"><i data-feather="rotate-cw"></i></button>`;
 
                     html += `
                     <tr class="variant-row" style="background-color: #f9f9f9;">
@@ -831,7 +638,6 @@
 
         // ========== FUNGSI MODAL (global) ==========
         window.openAddProductModal = function(productId, productName, currentStock) {
-            if (!localUser) { openFeatureLoginModal(); return; }
             document.getElementById('addProductId').value = productId;
             document.getElementById('addVarianId').value = '';
             document.getElementById('addProductName').value = productName;
@@ -842,7 +648,6 @@
         };
 
         window.openReduceProductModal = function(productId, productName, currentStock) {
-            if (!localUser) { openFeatureLoginModal(); return; }
             document.getElementById('reduceProductId').value = productId;
             document.getElementById('reduceVarianId').value = '';
             document.getElementById('reduceProductName').value = productName;
@@ -863,7 +668,6 @@
         };
 
         window.openAddVarianModal = function(varianId, varianName, currentStock, productId) {
-            if (!localUser) { openFeatureLoginModal(); return; }
             document.getElementById('addProductId').value = productId;
             document.getElementById('addVarianId').value = varianId;
             document.getElementById('addProductName').value = varianName;
@@ -874,7 +678,6 @@
         };
 
         window.openReduceVarianModal = function(varianId, varianName, currentStock, productId) {
-            if (!localUser) { openFeatureLoginModal(); return; }
             document.getElementById('reduceProductId').value = productId;
             document.getElementById('reduceVarianId').value = varianId;
             document.getElementById('reduceProductName').value = varianName;
@@ -909,6 +712,9 @@
                 return;
             }
             try {
+                const currentUser = getCurrentUser();
+                const userId = currentUser ? (currentUser.displayName || currentUser.email || currentUser.uid) : 'unknown';
+                
                 await runTransaction(dbCloud, async (transaction) => {
                     if (varianId) {
                         const varianRef = doc(varianCol, varianId);
@@ -928,7 +734,7 @@
                             newStock: newStock,
                             reason: reason || '',
                             createdAt: serverTimestamp(),
-                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                            userId: userId
                         });
                     } else {
                         const produkRef = doc(produkCol, productId);
@@ -947,7 +753,7 @@
                             newStock: newStock,
                             reason: reason || '',
                             createdAt: serverTimestamp(),
-                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                            userId: userId
                         });
                     }
                 });
@@ -969,6 +775,9 @@
                 return;
             }
             try {
+                const currentUser = getCurrentUser();
+                const userId = currentUser ? (currentUser.displayName || currentUser.email || currentUser.uid) : 'unknown';
+                
                 await runTransaction(dbCloud, async (transaction) => {
                     if (varianId) {
                         const varianRef = doc(varianCol, varianId);
@@ -992,7 +801,7 @@
                             newStock: newStock,
                             reason: reason || '',
                             createdAt: serverTimestamp(),
-                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                            userId: userId
                         });
                     } else {
                         const produkRef = doc(produkCol, productId);
@@ -1015,7 +824,7 @@
                             newStock: newStock,
                             reason: reason || '',
                             createdAt: serverTimestamp(),
-                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                            userId: userId
                         });
                     }
                 });
@@ -1037,6 +846,9 @@
                 return;
             }
             try {
+                const currentUser = getCurrentUser();
+                const userId = currentUser ? (currentUser.displayName || currentUser.email || currentUser.uid) : 'unknown';
+                
                 await runTransaction(dbCloud, async (transaction) => {
                     if (varianId) {
                         const varianRef = doc(varianCol, varianId);
@@ -1057,7 +869,7 @@
                             newStock: newStock,
                             reason: reason || '',
                             createdAt: serverTimestamp(),
-                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                            userId: userId
                         });
                     } else {
                         const produkRef = doc(produkCol, productId);
@@ -1077,7 +889,7 @@
                             newStock: newStock,
                             reason: reason || '',
                             createdAt: serverTimestamp(),
-                            userId: localUser ? localUser.name : (auth.currentUser?.uid || null)
+                            userId: userId
                         });
                     }
                 });
@@ -1133,36 +945,20 @@
 
         // ========== AUTENTIKASI & SIDEBAR ==========
         async function initializeApp() {
-            // Inisialisasi IndexedDB
-            try {
-                await initLocalDB();
-            } catch (e) {
-                console.error('Gagal inisialisasi IndexedDB lokal', e);
-            }
-
             // Inisialisasi Firebase Auth
             await initAuth();
             
             // Periksa akses halaman (hanya admin)
             if (!checkPageAccess()) return;
 
-            // Render sidebar
+            // Render sidebar tanpa info user lokal
             renderSidebar({
                 containerId: 'sidebar',
                 overlayId: 'overlay',
                 menuToggleId: 'menuToggle',
                 closeSidebarId: 'closeSidebar',
-                showLocalUser: true,
-                localUserName: localUser?.name || '',
-                onLocalLogout: () => {
-                    sessionStorage.removeItem('localUser');
-                    localUser = null;
-                    updateLocalUI();
-                }
+                showLocalUser: false
             });
-
-            // Update UI login lokal
-            updateLocalUI();
 
             // Load data
             loadPage('next');
@@ -1179,7 +975,6 @@
                 } else {
                     try {
                         await signInWithPopup(auth, provider);
-                        // Reload halaman agar auth guard bekerja ulang
                         window.location.reload();
                     } catch (error) {
                         console.error('Login error:', error);
