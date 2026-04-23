@@ -1,6 +1,6 @@
 // js/auth-guard.js
 import { auth, dbCloud } from './firebase-config.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { doc, getDoc, query, collection, where, getDocs, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 // ========== KONFIGURASI AKSES HALAMAN ==========
@@ -66,14 +66,53 @@ function loadAuthState() {
   };
 }
 
-// ========== FETCH ROLE DARI FIRESTORE ==========
+// ========== FETCH ROLE DARI FIRESTORE (DENGAN FALLBACK) ==========
 async function fetchUserRole(user) {
   if (!user) return null;
   try {
-    const userDoc = await getDoc(doc(dbCloud, "users", user.uid));
+    // 1. Coba langsung dengan UID
+    const userDocRef = doc(dbCloud, "users", user.uid);
+    const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
       return userDoc.data().role;
     }
+
+    // 2. Jika tidak ada, cari berdasarkan email (untuk user yang ditambahkan via user-manager)
+    console.log(`User doc not found for UID ${user.uid}, searching by email: ${user.email}`);
+    const usersCol = collection(dbCloud, "users");
+    const q = query(usersCol, where("email", "==", user.email));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      // Ambil data dari dokumen pertama yang cocok
+      const existingDoc = querySnapshot.docs[0];
+      const userData = existingDoc.data();
+      const role = userData.role || null;
+      
+      // (Opsional) Migrasi data ke UID yang benar agar pencarian berikutnya lebih cepat
+      // Hanya lakukan jika ID dokumen bukan UID (misalnya mengandung '_' atau '@')
+      if (existingDoc.id !== user.uid) {
+        console.log(`Migrating user data from ${existingDoc.id} to UID ${user.uid}`);
+        try {
+          await setDoc(userDocRef, {
+            email: user.email,
+            name: userData.name || user.displayName || '',
+            role: role,
+            createdAt: userData.createdAt || serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            pending: false
+          });
+          // Opsional: hapus dokumen lama? Tidak dihapus untuk keamanan.
+          // await deleteDoc(existingDoc.ref);
+        } catch (migrateError) {
+          console.warn("Failed to migrate user doc, but role is still usable:", migrateError);
+        }
+      }
+      
+      return role;
+    }
+
+    console.warn(`No user document found for email: ${user.email}`);
     return null;
   } catch (error) {
     console.error("Gagal mengambil role:", error);
