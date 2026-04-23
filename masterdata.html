@@ -132,52 +132,6 @@
         .pagination span {
             padding: 0.4rem 0.8rem;
         }
-        /* Modal login lokal */
-        #loginModal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        #loginModal .modal-content {
-            background: white;
-            border-radius: 20px;
-            width: 300px;
-            padding: 20px;
-            text-align: center;
-        }
-        #loginModal h3 {
-            color: #006B54;
-            margin-bottom: 15px;
-        }
-        #loginModal input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-        }
-        #loginModal button {
-            width: 100%;
-            padding: 12px;
-            background: #006B54;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        #loginError {
-            color: red;
-            margin-top: 10px;
-            display: none;
-        }
         /* ===== MODAL PILIH KATEGORI, UNIT, GUDANG ===== */
         .modal-select {
             display: none;
@@ -303,35 +257,6 @@
             background: #004d3b;
         }
 
-        /* ===== FOOTER SIDEBAR UNTUK LOCAL USER INFO ===== */
-        .sidebar-footer {
-            margin-top: auto;
-            padding-top: 1rem;
-            border-top: 1px solid #eee;
-        }
-        .local-user-info {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #f8f9fa;
-            padding: 0.5rem 0.8rem;
-            border-radius: 20px;
-        }
-        .local-user-info span {
-            font-weight: 600;
-            color: #006B54;
-            font-size: 0.9rem;
-        }
-        .local-logout-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 0.4rem 1rem;
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-
         /* ===== FLOATING TOTAL SKU ===== */
         .total-sku-floating {
             position: fixed;
@@ -434,17 +359,6 @@
         </div>
     </header>
 
-    <!-- Modal Login Lokal -->
-    <div id="loginModal">
-        <div class="modal-content">
-            <h3>Login Master Data</h3>
-            <input type="text" id="loginUsername" placeholder="Username">
-            <input type="password" id="loginPassword" placeholder="Password">
-            <button id="loginSubmit">Masuk</button>
-            <div id="loginError">Username atau password salah</div>
-        </div>
-    </div>
-
     <!-- Modal Transfer Stok -->
     <div class="modal-select transfer-modal" id="transferModal">
         <div class="modal-content">
@@ -482,8 +396,8 @@
     <!-- Floating Total SKU -->
     <div id="totalSKUFloating" class="total-sku-floating">Total SKU: 0</div>
 
-    <!-- Main Content (akan disembunyikan jika belum login lokal) -->
-    <main class="main-content" id="mainContent" style="display:none;">
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
         <h1 class="page-title">Master Data</h1>
 
         <!-- ========== SECTION TAMBAH PRODUK ========== -->
@@ -845,7 +759,7 @@
     <script type="module">
         // ========== IMPOR MODUL ==========
         import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
-        import { initAuth, checkPageAccess, logoutUser, getCurrentUser, getCurrentRole } from './js/auth-guard.js';
+        import { initAuth, checkPageAccess, logoutUser, getCurrentUser } from './js/auth-guard.js';
         import { renderSidebar } from './js/sidebar.js';
         
         import { 
@@ -931,142 +845,6 @@
                 loadHistoryPage('next');
             }
         };
-
-        // ========== INDEXEDDB UNTUK LOGIN LOKAL ==========
-        const LOCAL_DB_NAME = 'MudaPOSDB';
-        const LOCAL_DB_VERSION = 1;
-        const STORE_LOCAL_USERS = 'localUsers';
-        let localDB = null;
-
-        async function initLocalDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = (e) => {
-                    localDB = e.target.result;
-                    resolve();
-                };
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE_LOCAL_USERS)) {
-                        db.createObjectStore(STORE_LOCAL_USERS, { keyPath: 'id', autoIncrement: true });
-                    }
-                };
-            });
-        }
-
-        async function hashLocalPassword(password) {
-            if (window.crypto && window.crypto.subtle) {
-                try {
-                    const encoder = new TextEncoder();
-                    const data = encoder.encode(password);
-                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                } catch (e) { console.warn('Crypto digest failed, using fallback', e); }
-            }
-            let hash = 0;
-            for (let i = 0; i < password.length; i++) {
-                const char = password.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash |= 0;
-            }
-            return hash.toString(16);
-        }
-
-        async function verifyLocalUser(username, password) {
-            return new Promise((resolve, reject) => {
-                const tx = localDB.transaction([STORE_LOCAL_USERS], 'readonly');
-                const store = tx.objectStore(STORE_LOCAL_USERS);
-                const request = store.getAll();
-                request.onsuccess = async () => {
-                    const users = request.result;
-                    const user = users.find(u => u.username === username);
-                    if (!user) { resolve(null); return; }
-                    const hashed = await hashLocalPassword(password);
-                    if (user.password === hashed) {
-                        const { password, ...safeUser } = user;
-                        resolve(safeUser);
-                    } else {
-                        resolve(null);
-                    }
-                };
-                request.onerror = reject;
-            });
-        }
-
-        // Elemen DOM untuk login lokal (akan diinisialisasi ulang setelah sidebar dirender)
-        let loginModal, loginUsername, loginPassword, loginSubmit, loginError;
-        let localUserNameSpan, localLogoutBtn, localUserInfo;
-        const mainContent = document.querySelector('.main-content');
-
-        let localUser = null;
-
-        // Fungsi untuk menginisialisasi ulang referensi elemen login lokal setelah sidebar dirender
-        function initLocalLoginElements() {
-            loginModal = document.getElementById('loginModal');
-            loginUsername = document.getElementById('loginUsername');
-            loginPassword = document.getElementById('loginPassword');
-            loginSubmit = document.getElementById('loginSubmit');
-            loginError = document.getElementById('loginError');
-            localUserNameSpan = document.getElementById('local-user-name');
-            localLogoutBtn = document.getElementById('localLogoutBtn');
-            localUserInfo = document.getElementById('localUserInfo');
-        }
-
-        // Fungsi untuk memperbarui UI berdasarkan status login lokal
-        function updateLocalLoginUI() {
-            if (!localUserNameSpan || !localUserInfo || !mainContent || !loginModal) return;
-            
-            const savedLocalSession = sessionStorage.getItem('localUser');
-            if (savedLocalSession) {
-                localUser = JSON.parse(savedLocalSession);
-                localUserNameSpan.textContent = localUser.name;
-                localUserInfo.style.display = 'flex';
-                mainContent.style.display = 'block';
-                loginModal.style.display = 'none';
-            } else {
-                localUser = null;
-                mainContent.style.display = 'none';
-                loginModal.style.display = 'flex';
-                localUserInfo.style.display = 'none';
-            }
-        }
-
-        // Fungsi untuk memasang event listener login lokal
-        function attachLocalLoginListeners() {
-            if (!loginSubmit || !localLogoutBtn) return;
-            
-            loginSubmit.addEventListener('click', async () => {
-                const username = loginUsername.value;
-                const password = loginPassword.value;
-                const user = await verifyLocalUser(username, password);
-                if (user) {
-                    sessionStorage.setItem('localUser', JSON.stringify(user));
-                    updateLocalLoginUI();
-                    // Muat ulang data setelah login berhasil
-                    await loadDataForModals();
-                    subscribeDaftarKategori();
-                    subscribeDaftarUnit();
-                    subscribeDaftarGudang();
-                    if (sections.daftarProduk.classList.contains('active')) {
-                        resetAndLoadProduk();
-                        startProdukRealtimeListener();
-                        updateTotalSKUCount();
-                    }
-                } else {
-                    loginError.style.display = 'block';
-                }
-            });
-
-            localLogoutBtn.addEventListener('click', () => {
-                sessionStorage.removeItem('localUser');
-                updateLocalLoginUI();
-                loginUsername.value = '';
-                loginPassword.value = '';
-                loginError.style.display = 'none';
-            });
-        }
 
         // ========== DATA UNTUK MAPPING ==========
         let kategoriMap = {};
@@ -1334,7 +1112,7 @@
         // ========== RENDER KATEGORI ==========
         function renderKategoriTable(docs) {
             const tbody = document.getElementById('daftarKategoriBody');
-            const term = document.getElementById('searchKategori')?.value.toLowerCase().trim() || '';
+            const term = document.getElementById('searchKategori').value.toLowerCase().trim();
             let filtered = docs;
             if (term) {
                 filtered = docs.filter(doc => doc.data().nama.toLowerCase().includes(term));
@@ -1755,14 +1533,13 @@
             return Array.from(keywords);
         }
 
-        // ========== PAGINATION PRODUK DENGAN array-contains (DIPERBAIKI) ==========
+        // ========== PAGINATION PRODUK DENGAN array-contains ==========
         let produkLastVisible = null;
         let produkFirstVisible = null;
         let produkPageSnapshots = [];
         let produkCurrentPageIndex = 0;
         const produkPageSize = 10;
         let produkSearchTerm = '';
-        let produkUnsubscribe = null;
 
         function resetAndLoadProduk() {
             produkPageSnapshots = [];
@@ -2540,6 +2317,10 @@
                     transferDetails = [{ qty }];
                 }
 
+                // Gunakan user Firebase untuk history
+                const currentUser = getCurrentUser();
+                const userName = currentUser ? (currentUser.displayName || currentUser.email || 'unknown') : 'unknown';
+
                 const historyData = {
                     produkId: transferProdukId,
                     produkNama: transferProdukData.nama,
@@ -2551,7 +2332,7 @@
                         return { ...item, qty: found ? found.qty : 0 };
                     }) : [{ qty: transferDetails[0]?.qty || 0 }],
                     timestamp: serverTimestamp(),
-                    user: localUser ? localUser.name : 'unknown'
+                    user: userName
                 };
                 const historyRef = doc(transferHistoryCol);
                 batch.set(historyRef, historyData);
@@ -2689,6 +2470,9 @@
                     batch.set(newPRef, newP);
                 }
 
+                const currentUser = getCurrentUser();
+                const userName = currentUser ? (currentUser.displayName || currentUser.email || 'unknown') : 'unknown';
+
                 const historyData = {
                     produkId: copyProdukId,
                     produkNama: copyProdukData.nama,
@@ -2697,7 +2481,7 @@
                     type: 'copy',
                     items: [],
                     timestamp: serverTimestamp(),
-                    user: localUser ? localUser.name : 'unknown'
+                    user: userName
                 };
                 const historyRef = doc(transferHistoryCol);
                 batch.set(historyRef, historyData);
@@ -2987,36 +2771,20 @@
 
         // ========== INISIALISASI APLIKASI ==========
         async function initializeApp() {
-            // Inisialisasi IndexedDB
-            await initLocalDB();
-            
             // Inisialisasi Firebase Auth
             await initAuth();
             
             // Periksa akses halaman (hanya admin)
             if (!checkPageAccess()) return;
             
-            // Render sidebar TERLEBIH DAHULU
+            // Render sidebar tanpa user lokal
             renderSidebar({
                 containerId: 'sidebar',
                 overlayId: 'overlay',
                 menuToggleId: 'menuToggle',
                 closeSidebarId: 'closeSidebar',
-                showLocalUser: true,
-                localUserName: localUser?.name || '',
-                onLocalLogout: () => {
-                    sessionStorage.removeItem('localUser');
-                    updateLocalLoginUI();
-                    loginUsername.value = '';
-                    loginPassword.value = '';
-                    loginError.style.display = 'none';
-                }
+                showLocalUser: false  // Tidak ada login lokal
             });
-            
-            // SETELAH SIDEBAR DIRENDER, INISIALISASI ELEMEN LOGIN LOKAL
-            initLocalLoginElements();
-            updateLocalLoginUI();
-            attachLocalLoginListeners();
             
             // Setup tombol history
             if (historyBtn) {
@@ -3027,23 +2795,21 @@
                 historyBtnSection.addEventListener('click', () => showSection('historyTransfer'));
             }
             
-            // Load data awal jika sudah login lokal
-            if (localUser) {
-                await loadDataForModals();
-                subscribeDaftarKategori();
-                subscribeDaftarUnit();
-                subscribeDaftarGudang();
-                
-                if (sections.daftarProduk.classList.contains('active')) {
-                    resetAndLoadProduk();
-                    startProdukRealtimeListener();
-                    updateTotalSKUCount();
-                }
-                if (sections.daftarKategori.classList.contains('active') && lastKategoriDocs.length) renderKategoriTable(lastKategoriDocs);
-                if (sections.daftarUnit.classList.contains('active') && lastUnitDocs.length) renderUnitTable(lastUnitDocs);
-                if (sections.daftarGudang.classList.contains('active') && lastGudangDocs.length) renderGudangTable(lastGudangDocs);
-                if (sections.historyTransfer.classList.contains('active')) loadHistoryPage('next');
+            // Load data awal
+            await loadDataForModals();
+            subscribeDaftarKategori();
+            subscribeDaftarUnit();
+            subscribeDaftarGudang();
+            
+            if (sections.daftarProduk.classList.contains('active')) {
+                resetAndLoadProduk();
+                startProdukRealtimeListener();
+                updateTotalSKUCount();
             }
+            if (sections.daftarKategori.classList.contains('active') && lastKategoriDocs.length) renderKategoriTable(lastKategoriDocs);
+            if (sections.daftarUnit.classList.contains('active') && lastUnitDocs.length) renderUnitTable(lastUnitDocs);
+            if (sections.daftarGudang.classList.contains('active') && lastGudangDocs.length) renderGudangTable(lastGudangDocs);
+            if (sections.historyTransfer.classList.contains('active')) loadHistoryPage('next');
             
             // Setup tombol login Firebase
             onAuthStateChanged(auth, (user) => {
