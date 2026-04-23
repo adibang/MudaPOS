@@ -6,242 +6,12 @@
     <title>Manajemen User - MUDA POS</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-
-        // Konfigurasi Firebase (sama dengan aplikasi utama)
-        const firebaseConfig = {
-            apiKey: "AIzaSyDVty30S6y_qc1eMs3kVctcIpLt6Suw4dA",
-            authDomain: "mudapos-e8a4a.firebaseapp.com",
-            projectId: "mudapos-e8a4a",
-            storageBucket: "mudapos-e8a4a.firebasestorage.app",
-            messagingSenderId: "864215339664",
-            appId: "1:864215339664:web:1a97898b85ca3c1cb3be15"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        // State
-        let currentUser = null;
-        let isAdmin = false;
-        let unsubscribe = null;
-
-        // UI Elements
-        const loginSection = document.getElementById('loginSection');
-        const mainApp = document.getElementById('mainApp');
-        const userBadge = document.getElementById('userBadge');
-        const loginBtn = document.getElementById('loginBtn');
-        const loginBtnLarge = document.getElementById('loginBtnLarge');
-        const userListDiv = document.getElementById('userList');
-        const addUserForm = document.getElementById('addUserForm');
-        const editFormContainer = document.getElementById('editFormContainer');
-        const formError = document.getElementById('formError');
-
-        // ========== AUTH & ROLE CHECK ==========
-        async function checkAdminRole(user) {
-            if (!user) return false;
-            try {
-                const userDoc = await getDocs(query(collection(db, 'users'), where('email', '==', user.email)));
-                if (!userDoc.empty) {
-                    const data = userDoc.docs[0].data();
-                    return data.role === 'admin';
-                }
-                return false;
-            } catch (e) {
-                console.error(e);
-                return false;
-            }
-        }
-
-        async function updateUIForAuth(user) {
-            currentUser = user;
-            if (user) {
-                isAdmin = await checkAdminRole(user);
-                if (!isAdmin) {
-                    alert('Anda bukan admin. Tidak dapat mengakses halaman ini.');
-                    await signOut(auth);
-                    window.location.href = 'index.html';
-                    return;
-                }
-
-                loginSection.style.display = 'none';
-                mainApp.style.display = 'block';
-                userBadge.style.display = 'flex';
-                userBadge.innerHTML = `👤 ${user.displayName || user.email} (Admin)`;
-                loginBtn.textContent = 'Logout';
-
-                // Mulai listener realtime koleksi users
-                if (unsubscribe) unsubscribe();
-                const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-                unsubscribe = onSnapshot(q, (snapshot) => {
-                    renderUserList(snapshot.docs);
-                }, (error) => {
-                    console.error(error);
-                    showError('Gagal memuat data user: ' + error.message);
-                });
-            } else {
-                loginSection.style.display = 'block';
-                mainApp.style.display = 'none';
-                userBadge.style.display = 'none';
-                loginBtn.textContent = 'Login Google';
-                if (unsubscribe) {
-                    unsubscribe();
-                    unsubscribe = null;
-                }
-            }
-        }
-
-        onAuthStateChanged(auth, updateUIForAuth);
-
-        // ========== LOGIN/LOGOUT ==========
-        async function handleLogin() {
-            const provider = new GoogleAuthProvider();
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                alert('Login gagal: ' + error.message);
-            }
-        }
-
-        async function handleLogout() {
-            try {
-                await signOut(auth);
-            } catch (error) {
-                alert('Logout gagal: ' + error.message);
-            }
-        }
-
-        loginBtn.addEventListener('click', () => {
-            if (currentUser) handleLogout();
-            else handleLogin();
-        });
-        loginBtnLarge.addEventListener('click', handleLogin);
-
-        // ========== RENDER USER LIST ==========
-        function renderUserList(docs) {
-            if (docs.length === 0) {
-                userListDiv.innerHTML = '<p style="text-align:center; color:#999;">Belum ada user.</p>';
-                return;
-            }
-            let html = '';
-            docs.forEach(doc => {
-                const user = doc.data();
-                const uid = doc.id;
-                html += `
-                    <div class="user-item">
-                        <div class="user-info">
-                            <strong>${user.name || '-'}</strong> (${user.email})<br>
-                            Role: <span class="role-badge ${user.role}">${user.role}</span> | 
-                            Dibuat: ${user.createdAt?.toDate?.()?.toLocaleDateString() || '-'}
-                        </div>
-                        <div class="user-actions">
-                            <button class="edit" data-uid="${uid}" data-name="${user.name}" data-email="${user.email}" data-role="${user.role}">Edit</button>
-                            <button class="delete" data-uid="${uid}">Hapus</button>
-                        </div>
-                    </div>
-                `;
-            });
-            userListDiv.innerHTML = html;
-
-            // Attach event listeners
-            document.querySelectorAll('.edit').forEach(btn => {
-                btn.addEventListener('click', () => editUser(btn.dataset));
-            });
-            document.querySelectorAll('.delete').forEach(btn => {
-                btn.addEventListener('click', () => deleteUserPrompt(btn.dataset.uid));
-            });
-        }
-
-        // ========== CRUD OPERATIONS ==========
-        function editUser({ uid, name, email, role }) {
-            document.getElementById('editUid').value = uid;
-            document.getElementById('editEmail').value = email;
-            document.getElementById('editName').value = name;
-            document.getElementById('editRole').value = role;
-            editFormContainer.style.display = 'block';
-        }
-
-        window.cancelEdit = function() {
-            editFormContainer.style.display = 'none';
-        };
-
-        async function deleteUserPrompt(uid) {
-            if (!confirm('Yakin hapus user ini?')) return;
-            try {
-                await deleteDoc(doc(db, 'users', uid));
-            } catch (error) {
-                alert('Gagal menghapus: ' + error.message);
-            }
-        }
-
-        // Form Tambah User
-        addUserForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value.trim();
-            const name = document.getElementById('name').value.trim();
-            const role = document.getElementById('role').value;
-
-            if (!email || !name) {
-                showError('Email dan nama harus diisi');
-                return;
-            }
-
-            try {
-                // Simpan data user sementara dengan doc ID = email (akan diganti UID saat user login pertama kali)
-                // Atau gunakan email sebagai ID sementara, nanti diupdate oleh auth-guard
-                const tempId = email.replace(/[.@]/g, '_'); // sanitasi
-                await setDoc(doc(db, 'users', tempId), {
-                    email,
-                    name,
-                    role,
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
-                    pending: true // flag untuk menandai perlu migrasi ke UID
-                });
-                addUserForm.reset();
-                formError.style.display = 'none';
-            } catch (error) {
-                showError('Gagal menambah user: ' + error.message);
-            }
-        });
-
-        // Form Edit User
-        document.getElementById('editUserForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const uid = document.getElementById('editUid').value;
-            const name = document.getElementById('editName').value.trim();
-            const role = document.getElementById('editRole').value;
-
-            try {
-                await setDoc(doc(db, 'users', uid), {
-                    name,
-                    role,
-                    updatedAt: serverTimestamp()
-                }, { merge: true });
-                cancelEdit();
-            } catch (error) {
-                alert('Gagal update: ' + error.message);
-            }
-        });
-
-        function showError(msg) {
-            formError.textContent = msg;
-            formError.style.display = 'block';
-            setTimeout(() => formError.style.display = 'none', 5000);
-        }
-
-        // Inisialisasi awal
-        updateUIForAuth(auth.currentUser);
-    </script>
+    <!-- CSS Eksternal -->
+    <link rel="stylesheet" href="css/sidebar.css">
     <style>
-        /* Styling sama seperti sebelumnya dengan sedikit penyesuaian */
-        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, -apple-system, sans-serif; }
-        body { background:#f5f5f5; padding:20px; }
+        /* ===== GLOBAL & USER-MANAGER STYLES ===== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
+        body { background:#f5f5f5; padding:20px; font-size:14px; }
         .container { max-width:800px; margin:0 auto; background:white; border-radius:20px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
         h1 { color:#006B54; margin-bottom:20px; font-size:1.5rem; display:flex; align-items:center; gap:10px; }
         .user-badge { display:flex; align-items:center; gap:5px; margin-left:auto; font-size:0.9rem; background:#e6f0ec; padding:5px 12px; border-radius:30px; }
@@ -268,14 +38,38 @@
         }
         .role-badge.admin { background:#006B54; color:white; }
         .role-badge.kasir { background:#ffc107; color:#333; }
+
+        /* Overlay dan sidebar styling tambahan */
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; margin-bottom:20px; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .main-content { padding:0; max-width:1200px; margin:0 auto; }
     </style>
 </head>
 <body>
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar akan di-render oleh sidebar.js -->
+    <aside id="sidebar" class="sidebar"></aside>
+
+    <!-- Header dengan menu toggle -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
+        </div>
+        <div class="header-right">
+            <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+        </div>
+    </header>
+
+    <!-- Konten Utama -->
     <div class="container">
         <h1>
             👥 Manajemen User (Admin)
             <span id="userBadge" class="user-badge" style="display:none;"></span>
-            <button id="loginBtn" class="btn-login">Login Google</button>
         </h1>
 
         <!-- Tampilan jika belum login -->
@@ -346,13 +140,260 @@
             </div>
         </div>
     </div>
+
     <script>
-        feather.replace();
-        // fungsi cancelEdit global
+        // Fungsi global untuk cancel edit
         window.cancelEdit = function() {
             document.getElementById('editFormContainer').style.display = 'none';
         };
     </script>
-    <!-- Firebase imports moved to module above -->
+
+    <!-- Script Module Utama -->
+    <script type="module">
+        // ========== IMPOR MODUL ==========
+        import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
+        import { initAuth, checkPageAccess, logoutUser, getCurrentRole } from './js/auth-guard.js';
+        import { renderSidebar } from './js/sidebar.js';
+        
+        import { 
+            collection, doc, setDoc, getDocs, deleteDoc, query, orderBy, onSnapshot, serverTimestamp, where
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // ========== INISIALISASI ==========
+        feather.replace();
+
+        // State
+        let currentUser = null;
+        let isAdmin = false;
+        let unsubscribe = null;
+
+        // UI Elements
+        const loginSection = document.getElementById('loginSection');
+        const mainApp = document.getElementById('mainApp');
+        const userBadge = document.getElementById('userBadge');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginBtnLarge = document.getElementById('loginBtnLarge');
+        const userListDiv = document.getElementById('userList');
+        const addUserForm = document.getElementById('addUserForm');
+        const editFormContainer = document.getElementById('editFormContainer');
+        const formError = document.getElementById('formError');
+
+        // Referensi koleksi users
+        const usersCol = collection(dbCloud, 'users');
+
+        // ========== AUTH & ROLE CHECK ==========
+        async function checkAdminRole(user) {
+            if (!user) return false;
+            try {
+                const q = query(usersCol, where('email', '==', user.email));
+                const snapshot = await getDocs(q);
+                if (!snapshot.empty) {
+                    const data = snapshot.docs[0].data();
+                    return data.role === 'admin';
+                }
+                return false;
+            } catch (e) {
+                console.error(e);
+                return false;
+            }
+        }
+
+        async function updateUIForAuth(user) {
+            currentUser = user;
+            if (user) {
+                isAdmin = await checkAdminRole(user);
+                if (!isAdmin) {
+                    alert('Anda bukan admin. Tidak dapat mengakses halaman ini.');
+                    await signOut(auth);
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                loginSection.style.display = 'none';
+                mainApp.style.display = 'block';
+                userBadge.style.display = 'flex';
+                userBadge.innerHTML = `👤 ${user.displayName || user.email} (Admin)`;
+                loginBtn.innerHTML = '<i data-feather="log-out"></i><span>Logout</span>';
+
+                // Mulai listener realtime koleksi users
+                if (unsubscribe) unsubscribe();
+                const q = query(usersCol, orderBy('createdAt', 'desc'));
+                unsubscribe = onSnapshot(q, (snapshot) => {
+                    renderUserList(snapshot.docs);
+                }, (error) => {
+                    console.error(error);
+                    showError('Gagal memuat data user: ' + error.message);
+                });
+            } else {
+                loginSection.style.display = 'block';
+                mainApp.style.display = 'none';
+                userBadge.style.display = 'none';
+                loginBtn.innerHTML = '<i data-feather="log-in"></i><span>Login</span>';
+                if (unsubscribe) {
+                    unsubscribe();
+                    unsubscribe = null;
+                }
+            }
+            feather.replace();
+        }
+
+        // ========== LOGIN/LOGOUT ==========
+        async function handleLogin() {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                alert('Login gagal: ' + error.message);
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                alert('Logout gagal: ' + error.message);
+            }
+        }
+
+        loginBtn.addEventListener('click', () => {
+            if (currentUser) handleLogout();
+            else handleLogin();
+        });
+        loginBtnLarge.addEventListener('click', handleLogin);
+
+        // ========== RENDER USER LIST ==========
+        function renderUserList(docs) {
+            if (docs.length === 0) {
+                userListDiv.innerHTML = '<p style="text-align:center; color:#999;">Belum ada user.</p>';
+                return;
+            }
+            let html = '';
+            docs.forEach(docSnap => {
+                const user = docSnap.data();
+                const uid = docSnap.id;
+                html += `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <strong>${user.name || '-'}</strong> (${user.email})<br>
+                            Role: <span class="role-badge ${user.role}">${user.role}</span> | 
+                            Dibuat: ${user.createdAt?.toDate?.()?.toLocaleDateString() || '-'}
+                        </div>
+                        <div class="user-actions">
+                            <button class="edit" data-uid="${uid}" data-name="${user.name}" data-email="${user.email}" data-role="${user.role}">Edit</button>
+                            <button class="delete" data-uid="${uid}">Hapus</button>
+                        </div>
+                    </div>
+                `;
+            });
+            userListDiv.innerHTML = html;
+            feather.replace();
+
+            // Attach event listeners
+            document.querySelectorAll('.edit').forEach(btn => {
+                btn.addEventListener('click', () => editUser(btn.dataset));
+            });
+            document.querySelectorAll('.delete').forEach(btn => {
+                btn.addEventListener('click', () => deleteUserPrompt(btn.dataset.uid));
+            });
+        }
+
+        // ========== CRUD OPERATIONS ==========
+        function editUser({ uid, name, email, role }) {
+            document.getElementById('editUid').value = uid;
+            document.getElementById('editEmail').value = email;
+            document.getElementById('editName').value = name;
+            document.getElementById('editRole').value = role;
+            editFormContainer.style.display = 'block';
+        }
+
+        async function deleteUserPrompt(uid) {
+            if (!confirm('Yakin hapus user ini?')) return;
+            try {
+                await deleteDoc(doc(dbCloud, 'users', uid));
+            } catch (error) {
+                alert('Gagal menghapus: ' + error.message);
+            }
+        }
+
+        // Form Tambah User
+        addUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const name = document.getElementById('name').value.trim();
+            const role = document.getElementById('role').value;
+
+            if (!email || !name) {
+                showError('Email dan nama harus diisi');
+                return;
+            }
+
+            try {
+                // Simpan data user sementara dengan doc ID = email yang disanitasi
+                const tempId = email.replace(/[.@]/g, '_');
+                await setDoc(doc(dbCloud, 'users', tempId), {
+                    email,
+                    name,
+                    role,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                    pending: true
+                });
+                addUserForm.reset();
+                formError.style.display = 'none';
+            } catch (error) {
+                showError('Gagal menambah user: ' + error.message);
+            }
+        });
+
+        // Form Edit User
+        document.getElementById('editUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const uid = document.getElementById('editUid').value;
+            const name = document.getElementById('editName').value.trim();
+            const role = document.getElementById('editRole').value;
+
+            try {
+                await setDoc(doc(dbCloud, 'users', uid), {
+                    name,
+                    role,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+                window.cancelEdit();
+            } catch (error) {
+                alert('Gagal update: ' + error.message);
+            }
+        });
+
+        function showError(msg) {
+            formError.textContent = msg;
+            formError.style.display = 'block';
+            setTimeout(() => formError.style.display = 'none', 5000);
+        }
+
+        // ========== AUTENTIKASI & SIDEBAR ==========
+        async function initializeApp() {
+            // Inisialisasi Firebase Auth
+            await initAuth();
+            
+            // Periksa akses halaman (hanya admin)
+            // Karena halaman ini khusus admin, kita gunakan checkPageAccess
+            if (!checkPageAccess()) return;
+
+            // Render sidebar
+            renderSidebar({
+                containerId: 'sidebar',
+                overlayId: 'overlay',
+                menuToggleId: 'menuToggle',
+                closeSidebarId: 'closeSidebar'
+            });
+
+            // Setup auth state listener
+            onAuthStateChanged(auth, async (user) => {
+                await updateUIForAuth(user);
+            });
+        }
+
+        // Mulai aplikasi
+        initializeApp().catch(console.error);
+    </script>
 </body>
 </html>
