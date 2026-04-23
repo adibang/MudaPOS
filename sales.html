@@ -1449,7 +1449,7 @@
                     return `<div class="product-card" data-id="${p.id}">
                         <div class="product-icon"><i data-feather="box"></i></div>
                         <div class="product-name">${p.nama}</div>
-                        <div class="product-price-stock"><span>${formatRupiah(p.hargaJual)}</span><span>Stok: ${p.stokAwal} ${unit}</span></div>
+                        <div class="product-price-stock"><span>${formatRupiah(p.hargaJual)}</span><span>Stok: ${Number(p.stokAwal).toFixed(3)} ${unit}</span></div>
                         <div class="qty-control"><button class="qty-minus">-</button><input type="number" class="qty-input" step="0.001" min="0" placeholder="0" value=""><button class="qty-plus">+</button></div>
                     </div>`;
                 }).join('');
