@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MUDA POS - Sinkronisasi User</title>
-    <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <!-- CSS Eksternal -->
     <link rel="stylesheet" href="css/sidebar.css">
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
@@ -21,14 +19,8 @@
         .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
         
         .sync-container {
-            max-width: 500px;
-            width: 100%;
-            background: white;
-            border-radius: 30px;
-            box-shadow: 0 10px 30px rgba(0,107,84,0.1);
-            padding: 30px;
-            text-align: center;
-            margin: 0 auto;
+            max-width: 500px; width: 100%; background: white; border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0,107,84,0.1); padding: 30px; text-align: center; margin: 0 auto;
         }
         .logo { margin-bottom:20px; color:#006B54; display:flex; align-items:center; justify-content:center; gap:10px; }
         .logo svg { width:32px; height:32px; }
@@ -65,12 +57,8 @@
     <aside id="sidebar" class="sidebar"></aside>
 
     <header class="header">
-        <div class="header-left">
-            <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
-        </div>
-        <div class="header-right">
-            <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
-        </div>
+        <div class="header-left"><button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button></div>
+        <div class="header-right"><button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button></div>
     </header>
 
     <main class="main-content">
@@ -81,9 +69,7 @@
                 </svg>
                 <h2>MUDA POS</h2>
             </div>
-            
             <div id="errorBanner" class="error-banner"></div>
-            
             <div class="status-card">
                 <div id="connectionBadge" class="connection-badge badge-disconnected">
                     <span id="connectionText">🔴 Tidak Terhubung</span>
@@ -98,7 +84,6 @@
                 <button id="syncNowBtn" class="btn" disabled><span id="syncBtnText">Sinkronisasi Sekarang</span></button>
                 <button id="resetLocalBtn" class="btn btn-outline" style="margin-top:8px;" disabled>Reset Data Lokal</button>
             </div>
-            
             <div class="user-list-preview">
                 <h4>👥 Preview User (dari IndexedDB)</h4>
                 <div id="userPreviewList"><div class="user-item-preview">Memuat...</div></div>
@@ -138,51 +123,79 @@
         function showError(msg) { errorBanner.textContent = msg; errorBanner.style.display = 'block'; console.error(msg); }
         function hideError() { errorBanner.style.display = 'none'; }
 
-        // ========== INDEXEDDB (dengan pengecekan idb) ==========
-        async function ensureIDB() { if (!idb) throw new Error('Database lokal belum siap.'); }
+        // ========== INDEXEDDB (dengan antrian dan retry) ==========
+        let idbPromise = null;
 
-        async function openIDB() {
-            return new Promise((resolve, reject) => {
-                const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-                req.onerror = () => reject(req.error);
-                req.onsuccess = (e) => {
-                    idb = e.target.result;
-                    if (!idb.objectStoreNames.contains(STORE_NAME)) {
-                        idb.close(); idb = null;
-                        const upgradeReq = indexedDB.open(IDB_NAME, IDB_VERSION + 1);
-                        upgradeReq.onupgradeneeded = (e) => {
-                            const db = e.target.result;
-                            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                                const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-                                store.createIndex('username', 'username', { unique: true });
-                            }
-                        };
-                        upgradeReq.onsuccess = (e) => { idb = e.target.result; resolve(); };
-                        upgradeReq.onerror = (e) => reject(e.target.error);
-                    } else {
+        function getIDB() {
+            if (!idbPromise) {
+                idbPromise = new Promise((resolve, reject) => {
+                    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = (e) => {
+                        idb = e.target.result;
+                        // Pastikan store & index ada
+                        if (!idb.objectStoreNames.contains(STORE_NAME)) {
+                            idb.close(); idb = null; idbPromise = null;
+                            reject(new Error('Object store tidak ditemukan. Upgrade diperlukan.'));
+                            return;
+                        }
                         const store = idb.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
                         if (!store.indexNames.contains('username')) {
-                            idb.close(); idb = null;
-                            const upgradeReq = indexedDB.open(IDB_NAME, idb.version + 1);
-                            upgradeReq.onupgradeneeded = (e) => {
-                                const db = e.target.result;
-                                const tx = e.target.transaction;
-                                const store = tx.objectStore(STORE_NAME);
-                                if (!store.indexNames.contains('username')) store.createIndex('username', 'username', { unique: true });
-                            };
-                            upgradeReq.onsuccess = (e) => { idb = e.target.result; resolve(); };
-                            upgradeReq.onerror = (e) => reject(e.target.error);
-                        } else { resolve(); }
-                    }
-                };
-                req.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-                        store.createIndex('username', 'username', { unique: true });
-                    }
-                };
-            });
+                            idb.close(); idb = null; idbPromise = null;
+                            reject(new Error('Index username tidak ditemukan. Upgrade diperlukan.'));
+                            return;
+                        }
+                        resolve(idb);
+                    };
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('username', 'username', { unique: true });
+                        } else {
+                            const tx = e.target.transaction;
+                            const store = tx.objectStore(STORE_NAME);
+                            if (!store.indexNames.contains('username')) {
+                                store.createIndex('username', 'username', { unique: true });
+                            }
+                        }
+                    };
+                });
+            }
+            return idbPromise;
+        }
+
+        async function ensureIDB() {
+            try {
+                await getIDB();
+                return true;
+            } catch (e) {
+                console.warn('Gagal membuka IndexedDB, mencoba upgrade...', e);
+                // Coba upgrade dengan versi lebih tinggi
+                idbPromise = null;
+                const newVersion = IDB_VERSION + 1;
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open(IDB_NAME, newVersion);
+                    req.onerror = () => reject(req.error);
+                    req.onsuccess = (e) => {
+                        idb = e.target.result;
+                        resolve(true);
+                    };
+                    req.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('username', 'username', { unique: true });
+                        } else {
+                            const tx = e.target.transaction;
+                            const store = tx.objectStore(STORE_NAME);
+                            if (!store.indexNames.contains('username')) {
+                                store.createIndex('username', 'username', { unique: true });
+                            }
+                        }
+                    };
+                });
+            }
         }
 
         async function getAllFromIDB() {
@@ -317,11 +330,17 @@
         // ========== INIT ==========
         async function initializeApp() {
             hideError();
-            try { await openIDB(); await refreshCounts(); } 
-            catch (e) { 
+            
+            // Coba inisialisasi IndexedDB
+            try {
+                await ensureIDB();
+                await refreshCounts();
+                messageArea.textContent = 'Database lokal siap.';
+            } catch (e) {
                 showError('Gagal membuka database lokal: ' + e.message);
                 messageArea.textContent = 'Database lokal tidak tersedia.';
                 syncNowBtn.disabled = resetLocalBtn.disabled = true;
+                // Tetap lanjutkan untuk auth dan sidebar
             }
 
             await initAuth();
