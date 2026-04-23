@@ -42,6 +42,7 @@
         tr:hover { background:#f5f5f5; }
         .btn-icon { background:none; border:none; cursor:pointer; color:#006B54; padding:0.2rem; }
         .btn-icon.delete { color:#dc3545; }
+        .sensitive-hidden { color: #999; font-style: italic; }
         @media (max-width:640px) { .main-content { padding:0.8rem; } .content-section { padding:1rem; } }
     </style>
 </head>
@@ -253,12 +254,10 @@
             daftarSupplier: document.getElementById('daftarSupplierSection')
         };
 
-        // Fungsi untuk menampilkan section yang sesuai dengan role
         function showSection(sectionName) {
             const role = getCurrentRole();
             // Jika kasir, mereka tidak boleh melihat section supplier
             if (role === 'kasir' && (sectionName === 'tambahSupplier' || sectionName === 'daftarSupplier')) {
-                // Alihkan ke tambahCustomer jika mencoba mengakses supplier
                 sectionName = 'tambahCustomer';
             }
             
@@ -287,50 +286,55 @@
             }
         }
 
-        // Baca hash awal dan tampilkan section yang sesuai
         function handleHashChange() {
             const role = getCurrentRole();
             const hash = location.hash.substring(1);
             if (hash && sections[hash]) {
-                // Cegah akses ke supplier untuk kasir
                 if (role === 'kasir' && (hash === 'tambahSupplier' || hash === 'daftarSupplier')) {
                     showSection('tambahCustomer');
                     return;
                 }
                 showSection(hash);
             } else {
-                // Default ke tambahCustomer
                 showSection('tambahCustomer');
             }
         }
 
         window.addEventListener('hashchange', handleHashChange);
-        
-        // Ekspos showSection ke global untuk kemungkinan pemanggilan dari luar
         window.showSection = showSection;
 
-        // ========== SUBSCRIBE DAFTAR CUSTOMER ==========
+        // ========== SUBSCRIBE DAFTAR CUSTOMER (DENGAN PENYEMBUNYIAN DATA SENSITIF) ==========
         let unsubCustomer = null;
         function subscribeDaftarCustomer() {
             if (unsubCustomer) unsubCustomer();
             const q = query(customerCol, where('deleted', '==', false), orderBy('nama'));
             unsubCustomer = onSnapshot(q, (snapshot) => {
                 const tbody = document.getElementById('daftarCustomerBody');
+                const role = getCurrentRole();
+                const isKasir = role === 'kasir';
+                
                 if (snapshot.empty) {
                     tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Belum ada data</td></tr>';
                 } else {
                     tbody.innerHTML = snapshot.docs.map(doc => {
                         const c = doc.data();
+                        // Sembunyikan data sensitif jika kasir
+                        const kontak = isKasir ? '<span class="sensitive-hidden">•••</span>' : (c.kontak || '-');
+                        const noRek = isKasir ? '<span class="sensitive-hidden">•••</span>' : (c.noRekening || '-');
+                        const bank = isKasir ? '<span class="sensitive-hidden">•••</span>' : (c.bank || '-');
+                        const email = isKasir ? '<span class="sensitive-hidden">•••</span>' : (c.email || '-');
+                        const alamat = isKasir ? '<span class="sensitive-hidden">•••</span>' : (c.alamat || '-');
+                        
                         return `<tr>
                             <td>${c.kode || '-'}</td>
                             <td>${c.nama}</td>
                             <td>${c.level || '-'}</td>
-                            <td>${c.kontak || '-'}</td>
-                            <td>${c.noRekening || '-'}</td>
-                            <td>${c.bank || '-'}</td>
-                            <td>${c.token || '-'}</td>
-                            <td>${c.email || '-'}</td>
-                            <td>${c.alamat || '-'}</td>
+                            <td>${kontak}</td>
+                            <td>${noRek}</td>
+                            <td>${bank}</td>
+                            <td>${token}</td>
+                            <td>${email}</td>
+                            <td>${alamat}</td>
                             <td>${(c.outstanding || 0).toLocaleString()}</td>
                             <td>
                                 <button class="btn-icon edit" onclick="window.editCustomer('${doc.id}')"><i data-feather="edit-2"></i></button>
@@ -346,10 +350,9 @@
             });
         }
 
-        // ========== SUBSCRIBE DAFTAR SUPPLIER ==========
+        // ========== SUBSCRIBE DAFTAR SUPPLIER (HANYA ADMIN) ==========
         let unsubSupplier = null;
         function subscribeDaftarSupplier() {
-            // Hanya admin yang bisa subscribe supplier
             if (getCurrentRole() !== 'admin') return;
             if (unsubSupplier) unsubSupplier();
             const q = query(supplierCol, where('deleted', '==', false), orderBy('nama'));
@@ -415,10 +418,9 @@
             }
         });
 
-        // ========== TAMBAH SUPPLIER ==========
+        // ========== TAMBAH SUPPLIER (HANYA ADMIN) ==========
         document.getElementById('formTambahSupplier').addEventListener('submit', async (e) => {
             e.preventDefault();
-            // Hanya admin yang bisa menambah supplier
             if (getCurrentRole() !== 'admin') {
                 alert('Hanya admin yang dapat menambah supplier.');
                 return;
@@ -460,7 +462,7 @@
                     return;
                 }
                 const cust = docSnap.data();
-
+                // Saat edit, data sensitif tetap ditampilkan (via prompt) agar bisa diubah
                 const kodeBaru = prompt('Edit Kode Customer', cust.kode || '');
                 if (kodeBaru === null) return;
                 const namaBaru = prompt('Edit Nama Customer', cust.nama || '');
@@ -499,9 +501,8 @@
             }
         };
 
-        // ========== FUNGSI EDIT/HAPUS SUPPLIER ==========
+        // ========== FUNGSI EDIT/HAPUS SUPPLIER (HANYA ADMIN) ==========
         window.editSupplier = async (id) => {
-            // Hanya admin yang bisa edit supplier
             if (getCurrentRole() !== 'admin') {
                 alert('Hanya admin yang dapat mengedit supplier.');
                 return;
@@ -541,7 +542,6 @@
         };
 
         window.hapusSupplier = async (id) => {
-            // Hanya admin yang bisa hapus supplier
             if (getCurrentRole() !== 'admin') {
                 alert('Hanya admin yang dapat menghapus supplier.');
                 return;
@@ -556,13 +556,9 @@
 
         // ========== AUTENTIKASI & SIDEBAR ==========
         async function initializeApp() {
-            // Inisialisasi Firebase Auth
             await initAuth();
-            
-            // Periksa akses halaman (sekarang admin & kasir)
             if (!checkPageAccess()) return;
 
-            // Render sidebar (sidebar akan menyesuaikan role, tapi perlu disetel agar kasir melihat menu Relation)
             renderSidebar({
                 containerId: 'sidebar',
                 overlayId: 'overlay',
@@ -570,18 +566,12 @@
                 closeSidebarId: 'closeSidebar'
             });
 
-            // Tentukan section awal berdasarkan hash
             handleHashChange();
-
-            // Subscribe data customer (selalu, karena kasir dan admin bisa lihat)
             subscribeDaftarCustomer();
-            
-            // Subscribe supplier hanya jika admin
             if (getCurrentRole() === 'admin') {
                 subscribeDaftarSupplier();
             }
 
-            // Setup tombol login Firebase
             onAuthStateChanged(auth, (user) => {
                 loginBtn.innerHTML = user ? '<i data-feather="log-out"></i><span>Logout</span>' : '<i data-feather="log-in"></i><span>Login</span>';
                 feather.replace();
@@ -601,7 +591,6 @@
             });
         }
 
-        // Mulai aplikasi
         initializeApp().catch(console.error);
     </script>
 </body>
