@@ -58,7 +58,7 @@ const MENU_CONFIG = [
   {
     title: 'Relation',
     icon: 'users',
-    roles: ['admin'],
+    roles: ['admin', 'kasir'],
     submenu: [
       { title: 'Tambah Customer', icon: 'plus-circle', href: 'relation.html', section: 'tambahCustomer' },
       { title: 'Daftar Customer', icon: 'list', href: 'relation.html', section: 'daftarCustomer' },
@@ -124,12 +124,15 @@ export function renderSidebar(options = {}) {
       html += `<ul class="submenu">`;
       
       item.submenu.forEach(sub => {
-        const subActive = sub.href === activePage && 
-                         (!sub.section || sub.section === activeSection);
-        html += `<li><a href="${sub.href}${sub.section ? '#' + sub.section : ''}" 
-                        class="${subActive ? 'active' : ''}">
-                  <i data-feather="${sub.icon || 'circle'}"></i> ${sub.title}
-                </a></li>`;
+           // Lewati submenu jika memiliki batasan role dan role user tidak termasuk
+          if (sub.roles && !sub.roles.includes(role)) return;
+
+          const subActive = sub.href === activePage && 
+                           (!sub.section || sub.section === activeSection);
+          html += `<li><a href="${sub.href}${sub.section ? '#' + sub.section : ''}" 
+                          class="${subActive ? 'active' : ''}">
+                    <i data-feather="${sub.icon || 'circle'}"></i> ${sub.title}
+                  </a></li>`;
       });
       
       html += `</ul></li>`;
