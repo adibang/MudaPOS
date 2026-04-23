@@ -6,8 +6,10 @@
     <title>MUDA POS - Riwayat Stok</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
+    <!-- CSS Eksternal -->
+    <link rel="stylesheet" href="css/sidebar.css">
     <style>
-        /* ===== CSS SAMA DENGAN HALAMAN LAIN ===== */
+        /* ===== GLOBAL & STOCK-HISTORY SPECIFIC STYLES ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .text-primary { color:#006B54; }
@@ -16,23 +18,6 @@
         .menu-toggle:hover { background:#f0f0f0; }
         .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
         .btn-login:hover { background:#004d3b; }
-        .sidebar { position:fixed; top:0; left:0; width:260px; height:100%; background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); transform:translateX(-100%); transition:transform 0.3s; z-index:200; padding:1.2rem 0.8rem; overflow-y:auto; }
-        .sidebar.open { transform:translateX(0); }
-        .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:0.8rem; border-bottom:1px solid #eee; }
-        .sidebar-header h2 { color:#006B54; font-size:1.2rem; }
-        .close-sidebar { background:none; border:none; cursor:pointer; color:#999; }
-        .sidebar-menu { list-style:none; }
-        .sidebar-menu li { margin-bottom:0.2rem; }
-        .sidebar-menu .menu-link { display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem; color:#006B54; text-decoration:none; border-radius:8px; font-weight:500; font-size:0.95rem; cursor:pointer; }
-        .sidebar-menu .menu-link:hover { background:#f0f5f3; }
-        .sidebar-menu .menu-link i { color:#006B54; width:18px; }
-        .has-submenu .submenu { list-style:none; padding-left:2.5rem; display:none; }
-        .has-submenu.open .submenu { display:block; }
-        .submenu a { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; color:#333; text-decoration:none; border-radius:6px; font-size:0.9rem; cursor:pointer; }
-        .submenu a:hover { background:#e6f0ec; color:#006B54; }
-        .submenu a.active { background:#e6f0ec; color:#006B54; font-weight:500; }
-        .has-submenu .menu-link .arrow { margin-left:auto; transition:transform 0.3s; }
-        .has-submenu.open .menu-link .arrow { transform:rotate(180deg); }
         .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
         .overlay.active { display:block; }
         .main-content { padding:1.5rem; max-width:1400px; margin:0 auto; }
@@ -119,24 +104,8 @@
     <!-- Overlay -->
     <div class="overlay" id="overlay"></div>
 
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h2>MUDA POS</h2>
-            <button class="close-sidebar" id="closeSidebar"><i data-feather="x"></i></button>
-        </div>
-        <ul class="sidebar-menu">
-            <li><a href="index.html" class="menu-link"><i data-feather="home"></i> Home</a></li>
-            <li><a href="masterdata.html" class="menu-link"><i data-feather="package"></i> Master Data</a></li>
-            <li><a href="sales.html" class="menu-link"><i data-feather="shopping-cart"></i> Sales</a></li>
-            <li><a href="purchase.html" class="menu-link"><i data-feather="truck"></i> Purchase</a></li>
-            <li><a href="finance.html" class="menu-link"><i data-feather="dollar-sign"></i> Finance</a></li>
-            <li><a href="inventory.html" class="menu-link"><i data-feather="layers"></i> Inventory</a></li>
-            <li><a href="relation.html" class="menu-link"><i data-feather="users"></i> Relation</a></li>
-            <li><a href="report.html" class="menu-link"><i data-feather="bar-chart-2"></i> Report</a></li>
-            <li><a href="setting.html" class="menu-link"><i data-feather="settings"></i> Setting</a></li>
-        </ul>
-    </aside>
+    <!-- Sidebar akan di-render oleh sidebar.js -->
+    <aside id="sidebar" class="sidebar"></aside>
 
     <!-- Header -->
     <header class="header">
@@ -197,30 +166,20 @@
         </div>
     </main>
 
-    <!-- Script sidebar (non-module) -->
-    <script>
-        feather.replace();
-
-        const menuToggle = document.getElementById('menuToggle');
-        const closeSidebar = document.getElementById('closeSidebar');
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('overlay');
-
-        function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
-        function closeSidebarFunc() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
-        menuToggle.addEventListener('click', openSidebar);
-        closeSidebar.addEventListener('click', closeSidebarFunc);
-        overlay.addEventListener('click', closeSidebarFunc);
-    </script>
-
-    <!-- Script module -->
+    <!-- Script Module Utama -->
     <script type="module">
-        import { auth, provider, dbCloud } from './js/firebase-config.js';
-        import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        // ========== IMPOR MODUL ==========
+        import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
+        import { initAuth, checkPageAccess, logoutUser } from './js/auth-guard.js';
+        import { renderSidebar } from './js/sidebar.js';
+        
         import { 
             collection, query, where, orderBy, limit, startAfter, getDocs,
             getDoc, doc
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // ========== INISIALISASI ==========
+        feather.replace();
 
         // Referensi
         const stockMovementCol = collection(dbCloud, 'stockMovements');
@@ -280,7 +239,6 @@
             if (currentType) {
                 q = query(q, where('type', '==', currentType));
             }
-            // Pencarian berdasarkan produkId tidak bisa langsung, akan difilter manual setelah data diambil
             return q;
         }
 
@@ -385,22 +343,48 @@
         prevPageBtn.addEventListener('click', () => loadPage('prev'));
         nextPageBtn.addEventListener('click', () => loadPage('next'));
 
-        // Auth (tetap)
-        onAuthStateChanged(auth, (user) => {
-            loginBtn.innerHTML = user ? '<i data-feather="log-out" width="18"></i><span>Logout</span>' : '<i data-feather="log-in" width="18"></i><span>Login</span>';
-            feather.replace();
-        });
-        loginBtn.addEventListener('click', async () => {
-            const user = auth.currentUser;
-            if (user) {
-                try { await signOut(auth); } catch (error) { alert('Gagal logout: ' + error.message); }
-            } else {
-                try { await signInWithPopup(auth, provider); } catch (error) { alert('Gagal login: ' + error.message); }
-            }
-        });
+        // ========== AUTENTIKASI & SIDEBAR ==========
+        async function initializeApp() {
+            // Inisialisasi Firebase Auth
+            await initAuth();
+            
+            // Periksa akses halaman (admin/kasir? Sesuaikan dengan kebutuhan, default hanya admin)
+            // Karena halaman ini diakses dari inventory, biasanya hanya admin
+            if (!checkPageAccess()) return;
 
-        // Inisialisasi
-        loadPage('next');
+            // Render sidebar
+            renderSidebar({
+                containerId: 'sidebar',
+                overlayId: 'overlay',
+                menuToggleId: 'menuToggle',
+                closeSidebarId: 'closeSidebar'
+            });
+
+            // Setup tombol login Firebase
+            onAuthStateChanged(auth, (user) => {
+                loginBtn.innerHTML = user ? '<i data-feather="log-out"></i><span>Logout</span>' : '<i data-feather="log-in"></i><span>Login</span>';
+                feather.replace();
+            });
+
+            loginBtn.addEventListener('click', async () => {
+                if (auth.currentUser) {
+                    await logoutUser();
+                } else {
+                    try {
+                        await signInWithPopup(auth, provider);
+                        window.location.reload();
+                    } catch (error) {
+                        console.error('Login error:', error);
+                    }
+                }
+            });
+
+            // Load halaman awal
+            loadPage('next');
+        }
+
+        // Mulai aplikasi
+        initializeApp().catch(console.error);
     </script>
 </body>
 </html>
