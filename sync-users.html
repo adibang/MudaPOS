@@ -4,9 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MUDA POS - Sinkronisasi User</title>
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- CSS Eksternal -->
+    <link rel="stylesheet" href="css/sidebar.css">
     <style>
+        /* ===== GLOBAL & SYNC-USERS STYLES ===== */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
-        body { background: #f0f5f3; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        body { background: #f0f5f3; min-height: 100vh; font-size:14px; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
+        .menu-toggle { background:none; border:none; cursor:pointer; color:#006B54; padding:0.4rem; border-radius:6px; }
+        .menu-toggle:hover { background:#f0f0f0; }
+        .btn-login { background:#006B54; color:white; border:none; padding:0.4rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
+        .btn-login:hover { background:#004d3b; }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:150; display:none; }
+        .overlay.active { display:block; }
+        .main-content { padding:1.5rem; max-width:1200px; margin:0 auto; }
+        
+        /* Sync Container */
         .sync-container {
             max-width: 500px;
             width: 100%;
@@ -15,6 +30,7 @@
             box-shadow: 0 10px 30px rgba(0,107,84,0.1);
             padding: 30px;
             text-align: center;
+            margin: 0 auto;
         }
         .logo {
             margin-bottom: 20px;
@@ -148,84 +164,96 @@
     </style>
 </head>
 <body>
-    <div class="sync-container">
-        <div class="logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 7h-4.5L15 4h-3v3h-3v3H6v3h3v3h3v3h3v-3h3v-3h3V7z"/>
-            </svg>
-            <h2>MUDA POS</h2>
-        </div>
-        
-        <div class="status-card">
-            <div id="connectionBadge" class="connection-badge badge-disconnected">
-                <span id="connectionText">🔴 Tidak Terhubung</span>
-            </div>
-            
-            <div class="stats">
-                <div class="stat-item">
-                    <div class="stat-value" id="firestoreCount">0</div>
-                    <div class="stat-label">Firestore</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="indexedDBCount">0</div>
-                    <div class="stat-label">IndexedDB</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="syncedCount">0</div>
-                    <div class="stat-label">Tersinkron</div>
-                </div>
-            </div>
-            
-            <div class="progress-bar">
-                <div id="syncProgress" class="progress-fill" style="width:0%"></div>
-            </div>
-            
-            <div id="messageArea" class="message-area">
-                Menunggu koneksi...
-            </div>
-            
-            <button id="syncNowBtn" class="btn" disabled>
-                <span id="syncBtnText">Sinkronisasi Sekarang</span>
-            </button>
-            <button id="resetLocalBtn" class="btn btn-outline" style="margin-top:8px;" disabled>
-                Reset Data Lokal
-            </button>
-        </div>
-        
-        <div class="user-list-preview">
-            <h4>👥 Preview User (dari IndexedDB)</h4>
-            <div id="userPreviewList">
-                <div class="user-item-preview">Memuat...</div>
-            </div>
-        </div>
-        
-        <div class="footer-note">
-            Sinkronisasi otomatis berjalan di latar belakang
-        </div>
-    </div>
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
 
+    <!-- Sidebar akan di-render oleh sidebar.js -->
+    <aside id="sidebar" class="sidebar"></aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggle"><i data-feather="menu"></i></button>
+        </div>
+        <div class="header-right" style="display:flex; align-items:center;">
+            <button class="btn-login" id="loginBtn"><i data-feather="log-in"></i><span>Login</span></button>
+        </div>
+    </header>
+
+    <!-- Konten Utama -->
+    <main class="main-content">
+        <div class="sync-container">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 7h-4.5L15 4h-3v3h-3v3H6v3h3v3h3v3h3v-3h3v-3h3V7z"/>
+                </svg>
+                <h2>MUDA POS</h2>
+            </div>
+            
+            <div class="status-card">
+                <div id="connectionBadge" class="connection-badge badge-disconnected">
+                    <span id="connectionText">🔴 Tidak Terhubung</span>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="firestoreCount">0</div>
+                        <div class="stat-label">Firestore</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="indexedDBCount">0</div>
+                        <div class="stat-label">IndexedDB</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="syncedCount">0</div>
+                        <div class="stat-label">Tersinkron</div>
+                    </div>
+                </div>
+                
+                <div class="progress-bar">
+                    <div id="syncProgress" class="progress-fill" style="width:0%"></div>
+                </div>
+                
+                <div id="messageArea" class="message-area">
+                    Menunggu koneksi...
+                </div>
+                
+                <button id="syncNowBtn" class="btn" disabled>
+                    <span id="syncBtnText">Sinkronisasi Sekarang</span>
+                </button>
+                <button id="resetLocalBtn" class="btn btn-outline" style="margin-top:8px;" disabled>
+                    Reset Data Lokal
+                </button>
+            </div>
+            
+            <div class="user-list-preview">
+                <h4>👥 Preview User (dari IndexedDB)</h4>
+                <div id="userPreviewList">
+                    <div class="user-item-preview">Memuat...</div>
+                </div>
+            </div>
+            
+            <div class="footer-note">
+                Sinkronisasi otomatis berjalan di latar belakang
+            </div>
+        </div>
+    </main>
+
+    <!-- Script Module Utama -->
     <script type="module">
-        // Konfigurasi Firebase (SAMA DENGAN APP UTAMA)
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        // ========== IMPOR MODUL ==========
+        import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
+        import { initAuth, checkPageAccess, logoutUser } from './js/auth-guard.js';
+        import { renderSidebar } from './js/sidebar.js';
+        
         import { 
-            getFirestore, collection, query, onSnapshot, getDocs, enableIndexedDbPersistence 
+            collection, query, onSnapshot, getDocs, enableIndexedDbPersistence 
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            // GANTI DENGAN KONFIGURASI ANDA (SAMA DENGAN APP UTAMA)
-            apiKey: "AIzaSyDVty30S6y_qc1eMs3kVctcIpLt6Suw4dA",
-            authDomain: "mudapos-e8a4a.firebaseapp.com",
-            projectId: "mudapos-e8a4a",
-            storageBucket: "mudapos-e8a4a.firebasestorage.app",
-            messagingSenderId: "864215339664",
-            appId: "1:864215339664:web:1a97898b85ca3c1cb3be15"
-        };
+        // ========== INISIALISASI ==========
+        feather.replace();
 
-        // Inisialisasi Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        // Konfigurasi IndexedDB (SAMA DENGAN APP UTAMA)
+        // Konfigurasi IndexedDB
         const IDB_NAME = 'MudaPOSDB';
         const IDB_VERSION = 1;
         const STORE_NAME = 'localUsers';
@@ -243,6 +271,7 @@
         const resetLocalBtn = document.getElementById('resetLocalBtn');
         const syncBtnText = document.getElementById('syncBtnText');
         const userPreviewList = document.getElementById('userPreviewList');
+        const loginBtn = document.getElementById('loginBtn');
 
         let firestoreUsers = [];
         let indexedDBUsers = [];
@@ -257,7 +286,6 @@
                 request.onerror = () => reject(request.error);
                 request.onsuccess = (e) => {
                     idb = e.target.result;
-                    // Pastikan store & index ada
                     if (!idb.objectStoreNames.contains(STORE_NAME)) {
                         idb.close();
                         const upgradeReq = indexedDB.open(IDB_NAME, IDB_VERSION + 1);
@@ -274,7 +302,6 @@
                         };
                         upgradeReq.onerror = (e) => reject(e.target.error);
                     } else {
-                        // Cek index username
                         const store = idb.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
                         if (!store.indexNames.contains('username')) {
                             idb.close();
@@ -332,7 +359,6 @@
             const store = tx.objectStore(STORE_NAME);
             const index = store.index('username');
             
-            // Cari existing
             const existing = await new Promise((resolve) => {
                 const req = index.get(user.username);
                 req.onsuccess = () => resolve(req.result);
@@ -394,7 +420,6 @@
             firestoreCountEl.textContent = firestoreCount;
             indexedDBCountEl.textContent = idbCount;
             
-            // Hitung user yang sama di kedua tempat (berdasarkan username)
             const synced = firestoreUsers.filter(fu => 
                 indexedDBUsers.some(iu => iu.username === fu.username)
             ).length;
@@ -403,7 +428,6 @@
             const progress = firestoreCount > 0 ? (synced / firestoreCount) * 100 : 100;
             syncProgress.style.width = progress + '%';
             
-            // Render preview
             renderUserPreview();
         }
 
@@ -466,22 +490,20 @@
             if (showMessage) messageArea.textContent = 'Memulai sinkronisasi penuh...';
             
             try {
-                // Dapatkan data Firestore terbaru
-                const snap = await getDocs(query(collection(db, 'localUsers')));
+                const localUsersCol = collection(dbCloud, 'localUsers');
+                const snap = await getDocs(query(localUsersCol));
                 const freshUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
-                // Sinkronkan ke IndexedDB
                 let syncedCount = 0;
                 for (const user of freshUsers) {
                     await syncUserToIDB(user);
                     syncedCount++;
                     if (showMessage) {
                         messageArea.textContent = `Menyinkronkan ${syncedCount}/${freshUsers.length}...`;
-                        await new Promise(r => setTimeout(r, 10)); // biarkan UI update
+                        await new Promise(r => setTimeout(r, 10));
                     }
                 }
                 
-                // Hapus user di IDB yang tidak ada di Firestore
                 const currentIDB = await getAllFromIDB();
                 const firestoreUsernames = new Set(freshUsers.map(u => u.username));
                 for (const user of currentIDB) {
@@ -513,68 +535,102 @@
             }
         }
 
-        // ========== INISIALISASI ==========
-        async function init() {
+        // ========== INISIALISASI APLIKASI ==========
+        async function initializeApp() {
+            // Inisialisasi IndexedDB
             try {
                 await openIDB();
                 await refreshCounts();
+            } catch (e) {
+                console.error('IndexedDB error:', e);
+                messageArea.textContent = 'Gagal membuka database lokal.';
+            }
+
+            // Inisialisasi Firebase Auth
+            await initAuth();
+            
+            // Periksa akses halaman (hanya admin)
+            if (!checkPageAccess()) return;
+
+            // Render sidebar
+            renderSidebar({
+                containerId: 'sidebar',
+                overlayId: 'overlay',
+                menuToggleId: 'menuToggle',
+                closeSidebarId: 'closeSidebar'
+            });
+
+            // Aktifkan persistence Firestore (opsional)
+            try {
+                await enableIndexedDbPersistence(dbCloud);
+            } catch (e) {
+                console.warn('Persistence gagal:', e);
+            }
+
+            // Setup real-time listener
+            const localUsersCol = collection(dbCloud, 'localUsers');
+            const q = query(localUsersCol);
+            unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+                setConnectionStatus(true);
                 
-                // Aktifkan persistence Firestore (opsional)
-                try {
-                    await enableIndexedDbPersistence(db);
-                } catch (e) {}
-                
-                // Setup real-time listener
-                const q = query(collection(db, 'localUsers'));
-                unsubscribeFirestore = onSnapshot(q, (snapshot) => {
-                    setConnectionStatus(true);
+                snapshot.docChanges().forEach(async (change) => {
+                    const userData = change.doc.data();
+                    const username = change.doc.id;
                     
-                    // Proses perubahan secara inkremental
-                    snapshot.docChanges().forEach(async (change) => {
-                        const userData = change.doc.data();
-                        const username = change.doc.id;
-                        
-                        try {
-                            if (change.type === 'added' || change.type === 'modified') {
-                                await syncUserToIDB({ ...userData, username });
-                            } else if (change.type === 'removed') {
-                                await deleteUserFromIDB(username);
-                            }
-                        } catch (e) {
-                            console.warn('Incremental sync error:', e);
+                    try {
+                        if (change.type === 'added' || change.type === 'modified') {
+                            await syncUserToIDB({ ...userData, username });
+                        } else if (change.type === 'removed') {
+                            await deleteUserFromIDB(username);
                         }
-                    });
-                    
-                    // Update data Firestore yang tersimpan
-                    firestoreUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    refreshCounts();
-                    
-                    messageArea.textContent = `🔄 Update real-time: ${snapshot.docChanges().length} perubahan`;
-                }, (error) => {
-                    console.error('Firestore listener error:', error);
-                    setConnectionStatus(false, `Error: ${error.message}`);
-                    
-                    // Fallback: ambil data manual
-                    getDocs(query(collection(db, 'localUsers'))).then(snap => {
-                        firestoreUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        refreshCounts();
-                    });
+                    } catch (e) {
+                        console.warn('Incremental sync error:', e);
+                    }
                 });
                 
-                // Tombol manual sync
-                syncNowBtn.addEventListener('click', () => performFullSync(true));
-                resetLocalBtn.addEventListener('click', resetLocalData);
+                firestoreUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                refreshCounts();
                 
-            } catch (error) {
-                console.error('Init error:', error);
-                messageArea.textContent = 'Gagal inisialisasi: ' + error.message;
-            }
+                messageArea.textContent = `🔄 Update real-time: ${snapshot.docChanges().length} perubahan`;
+            }, (error) => {
+                console.error('Firestore listener error:', error);
+                setConnectionStatus(false, `Error: ${error.message}`);
+                
+                // Fallback: ambil data manual
+                getDocs(query(localUsersCol)).then(snap => {
+                    firestoreUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    refreshCounts();
+                });
+            });
+
+            // Event listener tombol
+            syncNowBtn.addEventListener('click', () => performFullSync(true));
+            resetLocalBtn.addEventListener('click', resetLocalData);
+
+            // Setup tombol login Firebase
+            onAuthStateChanged(auth, (user) => {
+                loginBtn.innerHTML = user ? '<i data-feather="log-out"></i><span>Logout</span>' : '<i data-feather="log-in"></i><span>Login</span>';
+                feather.replace();
+            });
+
+            loginBtn.addEventListener('click', async () => {
+                if (auth.currentUser) {
+                    await logoutUser();
+                } else {
+                    try {
+                        await signInWithPopup(auth, provider);
+                        window.location.reload();
+                    } catch (error) {
+                        console.error('Login error:', error);
+                    }
+                }
+            });
         }
 
-        // Mulai
-        init();
+        // Mulai aplikasi
+        initializeApp().catch(console.error);
 
-        // Cleanup saat halaman ditutup (opsional)
+        // Cleanup saat halaman ditutup
         window.addEventListener('beforeunload', () => {
             if (unsubscribeFirestore) unsubscribeFirestore();
         });
