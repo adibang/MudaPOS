@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDA POS - Retur Penjualan</title>
+    <title>MUDA POS - Retur Penjualan (Akuntansi + Retur Manual + Refund)</title>
     <script src="https://unpkg.com/feather-icons"></script>
     <link rel="stylesheet" href="css/sidebar.css">
     <style>
-        /* CSS sama seperti sebelumnya, tidak berubah */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, sans-serif; }
         body { background:#f5f5f5; color:#333; font-size:14px; }
         .header { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1.5rem; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05); position:sticky; top:0; z-index:100; }
@@ -47,6 +46,12 @@
         .detail-label { font-weight:600; width:120px; color:#444; }
         .detail-value { flex:1; }
         .btn-outline { background:transparent; border:1px solid #006B54; color:#006B54; }
+        .mode-selector { display:flex; gap:1rem; margin-bottom:1rem; }
+        .mode-btn { flex:1; padding:0.8rem; border:2px solid #006B54; background:white; color:#006B54; border-radius:8px; cursor:pointer; font-weight:600; }
+        .mode-btn.active { background:#006B54; color:white; }
+        .refund-option { margin-top:1rem; display:flex; align-items:center; gap:0.5rem; }
+        .refund-option label { font-weight:500; }
+        .refund-option input[type=checkbox] { width:18px; height:18px; }
     </style>
 </head>
 <body>
@@ -65,17 +70,20 @@
     <main class="main-content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h1 class="page-title" style="margin-bottom:0;">Retur Penjualan</h1>
-            <button class="btn-add" id="btnBuatRetur"><i data-feather="plus-circle"></i> Buat Retur Baru</button>
+            <div style="display:flex; gap:0.5rem;">
+                <button class="btn-add" id="btnBuatRetur"><i data-feather="plus-circle"></i> Retur dengan Transaksi</button>
+                <button class="btn-add" id="btnReturManual"><i data-feather="edit"></i> Retur Manual</button>
+            </div>
         </div>
 
         <div class="content-section">
             <div class="table-responsive">
                 <table>
                     <thead>
-                        <tr><th>Tanggal</th><th>No. Transaksi Asal</th><th>Customer</th><th>Total Retur</th><th>Alasan</th><th>Aksi</th></tr>
+                        <tr><th>Tanggal Retur</th><th>No. Transaksi Asal</th><th>Customer</th><th>Total Retur</th><th>Refund</th><th>Alasan</th><th>Tipe</th><th>Aksi</th></tr>
                     </thead>
                     <tbody id="returListBody">
-                        <tr><td colspan="6" style="text-align:center;">Memuat data...</td></tr>
+                        <tr><td colspan="8" style="text-align:center;">Memuat data...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -101,11 +109,11 @@
         </div>
     </div>
 
-    <!-- Modal Retur -->
+    <!-- Modal Retur (dengan referensi) -->
     <div class="modal" id="modalRetur">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Retur Penjualan</h3>
+                <h3>Retur Penjualan (dengan Referensi)</h3>
                 <button class="close-modal" id="closeRetur">&times;</button>
             </div>
             <div id="returInfo"></div>
@@ -127,11 +135,68 @@
         </div>
     </div>
 
+    <!-- Modal Retur Manual -->
+    <div class="modal" id="modalReturManual">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Retur Manual (Tanpa Transaksi Asal)</h3>
+                <button class="close-modal" id="closeReturManual">&times;</button>
+            </div>
+            <div>
+                <label>Nama Pelanggan</label>
+                <input type="text" id="customerManual" placeholder="Umum" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; margin-bottom:1rem;">
+            </div>
+            <table class="items-table" id="manualItemsTable">
+                <thead><tr><th>Produk/Varian</th><th>Harga Jual</th><th>Qty Retur</th><th>Subtotal</th><th>Aksi</th></tr></thead>
+                <tbody id="manualItemsBody"></tbody>
+            </table>
+            <button id="tambahItemManual" style="margin-top:0.5rem; background:#f0f5f3; border:none; padding:0.5rem 1rem; border-radius:6px; cursor:pointer;">+ Tambah Item</button>
+            <div style="margin-top:1rem;">
+                <label>Alasan Retur</label>
+                <textarea id="alasanReturManual" rows="2" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px;"></textarea>
+            </div>
+            <div class="refund-option">
+                <input type="checkbox" id="refundCheckbox">
+                <label for="refundCheckbox">Refund ke pelanggan (kembalikan uang)</label>
+                <span id="refundAmountLabel" style="margin-left:0.5rem; color:#006B54; font-weight:600;">Rp 0</span>
+            </div>
+            <div style="text-align:right; margin-top:1rem;">
+                <strong>Total Retur: Rp <span id="totalReturManual">0</span></strong>
+            </div>
+            <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                <button class="btn-outline" id="batalReturManual">Batal</button>
+                <button class="btn" id="simpanReturManual" style="background:#006B54; color:white; border:none; padding:0.5rem 1.5rem; border-radius:20px;">Simpan Retur</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pilih Produk/Varian untuk retur manual -->
+    <div class="modal" id="modalPilihProduk">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Pilih Produk/Varian</h3>
+                <button class="close-modal" id="closePilihProduk">&times;</button>
+            </div>
+            <div class="modal-search">
+                <input type="text" id="searchProduk" placeholder="Cari produk atau varian...">
+            </div>
+            <div style="max-height:300px; overflow-y:auto;">
+                <table class="modal-table">
+                    <thead><tr><th>Nama</th><th>Jenis</th><th>Harga Jual</th><th>Aksi</th></tr></thead>
+                    <tbody id="daftarProdukBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
         import { initAuth, logoutUser, getCurrentRole } from './js/auth-guard.js';
         import { renderSidebar } from './js/sidebar.js';
-        import { collection, doc, getDocs, query, orderBy, limit, serverTimestamp, runTransaction, Timestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { 
+            collection, doc, getDoc, getDocs, query, orderBy, limit, 
+            serverTimestamp, runTransaction, Timestamp, deleteDoc 
+        } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         feather.replace();
 
@@ -143,6 +208,7 @@
 
         const returListBody = document.getElementById('returListBody');
         const btnBuatRetur = document.getElementById('btnBuatRetur');
+        const btnReturManual = document.getElementById('btnReturManual');
         const modalCari = document.getElementById('modalCariTransaksi');
         const closeCari = document.getElementById('closeCariTransaksi');
         const searchTransaksi = document.getElementById('searchTransaksi');
@@ -156,7 +222,26 @@
         const totalReturSpan = document.getElementById('totalRetur');
         const simpanRetur = document.getElementById('simpanRetur');
 
+        const modalReturManual = document.getElementById('modalReturManual');
+        const closeReturManual = document.getElementById('closeReturManual');
+        const batalReturManual = document.getElementById('batalReturManual');
+        const customerManual = document.getElementById('customerManual');
+        const manualItemsBody = document.getElementById('manualItemsBody');
+        const alasanReturManual = document.getElementById('alasanReturManual');
+        const totalReturManualSpan = document.getElementById('totalReturManual');
+        const simpanReturManual = document.getElementById('simpanReturManual');
+        const tambahItemManual = document.getElementById('tambahItemManual');
+        const refundCheckbox = document.getElementById('refundCheckbox');
+        const refundAmountLabel = document.getElementById('refundAmountLabel');
+
+        const modalPilihProduk = document.getElementById('modalPilihProduk');
+        const closePilihProduk = document.getElementById('closePilihProduk');
+        const searchProduk = document.getElementById('searchProduk');
+        const daftarProdukBody = document.getElementById('daftarProdukBody');
+
         let selectedSale = null, returItems = [];
+        let manualItems = [];
+        let currentManualIdx = -1;
 
         function formatDate(ts) {
             if (!ts) return '-';
@@ -164,43 +249,102 @@
             return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
         }
 
+        // ===================== DAFTAR RETUR =====================
         async function loadReturList() {
             try {
                 const q = query(returPenjualanCol, orderBy('tanggal', 'desc'));
                 const snap = await getDocs(q);
                 if (snap.empty) {
-                    returListBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Belum ada retur</td></tr>';
+                    returListBody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Belum ada retur</td></tr>';
                 } else {
                     let html = '';
                     snap.docs.forEach(doc => {
                         const r = doc.data();
-                        html += `<tr><td>${formatDate(r.tanggal)}</td><td>${r.salesId?.slice(-6) || '-'}</td><td>${r.customerName||'-'}</td><td>Rp ${(r.total||0).toLocaleString()}</td><td>${r.alasan||'-'}</td><td><button class="btn-icon" onclick="window.hapusRetur('${doc.id}')"><i data-feather="trash-2"></i></button></td></tr>`;
+                        const tipe = r.salesId ? 'Transaksi' : 'Manual';
+                        const refundText = r.refundTransactionId ? 'Ya' : 'Tidak';
+                        html += `<tr>
+                            <td>${formatDate(r.tanggal)}</td>
+                            <td>${r.salesId?.slice(-6) || '-'}</td>
+                            <td>${r.customerName||'-'}</td>
+                            <td>Rp ${(r.total||0).toLocaleString()}</td>
+                            <td>${refundText}</td>
+                            <td>${r.alasan||'-'}</td>
+                            <td>${tipe}</td>
+                            <td><button class="btn-icon delete" onclick="window.hapusRetur('${doc.id}')"><i data-feather="trash-2"></i></button></td>
+                        </tr>`;
                     });
                     returListBody.innerHTML = html;
                     feather.replace();
                 }
             } catch (error) {
                 console.error(error);
-                returListBody.innerHTML = `<tr><td colspan="6" style="color:red;">Gagal memuat: ${error.message}. Periksa izin Firestore (security rules).</td></tr>`;
+                returListBody.innerHTML = `<tr><td colspan="8" style="color:red;">Gagal memuat: ${error.message}</td></tr>`;
             }
         }
 
         window.hapusRetur = async (id) => {
-            if (!confirm('Hapus retur ini?')) return;
+            if (!confirm('Hapus retur ini? Stok akan dikembalikan ke nilai sebelum retur, dan refund (jika ada) akan dibatalkan.')) return;
             try {
-                await deleteDoc(doc(returPenjualanCol, id));
+                await runTransaction(dbCloud, async (tx) => {
+                    const returRef = doc(returPenjualanCol, id);
+                    const returSnap = await tx.get(returRef);
+                    if (!returSnap.exists()) throw new Error('Retur tidak ditemukan');
+                    const returData = returSnap.data();
+
+                    for (let item of (returData.items || [])) {
+                        if (item.varianId) {
+                            const vRef = doc(varianCol, item.varianId);
+                            const vSnap = await tx.get(vRef);
+                            if (vSnap.exists()) {
+                                const stokLama = vSnap.data().stok || 0;
+                                tx.update(vRef, { stok: Math.max(stokLama - item.qty, 0) });
+                            }
+                        } else if (item.produkId) {
+                            const pRef = doc(produkCol, item.produkId);
+                            const pSnap = await tx.get(pRef);
+                            if (pSnap.exists()) {
+                                const stokLama = pSnap.data().stokAwal || 0;
+                                tx.update(pRef, { stokAwal: Math.max(stokLama - item.qty, 0) });
+                            }
+                        }
+                    }
+
+                    if (returData.salesId) {
+                        const sRef = doc(salesCol, returData.salesId);
+                        const sSnap = await tx.get(sRef);
+                        if (sSnap.exists()) {
+                            const dataSales = sSnap.data();
+                            const currentTotalRetur = dataSales.totalRetur || 0;
+                            const newTotalRetur = currentTotalRetur - returData.total;
+                            const newOutstanding = (dataSales.total || 0) - newTotalRetur - (dataSales.paidAmount || 0);
+                            tx.update(sRef, { 
+                                totalRetur: Math.max(newTotalRetur, 0),
+                                outstanding: Math.max(newOutstanding, 0)
+                            });
+                        }
+                    }
+
+                    if (returData.refundTransactionId) {
+                        const refundRef = doc(financeTransCol, returData.refundTransactionId);
+                        tx.delete(refundRef);
+                    }
+
+                    tx.delete(returRef);
+                });
+                alert('Retur berhasil dihapus.');
                 loadReturList();
             } catch (e) {
                 alert('Gagal hapus: ' + e.message);
             }
         };
 
+        // ===================== MODE DENGAN REFERENSI =====================
         btnBuatRetur.addEventListener('click', () => { loadDaftarTransaksi(); modalCari.classList.add('active'); });
         closeCari.addEventListener('click', () => modalCari.classList.remove('active'));
 
         async function loadDaftarTransaksi(keyword = '') {
             try {
-                const q = query(salesCol, orderBy('createdAt', 'desc'), limit(50));
+                const q = query(salesCol, orderBy('createdAt', 'desc'), limit(100));
                 const snap = await getDocs(q);
                 let sales = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if (keyword.trim()) {
@@ -210,7 +354,13 @@
                 if (sales.length === 0) {
                     daftarTransaksiBody.innerHTML = '<tr><td colspan="5">Tidak ada transaksi</td></tr>';
                 } else {
-                    daftarTransaksiBody.innerHTML = sales.map(s => `<tr data-id="${s.id}"><td>${formatDate(s.createdAt)}</td><td>${s.transactionNumber|| s.id.slice(-6)}</td><td>${s.customerName||'Umum'}</td><td>Rp ${(s.total||0).toLocaleString()}</td><td><button class="btn pilih-transaksi" style="background:#006B54; color:white; border:none; border-radius:12px; padding:0.2rem 0.5rem;">Pilih</button></td></tr>`).join('');
+                    daftarTransaksiBody.innerHTML = sales.map(s => `<tr data-id="${s.id}">
+                        <td>${formatDate(s.createdAt)}</td>
+                        <td>${s.transactionNumber || s.id.slice(-6)}</td>
+                        <td>${s.customerName||'Umum'}</td>
+                        <td>Rp ${(s.total||0).toLocaleString()}</td>
+                        <td><button class="btn pilih-transaksi" style="background:#006B54; color:white; border:none; border-radius:12px; padding:0.2rem 0.5rem;">Pilih</button></td>
+                    </tr>`).join('');
                 }
             } catch (error) {
                 daftarTransaksiBody.innerHTML = `<tr><td colspan="5" style="color:red;">Gagal: ${error.message}</td></tr>`;
@@ -225,17 +375,32 @@
             const snap = await getDoc(doc(salesCol, id));
             if (!snap.exists()) return alert('Transaksi tidak ditemukan');
             selectedSale = { id: snap.id, ...snap.data() };
-            returItems = (selectedSale.items || []).map(item => ({ ...item, varianId: item.varianId || null, returQty: 0, subtotalRetur: 0 }));
+            returItems = (selectedSale.items || []).map(item => ({ 
+                ...item, 
+                varianId: item.varianId || null, 
+                returQty: 0, 
+                subtotalRetur: 0 
+            }));
             renderReturModal();
             modalCari.classList.remove('active');
             modalRetur.classList.add('active');
         });
 
         function renderReturModal() {
-            returInfo.innerHTML = `<div class="detail-row"><span class="detail-label">No. Transaksi:</span><span>${selectedSale.transactionNumber || selectedSale.id.slice(-6)}</span></div><div class="detail-row"><span class="detail-label">Tanggal:</span><span>${formatDate(selectedSale.createdAt)}</span></div><div class="detail-row"><span class="detail-label">Customer:</span><span>${selectedSale.customerName||'Umum'}</span></div>`;
+            returInfo.innerHTML = `
+                <div class="detail-row"><span class="detail-label">No. Transaksi:</span><span>${selectedSale.transactionNumber || selectedSale.id.slice(-6)}</span></div>
+                <div class="detail-row"><span class="detail-label">Tanggal:</span><span>${formatDate(selectedSale.createdAt)}</span></div>
+                <div class="detail-row"><span class="detail-label">Customer:</span><span>${selectedSale.customerName||'Umum'}</span></div>
+            `;
             let html = '';
             returItems.forEach((item, idx) => {
-                html += `<tr data-index="${idx}"><td>${item.nama||'Produk'}</td><td>${item.qty}</td><td>Rp ${(item.hargaSatuan||0).toLocaleString()}</td><td><input type="number" class="retur-qty" value="0" min="0" max="${item.qty}" data-index="${idx}"></td><td class="subtotal-retur">Rp 0</td></tr>`;
+                html += `<tr data-index="${idx}">
+                    <td>${item.nama||'Produk'}</td>
+                    <td>${item.qty}</td>
+                    <td>Rp ${(item.hargaSatuan||0).toLocaleString()}</td>
+                    <td><input type="number" class="retur-qty" value="0" min="0" max="${item.qty}" data-index="${idx}"></td>
+                    <td class="subtotal-retur">Rp 0</td>
+                </tr>`;
             });
             returItemsBody.innerHTML = html;
             updateTotalRetur();
@@ -268,6 +433,7 @@
             const alasan = alasanRetur.value.trim();
             if (!alasan) return alert('Isi alasan retur');
             const total = itemsRetur.reduce((s, i) => s + i.subtotalRetur, 0);
+            
             try {
                 await runTransaction(dbCloud, async (tx) => {
                     const returRef = doc(returPenjualanCol);
@@ -276,9 +442,19 @@
                         tanggal: Timestamp.now(),
                         customerId: selectedSale.customerId,
                         customerName: selectedSale.customerName,
-                        items: itemsRetur.map(i => ({ produkId: i.produkId, varianId: i.varianId, nama: i.nama, qty: i.returQty, hargaJual: i.hargaSatuan, subtotal: i.subtotalRetur })),
-                        total, alasan, createdAt: serverTimestamp()
+                        items: itemsRetur.map(i => ({ 
+                            produkId: i.produkId, 
+                            varianId: i.varianId, 
+                            nama: i.nama, 
+                            qty: i.returQty, 
+                            hargaJual: i.hargaSatuan, 
+                            subtotal: i.subtotalRetur 
+                        })),
+                        total,
+                        alasan,
+                        createdAt: serverTimestamp()
                     });
+
                     for (let item of itemsRetur) {
                         if (item.varianId) {
                             const vRef = doc(varianCol, item.varianId);
@@ -294,23 +470,35 @@
                             tx.update(pRef, { stokAwal: stokLama + item.returQty });
                         }
                     }
+
                     const sRef = doc(salesCol, selectedSale.id);
                     const sSnap = await tx.get(sRef);
                     if (!sSnap.exists()) throw new Error('Transaksi asal tidak ditemukan');
                     const dataSales = sSnap.data();
-                    const totalBaru = (dataSales.total || 0) - total;
-                    const paid = dataSales.paidAmount || 0;
-                    let outstanding = totalBaru - paid;
-                    if (outstanding < 0) outstanding = 0;
-                    const totalReturBefore = dataSales.totalRetur || 0;
-                    tx.update(sRef, { total: totalBaru, outstanding, totalRetur: totalReturBefore + total });
-                    if (paid > totalBaru) {
-                        const refund = paid - totalBaru;
-                        tx.set(doc(financeTransCol), { date: Timestamp.now(), description: `Retur ${selectedSale.transactionNumber || selectedSale.id}`, category:'Retur', type:'expense', amount: refund, method:'Tunai', reference: returRef.id, createdAt: serverTimestamp() });
-                        tx.update(sRef, { paidAmount: totalBaru });
+                    const currentTotalRetur = dataSales.totalRetur || 0;
+                    const newTotalRetur = currentTotalRetur + total;
+                    const outstanding = (dataSales.total || 0) - newTotalRetur - (dataSales.paidAmount || 0);
+                    
+                    const salesUpdate = { totalRetur: newTotalRetur, outstanding: outstanding > 0 ? outstanding : 0 };
+                    if (outstanding < 0) {
+                        const refundAmount = -outstanding;
+                        const refundRef = doc(financeTransCol);
+                        tx.set(refundRef, {
+                            date: Timestamp.now(),
+                            description: `Refund retur ${selectedSale.transactionNumber || selectedSale.id} - ${selectedSale.customerName||'Umum'}`,
+                            category: 'Retur Penjualan',
+                            type: 'cash_out',
+                            amount: refundAmount,
+                            method: 'Tunai',
+                            reference: returRef.id,
+                            createdAt: serverTimestamp()
+                        });
+                        tx.update(returRef, { refundTransactionId: refundRef.id });
+                        salesUpdate.outstanding = 0;
                     }
+                    tx.update(sRef, salesUpdate);
                 });
-                alert('Retur berhasil');
+                alert('Retur berhasil dicatat.');
                 closeReturModal();
                 loadReturList();
             } catch (error) {
@@ -318,6 +506,228 @@
             }
         });
 
+        // ===================== MODE MANUAL =====================
+        btnReturManual.addEventListener('click', () => {
+            manualItems = [];
+            alasanReturManual.value = '';
+            customerManual.value = 'Umum';
+            refundCheckbox.checked = false;
+            refundAmountLabel.textContent = 'Rp 0';
+            renderManualItems();
+            modalReturManual.classList.add('active');
+        });
+        closeReturManual.addEventListener('click', () => modalReturManual.classList.remove('active'));
+        batalReturManual.addEventListener('click', () => modalReturManual.classList.remove('active'));
+
+        function renderManualItems() {
+            if (manualItems.length === 0) {
+                manualItemsBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Belum ada item</td></tr>';
+            } else {
+                manualItemsBody.innerHTML = manualItems.map((item, idx) => `
+                    <tr>
+                        <td>${item.nama}</td>
+                        <td>Rp ${item.hargaSatuan.toLocaleString()}</td>
+                        <td><input type="number" class="manual-qty" value="${item.qty}" min="1" data-index="${idx}"></td>
+                        <td class="manual-subtotal">Rp ${(item.qty * item.hargaSatuan).toLocaleString()}</td>
+                        <td><button class="btn-icon delete hapus-item-manual" data-index="${idx}"><i data-feather="trash-2"></i></button></td>
+                    </tr>
+                `).join('');
+                document.querySelectorAll('.manual-qty').forEach(input => {
+                    input.addEventListener('input', function() {
+                        const idx = this.dataset.index;
+                        let val = parseInt(this.value) || 1;
+                        if (val < 1) val = 1;
+                        this.value = val;
+                        manualItems[idx].qty = val;
+                        manualItems[idx].subtotal = val * manualItems[idx].hargaSatuan;
+                        this.closest('tr').querySelector('.manual-subtotal').textContent = 'Rp ' + manualItems[idx].subtotal.toLocaleString();
+                        updateTotalManual();
+                    });
+                });
+                document.querySelectorAll('.hapus-item-manual').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const idx = this.dataset.index;
+                        manualItems.splice(idx, 1);
+                        renderManualItems();
+                        updateTotalManual();
+                    });
+                });
+            }
+            updateTotalManual();
+            feather.replace();
+        }
+
+        function updateTotalManual() {
+            const total = manualItems.reduce((s, i) => s + (i.subtotal || i.qty * i.hargaSatuan), 0);
+            totalReturManualSpan.textContent = total.toLocaleString();
+            refundAmountLabel.textContent = 'Rp ' + total.toLocaleString();
+            if (refundCheckbox.checked) {
+                refundAmountLabel.textContent = 'Rp ' + total.toLocaleString();
+            }
+        }
+
+        refundCheckbox.addEventListener('change', () => {
+            const total = manualItems.reduce((s, i) => s + (i.subtotal || i.qty * i.hargaSatuan), 0);
+            if (refundCheckbox.checked) {
+                refundAmountLabel.textContent = 'Rp ' + total.toLocaleString();
+            } else {
+                refundAmountLabel.textContent = 'Rp 0';
+            }
+        });
+
+        tambahItemManual.addEventListener('click', () => {
+            currentManualIdx = -1;
+            loadDaftarProduk('');
+            modalPilihProduk.classList.add('active');
+        });
+
+        async function loadDaftarProduk(keyword = '') {
+            try {
+                const [prodSnap, varSnap] = await Promise.all([
+                    getDocs(produkCol),
+                    getDocs(varianCol)
+                ]);
+                let items = [];
+                prodSnap.docs.forEach(d => {
+                    const data = d.data();
+                    items.push({
+                        id: d.id,
+                        type: 'produk',
+                        nama: data.nama || data.name || 'Produk',
+                        hargaJual: data.hargaJual || data.price || 0,
+                        produkId: d.id,
+                        varianId: null
+                    });
+                });
+                varSnap.docs.forEach(d => {
+                    const data = d.data();
+                    items.push({
+                        id: d.id,
+                        type: 'varian',
+                        nama: data.nama || data.name || 'Varian',
+                        hargaJual: data.hargaJual || data.price || 0,
+                        produkId: data.produkId,
+                        varianId: d.id
+                    });
+                });
+                if (keyword.trim()) {
+                    const kw = keyword.toLowerCase();
+                    items = items.filter(i => i.nama.toLowerCase().includes(kw));
+                }
+                if (items.length === 0) {
+                    daftarProdukBody.innerHTML = '<tr><td colspan="4">Tidak ditemukan</td></tr>';
+                } else {
+                    daftarProdukBody.innerHTML = items.map(i => `
+                        <tr>
+                            <td>${i.nama}</td>
+                            <td>${i.type}</td>
+                            <td>Rp ${i.hargaJual.toLocaleString()}</td>
+                            <td><button class="btn pilih-produk" data-id="${i.id}" data-type="${i.type}" data-nama="${i.nama}" data-harga="${i.hargaJual}" data-produkid="${i.produkId}" data-varianid="${i.varianId || ''}" style="background:#006B54; color:white; border:none; border-radius:12px; padding:0.2rem 0.5rem;">Pilih</button></td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (error) {
+                daftarProdukBody.innerHTML = `<tr><td colspan="4" style="color:red;">Gagal: ${error.message}</td></tr>`;
+            }
+        }
+
+        searchProduk.addEventListener('input', () => loadDaftarProduk(searchProduk.value));
+        daftarProdukBody.addEventListener('click', (e) => {
+            const btn = e.target.closest('.pilih-produk');
+            if (!btn) return;
+            const nama = btn.dataset.nama;
+            const harga = parseFloat(btn.dataset.harga);
+            const produkId = btn.dataset.produkid;
+            const varianId = btn.dataset.varianid || null;
+            const item = {
+                nama,
+                hargaSatuan: harga,
+                qty: 1,
+                subtotal: harga,
+                produkId,
+                varianId,
+            };
+            if (currentManualIdx >= 0) {
+                manualItems[currentManualIdx] = item;
+            } else {
+                manualItems.push(item);
+            }
+            renderManualItems();
+            modalPilihProduk.classList.remove('active');
+        });
+        closePilihProduk.addEventListener('click', () => modalPilihProduk.classList.remove('active'));
+
+        simpanReturManual.addEventListener('click', async () => {
+            if (manualItems.length === 0) return alert('Tambahkan item retur');
+            const alasan = alasanReturManual.value.trim();
+            if (!alasan) return alert('Isi alasan retur');
+            const total = manualItems.reduce((s, i) => s + (i.subtotal || i.qty * i.hargaSatuan), 0);
+            const customer = customerManual.value.trim() || 'Umum';
+            const lakukanRefund = refundCheckbox.checked;
+            try {
+                await runTransaction(dbCloud, async (tx) => {
+                    const returRef = doc(returPenjualanCol);
+                    const returData = {
+                        salesId: null,
+                        tanggal: Timestamp.now(),
+                        customerId: null,
+                        customerName: customer,
+                        items: manualItems.map(i => ({
+                            produkId: i.produkId,
+                            varianId: i.varianId,
+                            nama: i.nama,
+                            qty: i.qty,
+                            hargaJual: i.hargaSatuan,
+                            subtotal: i.subtotal || i.qty * i.hargaSatuan
+                        })),
+                        total,
+                        alasan,
+                        createdAt: serverTimestamp()
+                    };
+                    tx.set(returRef, returData);
+
+                    for (let item of manualItems) {
+                        if (item.varianId) {
+                            const vRef = doc(varianCol, item.varianId);
+                            const vSnap = await tx.get(vRef);
+                            if (vSnap.exists()) {
+                                const stokLama = vSnap.data().stok || 0;
+                                tx.update(vRef, { stok: stokLama + item.qty });
+                            }
+                        } else {
+                            const pRef = doc(produkCol, item.produkId);
+                            const pSnap = await tx.get(pRef);
+                            if (pSnap.exists()) {
+                                const stokLama = pSnap.data().stokAwal || 0;
+                                tx.update(pRef, { stokAwal: stokLama + item.qty });
+                            }
+                        }
+                    }
+
+                    if (lakukanRefund) {
+                        const refundRef = doc(financeTransCol);
+                        tx.set(refundRef, {
+                            date: Timestamp.now(),
+                            description: `Refund retur manual - ${customer}`,
+                            category: 'Retur Penjualan',
+                            type: 'cash_out',
+                            amount: total,
+                            method: 'Tunai',
+                            reference: returRef.id,
+                            createdAt: serverTimestamp()
+                        });
+                        tx.update(returRef, { refundTransactionId: refundRef.id });
+                    }
+                });
+                alert('Retur manual berhasil dicatat.' + (lakukanRefund ? ' Refund telah dicatat.' : ''));
+                modalReturManual.classList.remove('active');
+                loadReturList();
+            } catch (error) {
+                alert('Gagal: ' + error.message);
+            }
+        });
+
+        // ===================== INISIALISASI =====================
         async function initializeApp() {
             await initAuth();
             const role = getCurrentRole();
@@ -329,7 +739,9 @@
             renderSidebar({ containerId:'sidebar', overlayId:'overlay', menuToggleId:'menuToggle', closeSidebarId:'closeSidebar' });
             loadReturList();
             onAuthStateChanged(auth, user => {
-                document.getElementById('loginBtn').innerHTML = user ? '<i data-feather="log-out"></i><span>Logout</span>' : '<i data-feather="log-in"></i><span>Login</span>';
+                document.getElementById('loginBtn').innerHTML = user ? 
+                    '<i data-feather="log-out"></i><span>Logout</span>' : 
+                    '<i data-feather="log-in"></i><span>Login</span>';
                 feather.replace();
             });
             document.getElementById('loginBtn').addEventListener('click', async () => {
