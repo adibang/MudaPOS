@@ -28,16 +28,17 @@
         .btn-add:hover { background:#004d3b; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:300; align-items:center; justify-content:center; }
         .modal.active { display:flex; }
-        .modal-content { background:white; border-radius:20px; width:90%; max-width:750px; max-height:85vh; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
-        .modal-header { display:flex; justify-content:space-between; align-items:center; padding:1rem 1.5rem; background:#006B54; color:white; border-radius:20px 20px 0 0; }
+        .modal-content { background:white; border-radius:20px; width:90%; max-width:750px; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; padding:1rem 1.5rem; background:#006B54; color:white; border-radius:20px 20px 0 0; flex-shrink:0; }
         .modal-header h3 { color:white; font-size:1.2rem; }
         .close-modal { background:none; border:none; font-size:1.8rem; cursor:pointer; color:white; opacity:0.8; }
         .close-modal:hover { opacity:1; }
-        .modal-body { padding:1.5rem; }
+        .modal-body { padding:1.5rem; overflow-y:auto; overflow-x:hidden; flex:1; }
         .modal-search { margin-bottom:1rem; }
         .modal-search input { width:100%; padding:0.6rem 1rem; border:1px solid #ddd; border-radius:20px; font-size:0.9rem; }
+        .modal-table-wrap { max-height:300px; overflow-y:auto; }
         .modal-table { width:100%; border-collapse:collapse; }
-        .modal-table th { text-align:left; padding:0.5rem; background:#f9f9f9; }
+        .modal-table th { text-align:left; padding:0.5rem; background:#f9f9f9; position:sticky; top:0; }
         .modal-table td { padding:0.5rem; border-bottom:1px solid #eee; }
         .modal-table tr { cursor:pointer; }
         .modal-table tr:hover { background:#f5f5f5; }
@@ -55,7 +56,6 @@
         .refund-option label { font-weight:500; }
         .refund-option input[type=checkbox] { width:18px; height:18px; accent-color:#006B54; }
         input, textarea, select { font-size:0.9rem; }
-        /* Untuk input number agar tidak ada spinner di Firefox */
         input[type=number] { -moz-appearance: textfield; }
         input[type=number]::-webkit-outer-spin-button,
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin:0; }
@@ -78,8 +78,8 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h1 class="page-title" style="margin-bottom:0;">Retur Penjualan</h1>
             <div style="display:flex; gap:0.5rem;">
-                <button class="btn-add" id="btnBuatRetur"><i data-feather="plus-circle"></i> Nota</button>
-                <button class="btn-add" id="btnReturManual"><i data-feather="edit"></i> Reguler</button>
+                <button class="btn-add" id="btnBuatRetur"><i data-feather="plus-circle"></i> Retur dengan Transaksi</button>
+                <button class="btn-add" id="btnReturManual"><i data-feather="edit"></i> Retur Manual</button>
             </div>
         </div>
 
@@ -108,7 +108,7 @@
                 <div class="modal-search">
                     <input type="text" id="searchTransaksi" placeholder="Cari nomor transaksi atau customer...">
                 </div>
-                <div style="max-height:300px; overflow-y:auto;">
+                <div class="modal-table-wrap">
                     <table class="modal-table">
                         <thead><tr><th>Tanggal</th><th>No. Transaksi</th><th>Customer</th><th>Total</th><th>Aksi</th></tr></thead>
                         <tbody id="daftarTransaksiBody"></tbody>
@@ -194,7 +194,7 @@
                 <div class="modal-search">
                     <input type="text" id="searchProduk" placeholder="Cari produk atau varian...">
                 </div>
-                <div style="max-height:300px; overflow-y:auto;">
+                <div class="modal-table-wrap">
                     <table class="modal-table">
                         <thead><tr><th>Nama</th><th>Jenis</th><th>Harga Jual</th><th>Aksi</th></tr></thead>
                         <tbody id="daftarProdukBody"></tbody>
@@ -262,6 +262,21 @@
             if (!ts) return '-';
             const d = ts.toDate ? ts.toDate() : new Date(ts);
             return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        }
+
+        /* ---------- Helper untuk input desimal ---------- */
+        // Hanya baca nilai numerik, tidak mengubah teks input
+        function getFloatFromInput(input, fallback = 0) {
+            const val = parseFloat(input.value);
+            return isNaN(val) ? fallback : val;
+        }
+
+        // Batasi nilai dan perbarui tampilan input (digunakan pada event change)
+        function clampAndSet(input, minVal = 0, maxVal = Infinity) {
+            let val = getFloatFromInput(input);
+            val = Math.min(Math.max(val, minVal), maxVal);
+            input.value = val;
+            return val;
         }
 
         // ===================== DAFTAR RETUR =====================
@@ -420,27 +435,45 @@
             });
             returItemsBody.innerHTML = html;
             updateTotalRetur();
+            
+            // Attach event listeners
             document.querySelectorAll('.harga-jual-editable').forEach(input => {
+                // input: update perhitungan tanpa mengubah value
                 input.addEventListener('input', function() {
                     const idx = parseInt(this.dataset.index);
-                    let val = parseFloat(this.value) || 0;
-                    if (val < 0) val = 0;
-                    this.value = val;
-                    returItems[idx].hargaSatuan = val;
-                    returItems[idx].subtotalRetur = returItems[idx].returQty * val;
+                    const harga = getFloatFromInput(this);
+                    returItems[idx].hargaSatuan = harga;
+                    returItems[idx].subtotalRetur = returItems[idx].returQty * harga;
+                    this.closest('tr').querySelector('.subtotal-retur').textContent = 'Rp ' + returItems[idx].subtotalRetur.toLocaleString();
+                    updateTotalRetur();
+                });
+                // change: validasi dan batasi
+                input.addEventListener('change', function() {
+                    const idx = parseInt(this.dataset.index);
+                    const harga = clampAndSet(this, 0);
+                    returItems[idx].hargaSatuan = harga;
+                    returItems[idx].subtotalRetur = returItems[idx].returQty * harga;
                     this.closest('tr').querySelector('.subtotal-retur').textContent = 'Rp ' + returItems[idx].subtotalRetur.toLocaleString();
                     updateTotalRetur();
                 });
             });
+
             document.querySelectorAll('.retur-qty').forEach(input => {
                 input.addEventListener('input', function() {
                     const idx = parseInt(this.dataset.index);
-                    let val = parseFloat(this.value) || 0;
+                    let qty = getFloatFromInput(this);
+                    // jangan batasi saat mengetik, biarkan user mengetik desimal
+                    returItems[idx].returQty = qty;
+                    returItems[idx].subtotalRetur = qty * (returItems[idx].hargaSatuan || 0);
+                    this.closest('tr').querySelector('.subtotal-retur').textContent = 'Rp ' + returItems[idx].subtotalRetur.toLocaleString();
+                    updateTotalRetur();
+                });
+                input.addEventListener('change', function() {
+                    const idx = parseInt(this.dataset.index);
                     const max = parseFloat(this.max) || 0;
-                    val = Math.min(Math.max(val, 0), max);
-                    this.value = val;
-                    returItems[idx].returQty = val;
-                    returItems[idx].subtotalRetur = val * (returItems[idx].hargaSatuan || 0);
+                    let qty = clampAndSet(this, 0, max);
+                    returItems[idx].returQty = qty;
+                    returItems[idx].subtotalRetur = qty * (returItems[idx].hargaSatuan || 0);
                     this.closest('tr').querySelector('.subtotal-retur').textContent = 'Rp ' + returItems[idx].subtotalRetur.toLocaleString();
                     updateTotalRetur();
                 });
@@ -457,6 +490,9 @@
         batalRetur.addEventListener('click', closeReturModal);
 
         simpanRetur.addEventListener('click', async () => {
+            // Pastikan input terakhir sudah tervalidasi (kita panggil change secara manual)
+            document.querySelectorAll('.retur-qty, .harga-jual-editable').forEach(input => input.dispatchEvent(new Event('change')));
+            
             const itemsRetur = returItems.filter(i => i.returQty > 0);
             if (!itemsRetur.length) return alert('Pilih item yang diretur');
             const alasan = alasanRetur.value.trim();
@@ -561,30 +597,47 @@
                         <td><button class="btn-icon delete hapus-item-manual" data-index="${idx}"><i data-feather="trash-2"></i></button></td>
                     </tr>
                 `).join('');
+                
+                // Attach event listeners untuk harga dan qty
                 document.querySelectorAll('.manual-harga').forEach(input => {
                     input.addEventListener('input', function() {
                         const idx = parseInt(this.dataset.index);
-                        let val = parseFloat(this.value) || 0;
-                        if (val < 0) val = 0;
-                        this.value = val;
-                        manualItems[idx].hargaSatuan = val;
-                        manualItems[idx].subtotal = manualItems[idx].qty * val;
+                        const harga = getFloatFromInput(this);
+                        manualItems[idx].hargaSatuan = harga;
+                        manualItems[idx].subtotal = manualItems[idx].qty * harga;
+                        this.closest('tr').querySelector('.manual-subtotal').textContent = 'Rp ' + manualItems[idx].subtotal.toLocaleString();
+                        updateTotalManual();
+                    });
+                    input.addEventListener('change', function() {
+                        const idx = parseInt(this.dataset.index);
+                        const harga = clampAndSet(this, 0);
+                        manualItems[idx].hargaSatuan = harga;
+                        manualItems[idx].subtotal = manualItems[idx].qty * harga;
                         this.closest('tr').querySelector('.manual-subtotal').textContent = 'Rp ' + manualItems[idx].subtotal.toLocaleString();
                         updateTotalManual();
                     });
                 });
+
                 document.querySelectorAll('.manual-qty').forEach(input => {
                     input.addEventListener('input', function() {
                         const idx = parseInt(this.dataset.index);
-                        let val = parseFloat(this.value) || 0;
-                        if (val < 0) val = 0;
-                        this.value = val;
-                        manualItems[idx].qty = val;
-                        manualItems[idx].subtotal = val * manualItems[idx].hargaSatuan;
+                        let qty = getFloatFromInput(this);
+                        if (qty < 0) qty = 0;
+                        manualItems[idx].qty = qty;
+                        manualItems[idx].subtotal = qty * manualItems[idx].hargaSatuan;
+                        this.closest('tr').querySelector('.manual-subtotal').textContent = 'Rp ' + manualItems[idx].subtotal.toLocaleString();
+                        updateTotalManual();
+                    });
+                    input.addEventListener('change', function() {
+                        const idx = parseInt(this.dataset.index);
+                        let qty = clampAndSet(this, 0);
+                        manualItems[idx].qty = qty;
+                        manualItems[idx].subtotal = qty * manualItems[idx].hargaSatuan;
                         this.closest('tr').querySelector('.manual-subtotal').textContent = 'Rp ' + manualItems[idx].subtotal.toLocaleString();
                         updateTotalManual();
                     });
                 });
+
                 document.querySelectorAll('.hapus-item-manual').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const idx = parseInt(this.dataset.index);
@@ -693,6 +746,9 @@
         closePilihProduk.addEventListener('click', () => modalPilihProduk.classList.remove('active'));
 
         simpanReturManual.addEventListener('click', async () => {
+            // Validasi semua input terlebih dahulu
+            document.querySelectorAll('.manual-qty, .manual-harga').forEach(input => input.dispatchEvent(new Event('change')));
+            
             if (manualItems.length === 0) return alert('Tambahkan item retur');
             const alasan = alasanReturManual.value.trim();
             if (!alasan) return alert('Isi alasan retur');
