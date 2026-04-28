@@ -495,9 +495,11 @@
             if (!alasan) return alert('Isi alasan retur');
             const total = itemsRetur.reduce((s, i) => s + i.subtotalRetur, 0);
             
+            // Buat referensi dokumen retur di luar transaksi agar bisa dipakai setelah transaksi
+            const returRef = doc(returPenjualanCol);
+            
             try {
                 await runTransaction(dbCloud, async (tx) => {
-                    const returRef = doc(returPenjualanCol);
                     tx.set(returRef, {
                         salesId: selectedSale.id,
                         tanggal: Timestamp.now(),
@@ -559,6 +561,25 @@
                     }
                     tx.update(sRef, salesUpdate);
                 });
+
+                // ===== JURNAL AKUNTANSI RETUR (DENGAN REFERENSI) =====
+                try {
+                    const { recordJournal, initCOA } = await import('./js/accounting.js');
+                    await initCOA();
+                    const entries = [];
+                    const totalReturJurnal = itemsRetur.reduce((s, i) => s + i.subtotalRetur, 0);
+                    // Retur Penjualan (debit)
+                    entries.push({ kode: '602', debit: totalReturJurnal, kredit: 0 });
+                    // Persediaan Barang (debit) - barang kembali
+                    entries.push({ kode: '103', debit: totalReturJurnal, kredit: 0 });
+                    // Kas (kredit) karena refund tunai
+                    entries.push({ kode: '101', debit: 0, kredit: totalReturJurnal });
+                    await recordJournal(entries, `Retur Penjualan #${returRef.id.slice(-6)}`, returRef.id);
+                } catch (e) {
+                    console.error('Gagal mencatat jurnal:', e);
+                }
+                // ===== AKHIR JURNAL =====
+
                 alert('Retur berhasil dicatat.');
                 closeReturModal();
                 loadReturList();
@@ -750,9 +771,12 @@
             const total = manualItems.reduce((s, i) => s + (i.subtotal || i.qty * i.hargaSatuan), 0);
             const customer = customerManual.value.trim() || 'Umum';
             const lakukanRefund = refundCheckbox.checked;
+
+            // Buat referensi dokumen retur di luar transaksi
+            const returRef = doc(returPenjualanCol);
+
             try {
                 await runTransaction(dbCloud, async (tx) => {
-                    const returRef = doc(returPenjualanCol);
                     const returData = {
                         salesId: null,
                         tanggal: Timestamp.now(),
@@ -805,6 +829,22 @@
                         tx.update(returRef, { refundTransactionId: refundRef.id });
                     }
                 });
+
+                // ===== JURNAL AKUNTANSI RETUR MANUAL =====
+                try {
+                    const { recordJournal, initCOA } = await import('./js/accounting.js');
+                    await initCOA();
+                    const entries = [];
+                    const totalReturJurnal = total;
+                    entries.push({ kode: '602', debit: totalReturJurnal, kredit: 0 });
+                    entries.push({ kode: '103', debit: totalReturJurnal, kredit: 0 });
+                    entries.push({ kode: '101', debit: 0, kredit: totalReturJurnal });
+                    await recordJournal(entries, `Retur Penjualan Manual #${returRef.id.slice(-6)}`, returRef.id);
+                } catch (e) {
+                    console.error('Gagal mencatat jurnal:', e);
+                }
+                // ===== AKHIR JURNAL =====
+
                 alert('Retur manual berhasil dicatat.' + (lakukanRefund ? ' Refund telah dicatat.' : ''));
                 modalReturManual.classList.remove('active');
                 loadReturList();
