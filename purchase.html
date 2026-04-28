@@ -110,6 +110,8 @@
 
         .btn-save { background:#006B54; color:white; border:none; padding:0.8rem 2rem; border-radius:20px; font-weight:600; font-size:1rem; cursor:pointer; margin-top:1rem; width:100%; }
         .btn-save:hover { background:#004d3b; }
+        .btn-pay-debt { background:#dc3545; color:white; border:none; padding:0.8rem 2rem; border-radius:20px; font-weight:600; font-size:1rem; cursor:pointer; margin-top:1rem; width:100%; }
+        .btn-pay-debt:hover { background:#c82333; }
 
         @media (max-width:768px) {
             .search-section { flex-direction:column; align-items:stretch; }
@@ -247,6 +249,16 @@
                     </div>
                 </div>
                 <button class="btn-save" id="simpanTransaksi">Simpan Transaksi</button>
+
+                <!-- Fitur Bayar Hutang Supplier -->
+                <div style="margin-top:1.5rem; border-top:1px solid #ddd; padding-top:1rem;">
+                    <h4>Bayar Hutang Supplier</h4>
+                    <div class="form-group">
+                        <label>Jumlah Pembayaran Hutang (Rp)</label>
+                        <input type="number" id="hutangAmount" value="0" min="0" step="1000">
+                    </div>
+                    <button class="btn-pay-debt" id="bayarHutangBtn">Bayar Hutang</button>
+                </div>
             </div>
         </div>
     </main>
@@ -260,7 +272,7 @@
         
         import { 
             collection, doc, getDocs, getDoc, query, where, orderBy, limit, startAfter,
-            serverTimestamp, runTransaction 
+            serverTimestamp, runTransaction, addDoc
         } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // ========== INISIALISASI ==========
@@ -273,6 +285,7 @@
         const gudangCol = collection(dbCloud, 'gudang');
         const konversiCol = collection(dbCloud, 'konversiUnit');
         const purchaseCol = collection(dbCloud, 'purchase');
+        const financeTransCol = collection(dbCloud, 'financeTransactions');
 
         // State keranjang
         let cart = [];
@@ -287,6 +300,7 @@
         // Data master
         let allKonversi = [];
         let itemsCache = new Map();
+        let suppliersData = []; // untuk menyimpan data supplier
 
         // Elemen DOM
         const supplierSelect = document.getElementById('supplierSelect');
@@ -311,13 +325,17 @@
         const nextPageBtn = document.getElementById('nextPage');
         const pageInfo = document.getElementById('pageInfo');
 
+        const hutangAmount = document.getElementById('hutangAmount');
+        const bayarHutangBtn = document.getElementById('bayarHutangBtn');
+
         // ========== LOAD SUPPLIER ==========
         async function loadSuppliers() {
             try {
                 const q = query(supplierCol, where('deleted', '==', false));
                 const snapshot = await getDocs(q);
+                suppliersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 supplierSelect.innerHTML = '<option value="">-- Pilih Supplier --</option>' + 
-                    snapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().nama} (${doc.data().kode})</option>`).join('');
+                    suppliersData.map(s => `<option value="${s.id}">${s.nama} (${s.kode})</option>`).join('');
             } catch (error) {
                 console.error('Gagal memuat supplier:', error);
                 alert('Gagal memuat data supplier: ' + error.message);
@@ -730,6 +748,9 @@
             let dibayarVal = parseFloat(dibayar.value) || 0;
             let utang = dibayarVal < total ? total - dibayarVal : 0;
 
+            // Simpan referensi purchaseDoc di luar transaksi
+            let purchaseRef = null;
+
             try {
                 await runTransaction(dbCloud, async (transaction) => {
                     const itemRefs = cart.map(item => {
@@ -764,8 +785,9 @@
                         createdAt: serverTimestamp()
                     };
 
-                    const purchaseRef = doc(purchaseCol);
-                    transaction.set(purchaseRef, purchaseData);
+                    const newPurchaseRef = doc(purchaseCol);
+                    transaction.set(newPurchaseRef, purchaseData);
+                    purchaseRef = newPurchaseRef;
 
                     for (let i = 0; i < cart.length; i++) {
                         const item = cart[i];
@@ -783,6 +805,34 @@
                     }
                 });
 
+                // ========== RECORD JOURNAL PEMBELIAN ==========
+                try {
+                    const { recordJournal, initCOA } = await import('./js/accounting.js');
+                    await initCOA();
+
+                    const entries = [];
+                    const totalJurnal = subtotal;
+                    const dibayarJurnal = dibayarVal;
+                    const utangJurnal = utang;
+
+                    // Pembelian (debit)
+                    entries.push({ kode: '511', debit: totalJurnal, kredit: 0 });
+                    // Persediaan Barang (debit)
+                    entries.push({ kode: '103', debit: totalJurnal, kredit: 0 });
+                    // Kas (kredit) atau Hutang
+                    if (dibayarJurnal >= totalJurnal) {
+                        entries.push({ kode: '101', debit: 0, kredit: totalJurnal });
+                    } else {
+                        entries.push({ kode: '101', debit: 0, kredit: dibayarJurnal });
+                        entries.push({ kode: '201', debit: 0, kredit: utangJurnal });
+                    }
+
+                    await recordJournal(entries, `Pembelian #${purchaseRef.id.slice(-6)}`, purchaseRef.id);
+                } catch (e) {
+                    console.error('Gagal mencatat jurnal pembelian:', e);
+                }
+                // ===== END JURNAL PEMBELIAN =====
+
                 alert('Transaksi berhasil disimpan' + (utang > 0 ? ` dengan utang Rp ${utang.toLocaleString()}` : ''));
                 cart = [];
                 renderCart();
@@ -797,6 +847,55 @@
             } catch (error) {
                 console.error('Gagal menyimpan transaksi:', error);
                 alert('Gagal menyimpan transaksi: ' + error.message);
+            }
+        });
+
+        // ========== BAYAR HUTANG SUPPLIER ==========
+        bayarHutangBtn.addEventListener('click', async () => {
+            const supplierId = supplierSelect.value;
+            if (!supplierId) return alert('Pilih supplier terlebih dahulu');
+            const amount = parseFloat(hutangAmount.value);
+            if (isNaN(amount) || amount <= 0) return alert('Masukkan jumlah pembayaran hutang yang valid');
+            
+            const supplier = suppliersData.find(s => s.id === supplierId);
+            if (!supplier) return alert('Data supplier tidak ditemukan');
+
+            try {
+                // Catat transaksi pembayaran hutang di financeTransactions
+                const financeRef = doc(financeTransCol);
+                await setDoc(financeRef, {
+                    date: serverTimestamp(),
+                    description: `Pembayaran Hutang – ${supplier.nama}`,
+                    category: 'Pembayaran Hutang',
+                    type: 'cash_out',
+                    amount: amount,
+                    method: 'Tunai',
+                    reference: supplierId,
+                    createdAt: serverTimestamp()
+                });
+
+                // ========== RECORD JOURNAL PEMBAYARAN HUTANG ==========
+                try {
+                    const { recordJournal, initCOA } = await import('./js/accounting.js');
+                    await initCOA();
+
+                    const entries = [];
+                    // Hutang Usaha (debit)
+                    entries.push({ kode: '201', debit: amount, kredit: 0 });
+                    // Kas (kredit)
+                    entries.push({ kode: '101', debit: 0, kredit: amount });
+
+                    await recordJournal(entries, `Pembayaran Hutang – ${supplier.nama}`, supplier.id);
+                } catch (e) {
+                    console.error('Gagal mencatat jurnal:', e);
+                }
+                // ===== END JURNAL =====
+
+                alert(`Pembayaran hutang sebesar Rp ${amount.toLocaleString()} kepada ${supplier.nama} berhasil dicatat.`);
+                hutangAmount.value = 0;
+            } catch (error) {
+                console.error('Gagal mencatat pembayaran hutang:', error);
+                alert('Gagal mencatat pembayaran hutang: ' + error.message);
             }
         });
 
