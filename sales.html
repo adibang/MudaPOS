@@ -996,6 +996,7 @@
         import { auth, dbCloud, provider, signInWithPopup, signOut, onAuthStateChanged } from './js/firebase-config.js';
         import { initAuth, checkPageAccess, logoutUser } from './js/auth-guard.js';
         import { renderSidebar } from './js/sidebar.js';
+        import { recordJournal, initCOA } from './js/accounting.js';
         
         import { 
             collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc,
@@ -1996,6 +1997,40 @@
                     batch.set(finRef, { date: serverTimestamp(), description: `Penjualan #${salesRef.id.slice(-6)}`, category: 'Penjualan', type: 'income', amount: paid, method: methods.map(m=>m.method).join(','), reference: salesRef.id });
                 }
                 await batch.commit();
+
+                // ===== JURNAL AKUNTANSI OTOMATIS =====
+                try {
+                    const { recordJournal, initCOA } = await import('./js/accounting.js');
+                    await initCOA();
+                    const entries = [];
+                    const metodePertama = methods[0]?.method || 'cash';
+                    if (metodePertama === 'cash') {
+                        entries.push({ kode: '101', debit: currentTotalAfterDiscount, kredit: 0 });
+                    } else {
+                        entries.push({ kode: '102', debit: currentTotalAfterDiscount, kredit: 0 });
+                    }
+                    entries.push({ kode: '401', debit: 0, kredit: currentOriginalTotal });
+                    if (currentTotalDiscount > 0) {
+                        entries.push({ kode: '601', debit: currentTotalDiscount, kredit: 0 });
+                    }
+                    let totalHPP = 0;
+                    cartItems.forEach(item => {
+                        if (item.type === 'bundle') {
+                            item.childItems.forEach(c => totalHPP += c.subtotalPokok || (c.hargaPokok * c.qty));
+                        } else {
+                            totalHPP += item.subtotalPokok || (item.hargaPokok * item.qty);
+                        }
+                    });
+                    if (totalHPP > 0) {
+                        entries.push({ kode: '501', debit: totalHPP, kredit: 0 });
+                        entries.push({ kode: '103', debit: 0, kredit: totalHPP });
+                    }
+                    await recordJournal(entries, `Penjualan #${salesRef.id.slice(-6)}`, salesRef.id);
+                } catch (e) {
+                    console.error('Gagal mencatat jurnal:', e);
+                }
+                // ===== AKHIR JURNAL =====
+
                 lastTransactionData = {
                     items: cartItems.map(i => ({ name: i.nama, qty: i.qty, unit: i.unit||'pcs', price: i.hargaSatuan, subtotal: i.subtotal })),
                     originalTotal: currentOriginalTotal, totalDiscount: currentTotalDiscount, total: currentTotalAfterDiscount, paidAmount: paid, change: paid - currentTotalAfterDiscount,
@@ -2067,6 +2102,20 @@
                 const finRef = doc(financeTransCol);
                 batch.set(finRef, { date: serverTimestamp(), description: `Bayar Piutang - ${selectedCustomer.nama}`, category: 'Pembayaran Piutang', type: 'income', amount, method, reference: selectedCustomer.id });
                 await batch.commit();
+
+                // ===== JURNAL PIUTANG =====
+                try {
+                    const { recordJournal, initCOA } = await import('./js/accounting.js');
+                    await initCOA();
+                    const entries = [];
+                    entries.push({ kode: '101', debit: amount, kredit: 0 });
+                    entries.push({ kode: '102', debit: 0, kredit: amount });
+                    await recordJournal(entries, `Pembayaran Piutang – ${selectedCustomer.nama}`, selectedCustomer.id);
+                } catch (e) {
+                    console.error('Gagal mencatat jurnal:', e);
+                }
+                // ===== AKHIR JURNAL =====
+
                 alert('Pembayaran piutang berhasil');
                 modalBayarPiutang.classList.remove('active');
                 const custSnap = await getDoc(custRef);
