@@ -6,6 +6,8 @@
     <title>MUDA POS - Finance</title>
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
+    <!-- SheetJS untuk Export Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <!-- CSS Eksternal -->
     <link rel="stylesheet" href="css/sidebar.css">
     <style>
@@ -386,9 +388,10 @@
                 </select>
                 <button class="btn" id="filterCashBtn">Filter</button>
                 <button class="btn btn-outline" id="addCashBtn">+ Tambah Transaksi</button>
+                <button class="btn btn-outline" id="exportCashBtn"><i data-feather="download"></i> Export Excel</button>
             </div>
             <div class="table-responsive">
-                <table>
+                <table id="cashTable">
                     <thead>
                         <tr>
                             <th>Tanggal</th>
@@ -410,9 +413,10 @@
             <div class="filter-bar">
                 <input type="text" id="searchReceivable" placeholder="Cari customer...">
                 <button class="btn" id="filterReceivableBtn">Cari</button>
+                <button class="btn btn-outline" id="exportReceivableBtn"><i data-feather="download"></i> Export Excel</button>
             </div>
             <div class="table-responsive">
-                <table>
+                <table id="receivableTable">
                     <thead><tr><th>Customer</th><th>Total Piutang</th><th>Jatuh Tempo</th><th>Status</th><th>Aksi</th></tr></thead>
                     <tbody id="receivableBody"></tbody>
                 </table>
@@ -424,9 +428,10 @@
             <div class="filter-bar">
                 <input type="text" id="searchPayable" placeholder="Cari supplier...">
                 <button class="btn" id="filterPayableBtn">Cari</button>
+                <button class="btn btn-outline" id="exportPayableBtn"><i data-feather="download"></i> Export Excel</button>
             </div>
             <div class="table-responsive">
-                <table>
+                <table id="payableTable">
                     <thead><tr><th>Supplier</th><th>Total Hutang</th><th>Jatuh Tempo</th><th>Status</th><th>Aksi</th></tr></thead>
                     <tbody id="payableBody"></tbody>
                 </table>
@@ -440,9 +445,10 @@
                 <span>s/d</span>
                 <input type="date" id="endDatePL">
                 <button class="btn" id="filterPLBtn">Tampilkan</button>
+                <button class="btn btn-outline" id="exportPLBtn"><i data-feather="download"></i> Export Excel</button>
             </div>
             <div class="table-responsive">
-                <table>
+                <table id="profitLossTable">
                     <thead><tr><th>Keterangan</th><th>Jumlah</th></tr></thead>
                     <tbody id="profitLossBody">
                         <tr><td>Total Penjualan</td><td id="totalSales">Rp 0</td></tr>
@@ -462,6 +468,7 @@
                 <span>s/d</span>
                 <input type="date" id="endDateTP">
                 <button class="btn" id="filterTPBtn">Tampilkan</button>
+                <button class="btn btn-outline" id="exportTPBtn"><i data-feather="download"></i> Export Excel</button>
             </div>
             <div class="table-responsive">
                 <table id="transactionProfitTable">
@@ -599,6 +606,19 @@
         const drawerOverlay = document.getElementById('drawerOverlay');
         const closeDrawer = document.getElementById('closeDrawer');
         const drawerItems = document.querySelectorAll('.drawer-item');
+
+        // ========== FUNGSI EXPORT EXCEL ==========
+        function exportTableToExcel(tableId, fileName) {
+            const table = document.getElementById(tableId);
+            if (!table) {
+                alert('Tabel tidak ditemukan');
+                return;
+            }
+            // Buat workbook dari tabel
+            const wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1", raw: true });
+            // Ekspor file
+            XLSX.writeFile(wb, `${fileName}.xlsx`);
+        }
 
         // ========== FUNGSI TAB & DRAWER ==========
         function showTab(tab) {
@@ -775,31 +795,26 @@
             };
             await addDoc(financeTransCol, data);
 
-            // ========== JURNAL OTOMATIS ==========
+            // Jurnal otomatis
             try {
                 const { recordJournal, initCOA } = await import('./js/accounting.js');
                 await initCOA();
-
                 const entries = [];
                 const tipe = document.getElementById('cashType').value;
                 const amount = parseFloat(document.getElementById('cashAmount').value);
                 const deskripsi = document.getElementById('cashDesc').value;
 
                 if (tipe === 'income') {
-                    // Kas Masuk: Kas (D), Penjualan (K) atau Pendapatan Lain
                     entries.push({ kode: '101', debit: amount, kredit: 0 });
                     entries.push({ kode: '401', debit: 0, kredit: amount });
                 } else {
-                    // Kas Keluar: Beban Operasional (D), Kas (K)
                     entries.push({ kode: '701', debit: amount, kredit: 0 });
                     entries.push({ kode: '101', debit: 0, kredit: amount });
                 }
-
                 await recordJournal(entries, deskripsi, null);
             } catch (e) {
                 console.error('Gagal mencatat jurnal:', e);
             }
-            // ========== AKHIR JURNAL ==========
 
             alert('Transaksi ditambahkan');
             document.getElementById('modalCash').classList.remove('active');
@@ -948,6 +963,23 @@
         }
 
         document.getElementById('filterTPBtn').addEventListener('click', loadTransactionProfit);
+
+        // Event listener untuk tombol export
+        document.getElementById('exportCashBtn').addEventListener('click', () => {
+            exportTableToExcel('cashTable', 'Kas_Transaksi');
+        });
+        document.getElementById('exportReceivableBtn').addEventListener('click', () => {
+            exportTableToExcel('receivableTable', 'Piutang');
+        });
+        document.getElementById('exportPayableBtn').addEventListener('click', () => {
+            exportTableToExcel('payableTable', 'Hutang');
+        });
+        document.getElementById('exportPLBtn').addEventListener('click', () => {
+            exportTableToExcel('profitLossTable', 'Laba_Rugi');
+        });
+        document.getElementById('exportTPBtn').addEventListener('click', () => {
+            exportTableToExcel('transactionProfitTable', 'Laba_Transaksi');
+        });
 
         // ========== AUTENTIKASI & SIDEBAR ==========
         async function initializeApp() {
