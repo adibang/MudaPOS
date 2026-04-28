@@ -774,6 +774,33 @@
                 createdAt: serverTimestamp()
             };
             await addDoc(financeTransCol, data);
+
+            // ========== JURNAL OTOMATIS ==========
+            try {
+                const { recordJournal, initCOA } = await import('./js/accounting.js');
+                await initCOA();
+
+                const entries = [];
+                const tipe = document.getElementById('cashType').value;
+                const amount = parseFloat(document.getElementById('cashAmount').value);
+                const deskripsi = document.getElementById('cashDesc').value;
+
+                if (tipe === 'income') {
+                    // Kas Masuk: Kas (D), Penjualan (K) atau Pendapatan Lain
+                    entries.push({ kode: '101', debit: amount, kredit: 0 });
+                    entries.push({ kode: '401', debit: 0, kredit: amount });
+                } else {
+                    // Kas Keluar: Beban Operasional (D), Kas (K)
+                    entries.push({ kode: '701', debit: amount, kredit: 0 });
+                    entries.push({ kode: '101', debit: 0, kredit: amount });
+                }
+
+                await recordJournal(entries, deskripsi, null);
+            } catch (e) {
+                console.error('Gagal mencatat jurnal:', e);
+            }
+            // ========== AKHIR JURNAL ==========
+
             alert('Transaksi ditambahkan');
             document.getElementById('modalCash').classList.remove('active');
             document.getElementById('formCash').reset();
